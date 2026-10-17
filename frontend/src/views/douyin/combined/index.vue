@@ -17,9 +17,16 @@
         <div v-for="i in 9" :key="i" class="combined-item combined-item--ghost">
           <el-skeleton-item variant="text" style="width: 14px; height: 14px" />
           <div class="combined-item__body">
-            <el-skeleton-item variant="text" style="width: 86%" />
-            <el-skeleton-item variant="text" style="width: 46%" />
-            <el-skeleton-item variant="text" style="width: 68%" />
+            <div class="combined-item__head">
+              <el-skeleton-item variant="circle" style="width: 32px; height: 32px" />
+              <div class="combined-item__text">
+                <el-skeleton-item variant="text" style="width: 58%" />
+                <el-skeleton-item variant="text" style="width: 84%" />
+              </div>
+            </div>
+            <div class="combined-item__stats">
+              <el-skeleton-item variant="text" style="width: 124px" />
+            </div>
           </div>
         </div>
       </div>
@@ -114,26 +121,6 @@
             @click="toggle(row.id)"
           >
             <!--
-              这场是接着上一场的（同一主播、间隔 ≤30 分钟）：多半是直播被切断重开，
-              所以在这张卡上方给一条"距上一场 X 分钟 + 合并这两场"。
-              网格里卡片一行好几个，没有"上一行"可言，所以这条跟着**较晚的那一场**走。
-            -->
-            <div v-if="pairOf(row.id)" class="combined-cont">
-              <span class="combined-cont__text">
-                <ArtSvgIcon icon="ri:arrow-up-double-line" class="text-g-400" />
-                距上一场 {{ fmtGap(pairOf(row.id)?.minutes) }}
-              </span>
-              <button
-                type="button"
-                class="combined-cont__btn"
-                title="同时选中这两场（同一主播的相邻两场）"
-                @click.stop="selectPair(pairOf(row.id))"
-              >
-                合并这两场
-              </button>
-            </div>
-
-            <!--
               勾选框的状态完全由 selectedIds 驱动（只给 :model-value）。
               @click.stop 拦住冒泡，否则这次点击会先由本选框处理、再被整张卡的
               @click 处理一次 —— 两下互相抵消，表现是"点勾选框没反应"。
@@ -145,33 +132,45 @@
               @click.stop
               @change="toggle(row.id)"
             />
+
+            <!-- 直接照「场次历史」的卡片：头像 + 标题/时间 + 状态标签，下面一条数据行 -->
             <div class="combined-item__body">
-              <!-- 第一行：时间段（独占一行，跨天写法才不会被挤成省略号） -->
-              <div class="combined-item__time">
-                {{ fmtSessionRange(row.startedAt, row.endedAt, narrow) }}
+              <div class="combined-item__head">
+                <el-avatar :size="36" :src="avatarSrc(row.avatar)" class="combined-item__avatar">
+                  {{ row.streamerName?.[0] || '播' }}
+                </el-avatar>
+                <div class="combined-item__text">
+                  <!-- 标题位置放直播间名字（原来这里是「场次 #303」） -->
+                  <div class="combined-item__title" :title="row.streamerName">
+                    {{ row.streamerName }}
+                  </div>
+                  <div class="combined-item__time">
+                    {{ fmtSessionRange(row.startedAt, row.endedAt, true) }}
+                    <template v-if="row.durationMin"> · {{ fmtDur(row.durationMin) }}</template>
+                  </div>
+                </div>
+                <el-tag
+                  :type="row.isLive ? 'danger' : 'info'"
+                  size="small"
+                  effect="light"
+                  class="combined-item__status shrink-0 !border-none"
+                >
+                  {{ row.isLive ? '直播中' : '已结束' }}
+                </el-tag>
               </div>
-              <!-- 第二行：主播胶囊 + 状态（直播中红标 / 已结束灰字）+ 时长 -->
-              <div class="combined-item__meta">
-                <span class="combined-item__streamer" :title="row.streamerName">
-                  {{ row.streamerName }}
-                </span>
-                <span v-if="row.isLive" class="combined-item__live">直播中</span>
-                <span v-else class="combined-item__ended">已结束</span>
-                <span v-if="row.durationMin" class="combined-item__dur">
-                  {{ fmtDur(row.durationMin) }}
-                </span>
-              </div>
-              <!-- 第三行：三项指标（上面一条虚线分隔，和场次历史卡一样） -->
+
+              <!-- 数据行：虚线分隔 + 三项指标，右下角放场次号（原来那里是下载/删除按钮） -->
               <div class="combined-item__stats">
                 <span :title="`钻石 ${fmtFull(row.diamonds)}`">
-                  <ArtSvgIcon icon="ri:diamond-line" />{{ fmtNum(row.diamonds) }}
+                  <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ fmtNum(row.diamonds) }}
                 </span>
                 <span :title="`礼物 ${fmtFull(row.gifts)}`">
-                  <ArtSvgIcon icon="ri:gift-2-line" />{{ fmtNum(row.gifts) }}
+                  <ArtSvgIcon icon="ri:gift-2-line" class="text-g-400" />{{ fmtNum(row.gifts) }}
                 </span>
                 <span :title="`弹幕 ${fmtFull(row.danmaku)}`">
-                  <ArtSvgIcon icon="ri:chat-3-line" />{{ fmtNum(row.danmaku) }}
+                  <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ fmtNum(row.danmaku) }}
                 </span>
+                <span class="combined-item__id">场次 #{{ row.id }}</span>
               </div>
             </div>
           </div>
@@ -423,7 +422,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue'
+  import { computed, onActivated, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import {
@@ -459,6 +458,8 @@
     id: number
     streamerId: string | number
     streamerName: string
+    /** 主播头像（卡片左侧那个圆形头像；后端可能给 null/空串） */
+    avatar: string
     startedAt: Session['started_at']
     endedAt: Session['ended_at']
     isLive: boolean
@@ -540,13 +541,6 @@
   /** 正在合并的场次 id（弹窗头部在结果到达前用它显示进度） */
   const pendingIds = ref<number[]>([])
 
-  /** 窄屏（<768px）用短格式时间 */
-  const narrow = ref(false)
-  let narrowMq: MediaQueryList | null = null
-  const onNarrowChange = (e: MediaQueryListEvent) => {
-    narrow.value = e.matches
-  }
-
   /*
    * 本次合并包含的场次（给弹窗一个"看的是哪几场"的上下文）。
    *
@@ -598,6 +592,7 @@
           id: s.id,
           streamerId: g.streamer.id,
           streamerName: g.streamer.name || s.streamer_name || '未知主播',
+          avatar: g.streamer.avatar || s.streamer_avatar || '',
           startedAt: s.started_at,
           endedAt: s.ended_at,
           isLive: !!s.is_live,
@@ -649,107 +644,6 @@
       .filter((r) => (!picked.length || picked.includes(r.streamerId)) && inRange(r.ms))
       .sort((a, b) => b.ms - a.ms)
   })
-
-  /* ============ 相邻场次（这一页的主场景） ============
-   * 判定「同一直播间相邻场次」：同一主播、按开始时间紧挨着的两场，且上一场结束到这一场
-   * 开始之间几乎没断（≤ TIGHT_GAP_MIN 分钟）。这类基本都是直播被切断后重开，
-   * 数据要合起来看才有意义 —— 既要能自动找出来（推荐条），也要在列表里挨着展示（连接条）。
-   */
-  /** 两场之间断不超过这么多分钟，才当成「同一场被切断」 */
-  const TIGHT_GAP_MIN = 30
-
-  /** 上一场结束 → 这一场开始的间隔（分钟）；算不出来给 null */
-  function rowGapMinutes(older: SessionItem, newer: SessionItem): number | null {
-    const nextStart = newer.ms || toDate(newer.startedAt)?.getTime()
-    if (!nextStart) return null
-    // 上一场没结束时间（还在直播 / 异常退出）时退化成"按开始时间估"
-    const prevEnd = toDate(older.endedAt)?.getTime() ?? older.ms
-    if (!prevEnd) return null
-    return Math.round((nextStart - prevEnd) / 60000)
-  }
-
-  /** 一对相邻场次（卡片上「接着上一场」的提示用） */
-  interface CutPair {
-    key: string
-    streamerName: string
-    /** 间隔分钟（负数 = 两场时间有重叠） */
-    minutes: number
-    /** 要一起选中的两场（较早、较晚） */
-    pairIds: [number, number]
-    /** 较晚那场的开始时间 */
-    newestMs: number
-  }
-
-  function toCutPair(older: SessionItem, newer: SessionItem, minutes: number): CutPair {
-    return {
-      key: `${older.id}-${newer.id}`,
-      streamerName: older.streamerName,
-      minutes,
-      pairIds: [older.id, newer.id],
-      newestMs: newer.ms
-    }
-  }
-
-  /** 全量里所有「同一直播间、间隔不到 TIGHT_GAP_MIN 分钟」的相邻场次对 */
-  const cutPairs = computed<CutPair[]>(() => {
-    const byStreamer = new Map<string | number, SessionItem[]>()
-    for (const r of allRows.value) {
-      const list = byStreamer.get(r.streamerId)
-      if (list) list.push(r)
-      else byStreamer.set(r.streamerId, [r])
-    }
-    const picked = filterStreamerIds.value
-    const out: CutPair[] = []
-    for (const list of byStreamer.values()) {
-      // 跟着筛选走：收窄到某个主播（或某段时间）后，别的主播的相邻场次不再标
-      if (picked.length && !picked.includes(list[0].streamerId)) continue
-      const asc = [...list].sort((a, b) => a.ms - b.ms)
-      for (let i = 1; i < asc.length; i++) {
-        const minutes = rowGapMinutes(asc[i - 1], asc[i])
-        // 负数是两场时间重叠（旧场次没收尾就开了新的），同样值得合并，照收
-        if (minutes === null || minutes > TIGHT_GAP_MIN) continue
-        // 以**较晚**那场的开始时间判断是否在时间范围内（用户筛"最近 7 天"时指的就是这场）
-        if (!inRange(asc[i].ms)) continue
-        out.push(toCutPair(asc[i - 1], asc[i], minutes))
-      }
-    }
-    return out.sort((a, b) => b.newestMs - a.newestMs)
-  })
-
-  /**
-   * 「这场是接着上一场的」查询表：key = 较晚那场的 id。
-   *
-   * 用 id 而不是列表下标 —— 卡片是网格排布（一行好几个），没有"上一行"这个概念；
-   * 换排序时下标全变，id 也不会变，所以这条提示在任何排序下都落在同一张卡上。
-   */
-  const pairOfNewer = computed(() => {
-    const map = new Map<number, CutPair>()
-    for (const p of cutPairs.value) map.set(p.pairIds[1], p)
-    return map
-  })
-
-  function pairOf(id: number) {
-    return pairOfNewer.value.get(id)
-  }
-
-  /** 一键选中一对相邻场次（推荐条 / 分隔行共用） */
-  function selectPair(p: CutPair | null | undefined) {
-    if (!p) return
-    const next = new Set(selectedIds.value)
-    for (const id of p.pairIds) next.add(id)
-    selectedIds.value = next
-  }
-
-  /** 间隔的展示文案 */
-  function fmtGap(minutes: number | null | undefined): string {
-    if (minutes === null || minutes === undefined) return '-'
-    if (minutes < 0) return '时间有重叠'
-    if (minutes < 1) return '不到 1 分钟'
-    if (minutes < 60) return `${minutes} 分钟`
-    const h = Math.floor(minutes / 60)
-    const m = minutes % 60
-    return m ? `${h} 小时 ${m} 分钟` : `${h} 小时`
-  }
 
   /** 浮动条上的「各主播各选了几场」（跨直播间合并时确认比例，别合完才发现失衡） */
   const selectedBreakdown = computed(() => {
@@ -916,9 +810,6 @@
   // keep-alive：切回来时刷新一次（首次挂载 mounted 与 activated 都会触发，跳过重复请求）
   let activatedOnce = false
   onMounted(() => {
-    narrowMq = window.matchMedia('(max-width: 767px)')
-    narrow.value = narrowMq.matches
-    narrowMq.addEventListener('change', onNarrowChange)
     refresh()
   })
   onActivated(() => {
@@ -927,9 +818,6 @@
       return
     }
     refresh()
-  })
-  onUnmounted(() => {
-    narrowMq?.removeEventListener('change', onNarrowChange)
   })
 </script>
 
@@ -1018,56 +906,6 @@
     width: 268px;
   }
 
-  /* 一键「合并这两场」：做成轻量文字按钮，不跟主按钮抢注意力 */
-  .combined-cont__btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    height: 22px;
-    padding: 0 8px;
-    font-size: 11px;
-    color: var(--theme-color);
-    cursor: pointer;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    transition:
-      background-color 0.15s,
-      border-color 0.15s;
-  }
-
-  .combined-cont__btn:hover {
-    background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-    border-color: color-mix(in srgb, var(--theme-color) 30%, transparent);
-  }
-
-  /* ============ 场次卡片「接着上一场」的提示条 ============ */
-  /*
-   * 卡片是网格里的一个格子，没有"上一行"可言，所以这条提示挂在**较晚那一场**的卡上方：
-   * 一条虚线分隔 + 「距上一场 X 分钟」+ 一键合并。
-   */
-  .combined-cont {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    grid-column: 1 / -1;
-    padding-bottom: 6px;
-    font-size: 11px;
-    color: var(--dy-text-muted);
-    border-bottom: 1px dashed var(--art-card-border);
-  }
-
-  .combined-cont__text {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .combined-cont__btn {
-    margin-left: auto;
-  }
-
   /* ============ 场次列表（卡片网格，不用表格） ============ */
   /* 列表不再套卡片外壳：204 场本身就是这一页的主体，多一层卡面只是多一圈边 */
   .combined-list-zone {
@@ -1075,15 +913,13 @@
   }
 
   /*
-   * 滚动区：**不再做内部滚动**（原来限高 62vh + overflow-y: auto）。
-   * 内部滚动会让卡片右侧要多留一截给滚动条，卡片右边缘就比筛选卡短十几像素，
-   * 上下两块对不齐；改成让整页滚，卡片左右边缘直接跟筛选卡重合。
-   * 列数交给 auto-fill：宽屏 5 列、笔记本 4 列、平板 2~3 列、手机 1 列，不用写断点。
-   * 260px 是实测能放下「2026/10/15 15:32 → 17:54」一行 + 三项指标的最小宽度。
+   * 列宽：卡片里要放「头像 + 直播名字 + 状态标签」和一行完整的时间段，
+   * 260px 时跨天写法（10/15 15:32 → 10/16 03:17）会被挤成省略号，实测 340px 起才放得下。
+   * 于是 1872px 宽下是 4 列（不是 6 列），1440px 下 3 列，1024px 下 2 列，手机 1 列。
    */
   .combined-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 8px;
     align-items: start;
     padding: 0;
@@ -1146,78 +982,63 @@
     min-width: 0;
   }
 
-  /* 主播 + 状态 + 时长这一行：主播名占位可截断，时长永远贴右边 */
-  .combined-item__meta {
+  /* 头像 + 主播名/时间段 + 状态：整行固定两行文字的高度，卡片高度才统一 */
+  .combined-item__head {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
   }
 
-  /*
-   * 时间独占一行：跨天场次是 "2026/10/07 21:01 → 2026/10/08 00:04"（33 字符），
-   * 和状态标签挤一行就会被省略号截断 —— 而"这场是哪天到哪天"正是选场次时最该看清的。
-   */
-  .combined-item__time {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.35;
-    color: var(--dy-text-primary);
-    font-variant-numeric: tabular-nums;
+  .combined-item__avatar {
+    flex-shrink: 0;
   }
 
-  /* 主播名做成小胶囊：跨直播间合并时一眼看出这条属于哪个直播间 */
-  .combined-item__streamer {
-    max-width: 100%;
-    height: 18px;
-    padding: 0 7px;
+  /* 标题位置是直播间名字（继承「场次历史」的 .font-medium text-sm text-g-900） */
+  .combined-item__title {
     overflow: hidden;
-    font-size: 11px;
-    line-height: 18px;
-    color: var(--art-gray-600);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--art-gray-900);
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: var(--default-box-color);
-    border: 1px solid var(--art-card-border);
-    border-radius: 999px;
   }
 
-  /*
-   * 正在进行的场次用红标（数据还在涨，合并进去之后数值会变），
-   * 已结束用灰字 —— 和「场次历史」页的 el-tag(danger/info) 一致，但不用 tag 的盒子，
-   * 免得 204 张卡上全是边框。
-   */
-  .combined-item__live {
-    flex-shrink: 0;
-    height: 18px;
-    padding: 0 7px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 18px;
-    color: var(--el-color-danger);
-    background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
-    border-radius: 999px;
-  }
-
-  .combined-item__ended {
-    flex-shrink: 0;
-    font-size: 11px;
+  /* 次行：时间段 + 时长，单行省略（跨天 33 字符也不换行） */
+  .combined-item__time {
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 16px;
     color: var(--dy-text-muted);
-  }
-
-  .combined-item__dur {
-    margin-left: auto;
-    font-size: 11px;
-    color: var(--dy-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
 
-  /* 指标行：上面一条虚线分隔（与场次历史卡的数据行同款） */
+  /* 两行文字块：高度与 36px 头像对齐 */
+  .combined-item__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  /* 状态标签：直接沿用场次历史的 el-tag(danger/info)，不吃卡片高度 */
+  .combined-item__status {
+    align-self: flex-start;
+  }
+
+  /*
+   * 指标行：**不许换行** —— 换成两行会让同排卡片高度差 28px（实测 80 / 108）。
+   * 三个数字都 nowrap，放不下时省略；实测最长「367.95万 / 8,059 / 6,375」在 260px 列宽下仍放得下。
+   */
   .combined-item__stats {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     margin-top: 2px;
     padding-top: 6px;
     font-size: 11px;
@@ -1229,6 +1050,18 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 场次号贴在数据行最右（原来那个位置是下载/删除按钮） */
+  .combined-item__id {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--dy-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .combined-empty {
