@@ -125,43 +125,6 @@
       </div>
 
       <!--
-        同一主播「相邻场次」里的强信号：上一场结束到这一场开始只隔了几十分钟。
-        抖音直播被切断重开后，同一场直播会落成两条场次记录 —— 这类几乎总是要合起来看的。
-        这里直接列出最近几组并给一键入口；列表里对应的两条之间也会有一条「间隔」连接条。
-      -->
-      <div v-if="cutPairs.length" class="art-card combined-reco mb-5">
-        <div class="combined-reco__head">
-          <ArtSvgIcon icon="ri:link" class="text-theme shrink-0" />
-          <span class="combined-reco__title">
-            同一直播间的相邻场次 · {{ cutPairs.length }} 组间隔不到 {{ TIGHT_GAP_MIN }} 分钟
-          </span>
-          <span class="combined-reco__hint">多半是直播被切断后重开，通常要合起来看</span>
-          <el-button
-            v-if="cutPairs.length > RECO_LIMIT"
-            text
-            class="ml-auto shrink-0"
-            @click="recoExpanded = !recoExpanded"
-          >
-            {{ recoExpanded ? '收起' : `展开全部 ${cutPairs.length} 组` }}
-          </el-button>
-        </div>
-        <div class="combined-reco__grid">
-          <div v-for="p in visibleCutPairs" :key="p.key" class="combined-reco__item">
-            <div class="combined-reco__head-row">
-              <span class="combined-reco__name" :title="p.streamerName">{{ p.streamerName }}</span>
-              <span class="combined-reco__gap">间隔 {{ fmtGap(p.minutes) }}</span>
-              <button type="button" class="combined-reco__btn" @click="selectPair(p)">
-                合并这两场
-              </button>
-            </div>
-            <div class="combined-reco__ranges">
-              {{ p.prevText }} <span class="combined-reco__arrow">＋</span> {{ p.nextText }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!--
         场次列表：**不要卡片外壳**（原来是 art-card + 「当前 N 场」工具条）。
         204 场本来就是这一页的主体，套一层卡面只是多一圈边和多一个计数；
         排序按钮单独一行靠右，列表直接铺在页面上。
@@ -751,9 +714,6 @@
    */
   /** 两场之间断不超过这么多分钟，才当成「同一场被切断」 */
   const TIGHT_GAP_MIN = 30
-  /** 推荐条默认最多列几组，再多折叠 */
-  const RECO_LIMIT = 3
-  const recoExpanded = ref(false)
 
   /** 上一场结束 → 这一场开始的间隔（分钟）；算不出来给 null */
   function rowGapMinutes(older: SessionItem, newer: SessionItem): number | null {
@@ -765,32 +725,7 @@
     return Math.round((nextStart - prevEnd) / 60000)
   }
 
-  /**
-   * 推荐条里的紧凑时间段："09/30 15:00–15:34"。
-   *
-   * 不用 fmtSessionRange 是因为它在两场并排时会写成
-   * 「09/30 15:00 → 15:34 ＋ 09/30 15:35 → 16:33」—— 一行三个箭头、还重复一次日期，
-   * 读起来分不清哪头是哪头。这里用 en dash 表示"起–止"，两场之间只用 ＋ 连。
-   */
-  function compactRange(start: any, end: any): string {
-    const s = toDate(start)
-    if (!s) return '-'
-    const p2 = (n: number) => String(n).padStart(2, '0')
-    const day = `${p2(s.getMonth() + 1)}/${p2(s.getDate())}`
-    const st = `${p2(s.getHours())}:${p2(s.getMinutes())}`
-    const e = toDate(end)
-    if (!e) return `${day} ${st}–进行中`
-    const sameDay =
-      e.getFullYear() === s.getFullYear() &&
-      e.getMonth() === s.getMonth() &&
-      e.getDate() === s.getDate()
-    const et = sameDay
-      ? `${p2(e.getHours())}:${p2(e.getMinutes())}`
-      : `${p2(e.getMonth() + 1)}/${p2(e.getDate())} ${p2(e.getHours())}:${p2(e.getMinutes())}`
-    return `${day} ${st}–${et}`
-  }
-
-  /** 一对相邻场次（推荐条和列表里的接续提示共用同一份数据） */
+  /** 一对相邻场次（卡片上「接着上一场」的提示用） */
   interface CutPair {
     key: string
     streamerName: string
@@ -798,10 +733,7 @@
     minutes: number
     /** 要一起选中的两场（较早、较晚） */
     pairIds: [number, number]
-    /** 两场各自的紧凑时间段（推荐条上并排显示） */
-    prevText: string
-    nextText: string
-    /** 较晚那场的开始时间（推荐条按它倒序，最近的排前面） */
+    /** 较晚那场的开始时间 */
     newestMs: number
   }
 
@@ -811,8 +743,6 @@
       streamerName: older.streamerName,
       minutes,
       pairIds: [older.id, newer.id],
-      prevText: compactRange(older.startedAt, older.endedAt),
-      nextText: compactRange(newer.startedAt, newer.endedAt),
       newestMs: newer.ms
     }
   }
@@ -828,10 +758,7 @@
     const picked = filterStreamerIds.value
     const out: CutPair[] = []
     for (const list of byStreamer.values()) {
-      /*
-       * 推荐条跟着筛选走：已经收窄到某个主播（或某段时间）时，
-       * 还在上面列别的主播的相邻场次就是噪音 —— 用户下一步要点的是列表里那些条目。
-       */
+      // 跟着筛选走：收窄到某个主播（或某段时间）后，别的主播的相邻场次不再标
       if (picked.length && !picked.includes(list[0].streamerId)) continue
       const asc = [...list].sort((a, b) => a.ms - b.ms)
       for (let i = 1; i < asc.length; i++) {
@@ -845,10 +772,6 @@
     }
     return out.sort((a, b) => b.newestMs - a.newestMs)
   })
-
-  const visibleCutPairs = computed(() =>
-    recoExpanded.value ? cutPairs.value : cutPairs.value.slice(0, RECO_LIMIT)
-  )
 
   /**
    * 「这场是接着上一场的」查询表：key = 较晚那场的 id。
@@ -1145,10 +1068,6 @@
     padding: 16px 20px;
   }
 
-  .combined-reco {
-    padding: 16px 20px;
-  }
-
   /*
    * 筛选行：主播下拉 + 日期范围 + 快捷操作，一行排开，窄了自动换行。
    * 主播从"平铺标签"换回下拉多选 —— 直播间会越来越多，标签铺不下；
@@ -1192,88 +1111,7 @@
     margin-left: auto;
   }
 
-  /* ============ 相邻场次推荐条 ============ */
-  .combined-reco__head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .combined-reco__title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--art-gray-800);
-  }
-
-  .combined-reco__hint {
-    font-size: 11px;
-    color: var(--dy-text-muted);
-  }
-
-  /*
-   * 推荐条也走"一横多个"：每组一张小卡，按宽度自动 1/2/3/4 列。
-   * 这里用 auto-fit（不是 auto-fill）——只有 3 组时卡片会**撑满整行**，
-   * auto-fill 会让它们挤在左边、右边空一大片，看着像没对齐。
-   */
-  .combined-reco__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .combined-reco__item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    padding: 8px 10px;
-    background: var(--art-gray-100);
-    border: 1px solid var(--art-card-border);
-    border-radius: 10px;
-  }
-
-  .combined-reco__head-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-  }
-
-  /* 「合并这两场」贴到卡片右边缘：卡片里唯一的动作，别跟文字挤在一起 */
-  .combined-reco__head-row .combined-reco__btn {
-    margin-left: auto;
-  }
-
-  .combined-reco__name {
-    overflow: hidden;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--art-gray-800);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .combined-reco__ranges {
-    font-size: 12px;
-    color: var(--dy-text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .combined-reco__arrow {
-    color: var(--dy-text-muted);
-  }
-
-  .combined-reco__gap {
-    font-size: 11px;
-    color: var(--theme-color);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
   /* 一键「合并这两场」：做成轻量文字按钮，不跟主按钮抢注意力 */
-  .combined-reco__btn,
   .combined-cont__btn {
     display: inline-flex;
     align-items: center;
@@ -1291,7 +1129,6 @@
       border-color 0.15s;
   }
 
-  .combined-reco__btn:hover,
   .combined-cont__btn:hover {
     background: color-mix(in srgb, var(--theme-color) 12%, transparent);
     border-color: color-mix(in srgb, var(--theme-color) 30%, transparent);
@@ -1582,30 +1419,17 @@
       margin-left: 0;
     }
 
-    /*
-     * 窄屏上推荐条的标题会折行，「展开全部」跟着换到第二行时
-     * 被 ml-auto 顶到最右边、孤零零飘着 —— 这里取消右推，让它贴着文字。
-     */
-    .combined-reco__head .el-button {
-      margin-left: 0 !important;
-    }
-
     .combined-list {
       padding: 2px 10px 2px 0;
     }
 
-    /* 窄屏卡片更窄，四周收一点（与筛选卡同一档 14px） */
-    .combined-filters,
-    .combined-reco {
+    /* 窄屏卡片更窄，四周收一点 */
+    .combined-filters {
       padding: 12px 14px;
     }
 
     .combined-item {
       padding: 9px 10px;
-    }
-
-    .combined-reco__grid {
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 
