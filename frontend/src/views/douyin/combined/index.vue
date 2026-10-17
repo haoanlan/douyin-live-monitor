@@ -663,12 +663,15 @@
       {
         label: '独立用户',
         /*
-         * 口径必须写清楚：后端是把每场的预聚合 agg_users 相加（sessions.js:416），
-         * 同一个人看了两场会被算两次 —— 不能读成「跨场次去重后的独立用户」。
+         * 现在是真的跨场次去重：后端把所选场次的「送礼人 + 发言者」按
+         * user_sec_uid（没有就退化成昵称）求并集，同一个人看两场只算一次。
+         * user_count_sum 是各场 agg_users 直接相加的旧口径，放在 tooltip 里做对照。
          */
         icon: 'ri:user-3-line',
         value: fmtNum(s?.user_count),
-        title: `各场次用户数之和（未跨场次去重）精确值 ${fmtFull(s?.user_count)}`
+        title:
+          `跨场次去重后的真实人数（送过礼或发过言的人）精确值 ${fmtFull(s?.user_count)}` +
+          (s?.user_count_sum != null ? `；各场用户数相加为 ${fmtFull(s.user_count_sum)}` : '')
       }
     ]
   })

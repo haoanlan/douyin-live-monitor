@@ -245,7 +245,10 @@ export interface CombinedResult {
     total_gifts: number
     total_diamonds: number
     total_danmaku: number
+    /** 跨场次去重后的真实人数（送过礼或发过言的人，按 sec_uid 求并集） */
     user_count: number
+    /** 旧口径对照：各场次 agg_users 直接相加（同一人看两场会算两次） */
+    user_count_sum?: number
   }
   gifts: CombinedGiftItem[]
   anchorRanking: CombinedAnchorItem[]
