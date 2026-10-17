@@ -74,6 +74,13 @@
                 把「（147 场）」写进 label 会让标签变宽、两个就换行，把整块筛选条撑高。
                 场次数改在选项内部显示，不影响标签。
               -->
+              <!--
+                未选主播时显示「全部主播」：走 prefix 插槽，渲染在 wrapper 内部的正常文档流里
+                （Element 自带的多选占位层是 absolute + z-index:-1，会被底色盖住）。
+              -->
+              <template #prefix>
+                <span v-if="!filterStreamerIds.length" class="combined-select-ph">全部主播</span>
+              </template>
               <el-option
                 v-for="o in streamerOptions"
                 :key="String(o.id)"
@@ -840,6 +847,14 @@
     min-width: 0;
   }
 
+  /* 未选主播时的「全部主播」：prefix 插槽里的静态文字，天然在框内 */
+  .combined-select-ph {
+    margin-right: 4px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+  }
+
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
   .combined-filter-select {
     width: 240px;
@@ -1073,9 +1088,11 @@
     margin-left: auto;
   }
 
+  /* 字号跟按钮（14px）保持一致，否则「已选 N 场」比按钮矮一截、看着像没对齐 */
   .combined-selection__count {
     flex-shrink: 0;
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1;
     color: var(--dy-text-primary);
     white-space: nowrap;
   }
@@ -1147,7 +1164,7 @@
     }
 
     .combined-selection__count {
-      font-size: 12px;
+      font-size: 13px;
     }
 
     /* 按钮往右靠，跟左边的「已选 N 场」拉开 */
