@@ -67,6 +67,7 @@
               collapse-tags
               collapse-tags-tooltip
               :max-collapse-tags="1"
+              placeholder=""
               aria-label="筛选主播"
             >
               <!--
