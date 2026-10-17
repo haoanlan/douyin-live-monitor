@@ -179,7 +179,7 @@
               </button>
             </div>
             <div class="combined-reco__ranges">
-              {{ p.prevLabel }} <span class="combined-reco__arrow">＋</span> {{ p.nextLabel }}
+              {{ p.prevText }} <span class="combined-reco__arrow">＋</span> {{ p.nextText }}
             </div>
           </div>
         </div>
@@ -753,7 +753,32 @@
     return Math.round((nextStart - prevEnd) / 60000)
   }
 
-  /** 一对相邻场次（推荐条和列表连接条共用同一份数据） */
+  /**
+   * 推荐条里的紧凑时间段："09/30 15:00–15:34"。
+   *
+   * 不用 fmtSessionRange 是因为它在两场并排时会写成
+   * 「09/30 15:00 → 15:34 ＋ 09/30 15:35 → 16:33」—— 一行三个箭头、还重复一次日期，
+   * 读起来分不清哪头是哪头。这里用 en dash 表示"起–止"，两场之间只用 ＋ 连。
+   */
+  function compactRange(start: any, end: any): string {
+    const s = toDate(start)
+    if (!s) return '-'
+    const p2 = (n: number) => String(n).padStart(2, '0')
+    const day = `${p2(s.getMonth() + 1)}/${p2(s.getDate())}`
+    const st = `${p2(s.getHours())}:${p2(s.getMinutes())}`
+    const e = toDate(end)
+    if (!e) return `${day} ${st}–进行中`
+    const sameDay =
+      e.getFullYear() === s.getFullYear() &&
+      e.getMonth() === s.getMonth() &&
+      e.getDate() === s.getDate()
+    const et = sameDay
+      ? `${p2(e.getHours())}:${p2(e.getMinutes())}`
+      : `${p2(e.getMonth() + 1)}/${p2(e.getDate())} ${p2(e.getHours())}:${p2(e.getMinutes())}`
+    return `${day} ${st}–${et}`
+  }
+
+  /** 一对相邻场次（推荐条和列表里的接续提示共用同一份数据） */
   interface CutPair {
     key: string
     streamerName: string
@@ -761,8 +786,9 @@
     minutes: number
     /** 要一起选中的两场（较早、较晚） */
     pairIds: [number, number]
-    prevLabel: string
-    nextLabel: string
+    /** 两场各自的紧凑时间段（推荐条上并排显示） */
+    prevText: string
+    nextText: string
     /** 较晚那场的开始时间（推荐条按它倒序，最近的排前面） */
     newestMs: number
   }
@@ -773,8 +799,8 @@
       streamerName: older.streamerName,
       minutes,
       pairIds: [older.id, newer.id],
-      prevLabel: fmtSessionRange(older.startedAt, older.endedAt, true),
-      nextLabel: fmtSessionRange(newer.startedAt, newer.endedAt, true),
+      prevText: compactRange(older.startedAt, older.endedAt),
+      nextText: compactRange(newer.startedAt, newer.endedAt),
       newestMs: newer.ms
     }
   }
@@ -1223,6 +1249,11 @@
     min-width: 0;
   }
 
+  /* 「合并这两场」贴到卡片右边缘：卡片里唯一的动作，别跟文字挤在一起 */
+  .combined-reco__head-row .combined-reco__btn {
+    margin-left: auto;
+  }
+
   .combined-reco__name {
     overflow: hidden;
     font-size: 12px;
@@ -1535,22 +1566,25 @@
    */
   @media (max-width: 767px) {
     /*
-     * 主播标签在手机上改成**一行横滑**：9 个主播平铺会占到 250px 高，
-     * 把列表推到首屏之外；横滑只占一行，滑动时才出现滚动条（全局自动隐藏）。
+     * 主播标签在手机上**换行铺开**（不横滑）：横滑会把后面几个主播藏起来，
+     * 而横向滚动条默认是隐身的，藏了也看不出来。代价是两行高度，换清楚。
      */
-    .combined-chips {
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      padding-bottom: 2px;
+    .combined-chip {
+      height: 24px;
+      padding: 0 8px;
     }
 
-    .combined-chip {
-      flex: 0 0 auto;
+    /*
+     * 窄屏上推荐条的标题会折行，「展开全部」跟着换到第二行时
+     * 被 ml-auto 顶到最右边、孤零零飘着 —— 这里取消右推，让它贴着文字。
+     */
+    .combined-reco__head .el-button {
+      margin-left: 0 !important;
     }
 
     .combined-list {
       max-height: 62vh;
-      padding: 10px 12px;
+      padding: 10px 16px 10px 12px;
     }
 
     .combined-item {
