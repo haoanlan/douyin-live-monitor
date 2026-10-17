@@ -1,26 +1,5 @@
 <template>
   <div class="douyin-page dy-stagger p-4">
-    <!--
-      工具条。
-      「筛选出 N / 共 M 场」放在这里而不是表格下面：204 场里当前筛出几场，
-      是决定"下一步点不点全选"的第一信息。
-    -->
-    <div class="dy-toolbar art-card mb-5 flex items-center justify-between gap-4 flex-wrap">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <span class="font-bold text-g-900 shrink-0">数据合并查看</span>
-        <span class="text-xs text-g-500 truncate">
-          同一主播的相邻场次、或跨主播的场次，勾选后合成一份 · 当前
-          <b class="combined-count text-theme">{{ filteredRows.length }}</b> / 共
-          {{ totalSessions }} 场
-        </span>
-      </div>
-      <div class="dy-toolbar-actions">
-        <el-button :loading="loading" @click="refresh">
-          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
-        </el-button>
-      </div>
-    </div>
-
     <!-- 失败：与「没有数据」区分开，并给重试入口（与其它抖音页一致） -->
     <QueryErrorState
       v-if="queryError && !loading"
@@ -33,7 +12,7 @@
     <!--
       首屏骨架：与真实列表**同形**（一条条卡片、同样的网格列数），数据到达时不跳高度。
     -->
-    <div v-else-if="loading && !groups.length" class="art-card combined-list-card mb-5">
+    <div v-else-if="loading && !groups.length" class="combined-list-zone mb-5">
       <div class="combined-list">
         <div v-for="i in 9" :key="i" class="combined-item combined-item--ghost">
           <el-skeleton-item variant="text" style="width: 14px; height: 14px" />
@@ -65,86 +44,83 @@
 
     <template v-else>
       <!--
-        筛选行。
-        这一页的主用法是「合**同一直播间**的相邻几场」：204 场里先按主播收窄，
-        再按时间收窄，剩下的就是"这几天那几场"，一次全选即可。
-        所以两个筛选器（主播 / 时间）是这一页最该好用的东西，放在列表正上方。
+        筛选行：主播（多选下拉，可搜索）+ 时间（日期范围）。
+        主播不用平铺标签 —— 直播间会越来越多，标签铺不下；
+        下拉自带搜索与折叠，几十个直播间也只占一行。
       -->
-      <div class="art-card combined-filters mb-5 flex items-center gap-x-4 gap-y-3 flex-wrap">
-        <!--
-          主播筛选：平铺成一排标签（带场次数），占满一整行。
-          主用法是「合同一个直播间的相邻几场」—— 点一下标签就只剩这个主播，比下拉多选少两步；
-          再点一次取消，多选几个主播就是跨直播间合并。场次数直接写在标签上，不用展开看。
-        -->
-        <div class="flex items-center gap-x-3 gap-y-2 flex-wrap w-full min-w-0">
-          <span class="text-xs text-g-500 shrink-0">主播</span>
-          <div class="combined-chips" role="group" aria-label="按主播筛选">
-            <button
-              type="button"
-              class="combined-chip"
-              :class="{ 'combined-chip--on': !filterStreamerIds.length }"
-              title="显示全部主播的场次"
-              @click="filterStreamerIds = []"
+      <div class="art-card combined-filters mb-5">
+        <div class="combined-filter-row">
+          <div class="combined-filter-item">
+            <span class="combined-filter-label">主播</span>
+            <el-select
+              v-model="filterStreamerIds"
+              class="combined-filter-select"
+              multiple
+              filterable
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+              :max-collapse-tags="2"
+              placeholder="全部主播"
             >
-              全部
-              <span class="combined-chip__count">{{ totalSessions }}</span>
-            </button>
-            <button
-              v-for="o in streamerOptions"
-              :key="String(o.id)"
-              type="button"
-              class="combined-chip"
-              :class="{ 'combined-chip--on': isStreamerPicked(o.id) }"
-              :title="`只看「${o.name}」的场次；再点一次取消`"
-              @click="toggleStreamer(o.id)"
-            >
-              {{ o.name }}
-              <span class="combined-chip__count">{{ o.count }}</span>
-            </button>
+              <el-option
+                v-for="o in streamerOptions"
+                :key="String(o.id)"
+                :label="`${o.name}（${o.count} 场）`"
+                :value="o.id"
+              />
+            </el-select>
           </div>
-        </div>
 
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-g-500 shrink-0">时间</span>
-          <el-radio-group v-model="filterRange" class="combined-filter-range">
-            <el-radio-button value="all">全部</el-radio-button>
-            <el-radio-button value="24h">24 小时</el-radio-button>
-            <el-radio-button value="7d">7 天</el-radio-button>
-            <el-radio-button value="30d">30 天</el-radio-button>
-          </el-radio-group>
-        </div>
+          <div class="combined-filter-item">
+            <span class="combined-filter-label">时间</span>
+            <el-date-picker
+              v-model="dateRange"
+              class="combined-filter-date"
+              type="daterange"
+              unlink-panels
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              :shortcuts="dateShortcuts"
+            />
+          </div>
 
-        <!-- 快捷操作都只作用于**当前筛选结果**（见脚本里各自的注释） -->
-        <div class="flex items-center gap-x-2 gap-y-2 flex-wrap ml-auto min-w-0">
-          <el-button
-            :disabled="!filteredRows.length"
-            title="选中筛选结果里开始时间最新的 3 场（会替换掉筛选结果内原有的选择，筛选外的选择保留）"
-            @click="selectRecentFiltered"
-          >
-            <ArtSvgIcon icon="ri:time-line" class="mr-1" />
-            最近 {{ recentCount }} 场
-          </el-button>
-          <el-button
-            :disabled="!filteredRows.length"
-            :title="`把筛选出的 ${filteredRows.length} 场全部选中（筛选范围外已选的场次保留）`"
-            @click="selectAllFiltered"
-          >
-            <ArtSvgIcon icon="ri:list-check" class="mr-1" />
-            全选筛选结果
-          </el-button>
-          <!--
-            跨直播间合并的常见形态：「一场活动里每个直播间各取最近一场」。
-            逐个主播去点太慢，这里按当前筛选范围，每个主播各取开始时间最新的一场。
-          -->
-          <el-button
-            :disabled="streamerOptions.length < 2"
-            title="跨直播间合并用：当前范围内每个主播各选最近的一场（已在选择里的场次保留）"
-            @click="selectLatestPerStreamer"
-          >
-            <ArtSvgIcon icon="ri:live-line" class="mr-1" />
-            每个主播最近 1 场
-          </el-button>
-          <el-button :disabled="!selectedIds.size" @click="clearSelection">清空选择</el-button>
+          <!-- 快捷操作都只作用于**当前筛选结果**（见脚本里各自的注释） -->
+          <div class="combined-filter-actions">
+            <el-button
+              :disabled="!filteredRows.length"
+              title="选中筛选结果里开始时间最新的 3 场（会替换掉筛选结果内原有的选择，筛选外的选择保留）"
+              @click="selectRecentFiltered"
+            >
+              <ArtSvgIcon icon="ri:time-line" class="mr-1" />
+              最近 {{ recentCount }} 场
+            </el-button>
+            <el-button
+              :disabled="!filteredRows.length"
+              :title="`把筛选出的 ${filteredRows.length} 场全部选中（筛选范围外已选的场次保留）`"
+              @click="selectAllFiltered"
+            >
+              <ArtSvgIcon icon="ri:list-check" class="mr-1" />
+              全选筛选结果
+            </el-button>
+            <!--
+              跨直播间合并的常见形态：「一场活动里每个直播间各取最近一场」。
+              逐个主播去点太慢，这里按当前筛选范围，每个主播各取开始时间最新的一场。
+            -->
+            <el-button
+              :disabled="streamerOptions.length < 2"
+              title="跨直播间合并用：当前范围内每个主播各选最近的一场（已在选择里的场次保留）"
+              @click="selectLatestPerStreamer"
+            >
+              <ArtSvgIcon icon="ri:live-line" class="mr-1" />
+              每个主播最近 1 场
+            </el-button>
+            <el-button :disabled="!selectedIds.size" @click="clearSelection">清空选择</el-button>
+            <el-button :loading="loading" title="重新拉取主播与场次" @click="refresh">
+              <ArtSvgIcon icon="ri:refresh-line" />
+            </el-button>
+          </div>
         </div>
       </div>
 
@@ -185,9 +161,13 @@
         </div>
       </div>
 
-      <div class="art-card combined-list-card mb-24">
+      <!--
+        场次列表：**不要卡片外壳**（原来是 art-card + 「当前 N 场」工具条）。
+        204 场本来就是这一页的主体，套一层卡面只是多一圈边和多一个计数；
+        排序按钮单独一行靠右，列表直接铺在页面上。
+      -->
+      <div class="combined-list-zone mb-24">
         <div class="combined-list-toolbar">
-          <span class="text-xs text-g-500">当前 {{ filteredRows.length }} 场</span>
           <div class="flex items-center gap-1">
             <button
               type="button"
@@ -578,7 +558,6 @@
 
   /** 排序字段；默认按开始时间降序（最近开的播在最上面） */
   type SortKey = 'time' | 'diamonds'
-  type RangeKey = 'all' | '24h' | '7d' | '30d'
 
   const router = useRouter()
 
@@ -592,13 +571,55 @@
 
   /** 主播筛选：空数组 = 全部（el-select 的 clearable 清空后也是空数组） */
   const filterStreamerIds = ref<Array<string | number>>([])
-  /** 时间范围：按**开始时间**距今算（用户说"最近 7 天"时想的是"这几天开的播"） */
-  const filterRange = ref<RangeKey>('all')
-  const RANGE_MS: Record<Exclude<RangeKey, 'all'>, number> = {
-    '24h': 864e5,
-    '7d': 7 * 864e5,
-    '30d': 30 * 864e5
-  }
+  /**
+   * 时间范围：日期选择器（空 = 不限）。
+   * 之前是「全部 / 24 小时 / 7 天 / 30 天」四个固定档，活动常常落在"9 月 3 日到 9 月 5 日"
+   * 这种具体区间上，固定档选不出来，所以换成日期范围。
+   */
+  const dateRange = ref<[Date, Date] | null>(null)
+
+  /** 日期选择器的快捷项（等价于原来的 24 小时 / 7 天 / 30 天，用起止日期表达） */
+  const dateShortcuts = [
+    {
+      text: '今天',
+      value: () => {
+        const end = new Date()
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        return [start, end]
+      }
+    },
+    {
+      text: '最近 7 天',
+      value: () => {
+        const end = new Date()
+        const start = new Date()
+        start.setDate(start.getDate() - 6)
+        start.setHours(0, 0, 0, 0)
+        return [start, end]
+      }
+    },
+    {
+      text: '最近 30 天',
+      value: () => {
+        const end = new Date()
+        const start = new Date()
+        start.setDate(start.getDate() - 29)
+        start.setHours(0, 0, 0, 0)
+        return [start, end]
+      }
+    },
+    {
+      text: '本月',
+      value: () => {
+        const end = new Date()
+        const start = new Date()
+        start.setDate(1)
+        start.setHours(0, 0, 0, 0)
+        return [start, end]
+      }
+    }
+  ]
 
   /** 当前排序字段 + 方向（false = 降序） */
   const sortKey = ref<SortKey>('time')
@@ -682,9 +703,7 @@
     )
   )
 
-  const totalSessions = computed(() => allRows.value.length)
-
-  /** 主播标签的选项：主播名 + 场次数（场次数来自已加载的分组，与列表条数同源） */
+  /** 主播下拉的选项：主播名 + 场次数（场次数来自已加载的分组，与列表条数同源） */
   const streamerOptions = computed(() =>
     groups.value.map((g) => ({
       id: g.streamer.id,
@@ -693,30 +712,23 @@
     }))
   )
 
-  /** 主播标签是否被选中（多选几个主播 = 跨直播间合并） */
-  function isStreamerPicked(id: string | number) {
-    return filterStreamerIds.value.includes(id)
-  }
-
-  function toggleStreamer(id: string | number) {
-    const picked = filterStreamerIds.value
-    filterStreamerIds.value = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]
-  }
-
-  /** 该行是否落在当前的时间范围内 */
+  /** 该行是否落在当前的时间范围内（按**开始时间**算；用户选"9/3 到 9/5"时指的就是这几天开的播） */
   function inRange(ms: number) {
-    if (filterRange.value === 'all') return true
-    return ms >= Date.now() - RANGE_MS[filterRange.value]
+    const r = dateRange.value
+    if (!r || !r[0] || !r[1]) return true
+    const start = new Date(r[0])
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(r[1])
+    end.setHours(23, 59, 59, 999)
+    return ms >= start.getTime() && ms <= end.getTime()
   }
 
   function resetFilters() {
     filterStreamerIds.value = []
-    filterRange.value = 'all'
+    dateRange.value = null
   }
 
-  const hasFilter = computed(
-    () => filterStreamerIds.value.length > 0 || filterRange.value !== 'all'
-  )
+  const hasFilter = computed(() => filterStreamerIds.value.length > 0 || !!dateRange.value)
 
   /**
    * 当前筛选 + 排序后的行。
@@ -1138,55 +1150,46 @@
   }
 
   /*
-   * 主播标签：一排圆角小标签（名字 + 场次数）。
-   * 用它替掉原来的下拉多选 —— 9 个主播平铺时"每个主播多少场"直接可见，
-   * 且主用法（只看某一个主播）从「展开下拉 → 取消全选 → 勾一个」变成「点一下」。
+   * 筛选行：主播下拉 + 日期范围 + 快捷操作，一行排开，窄了自动换行。
+   * 主播从"平铺标签"换回下拉多选 —— 直播间会越来越多，标签铺不下；
+   * 下拉自带搜索、折叠已选标签，几十个直播间也只占一行。
    */
-  .combined-chips {
+  .combined-filter-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    align-items: center;
+    gap: 12px 16px;
+  }
+
+  .combined-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
 
-  .combined-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 26px;
-    padding: 0 10px;
+  .combined-filter-label {
+    flex-shrink: 0;
     font-size: 12px;
-    color: var(--art-gray-700);
-    cursor: pointer;
-    background: var(--art-gray-100);
-    border: 1px solid var(--art-card-border);
-    border-radius: 999px;
-    transition:
-      color 0.15s,
-      background-color 0.15s,
-      border-color 0.15s;
+    color: var(--dy-text-muted);
   }
 
-  .combined-chip:hover {
-    color: var(--theme-color);
-    border-color: color-mix(in srgb, var(--theme-color) 30%, transparent);
+  /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
+  .combined-filter-select {
+    width: 240px;
   }
 
-  .combined-chip--on {
-    font-weight: 600;
-    color: var(--theme-color);
-    background: color-mix(in srgb, var(--theme-color) 12%, transparent);
-    border-color: color-mix(in srgb, var(--theme-color) 40%, transparent);
+  .combined-filter-date {
+    width: 268px;
   }
 
-  .combined-chip__count {
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    opacity: 0.65;
-  }
-
-  .combined-chip--on .combined-chip__count {
-    opacity: 0.9;
+  /* 快捷操作靠右；换行时自成一组 */
+  .combined-filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
   }
 
   /* ============ 相邻场次推荐条 ============ */
@@ -1206,29 +1209,6 @@
   .combined-reco__hint {
     font-size: 11px;
     color: var(--dy-text-muted);
-  }
-
-  .combined-reco__row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 0;
-    border-top: 1px dashed var(--art-card-border);
-  }
-
-  .combined-reco__row:first-child {
-    margin-top: 4px;
-  }
-
-  .combined-reco__streamer {
-    max-width: 180px;
-    overflow: hidden;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--art-gray-800);
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /*
@@ -1345,19 +1325,18 @@
   }
 
   /* ============ 场次列表（卡片网格，不用表格） ============ */
-  /* 卡片自带内边距会破坏工具条与列表的贴边，这里清零并裁掉圆角外的溢出 */
-  .combined-list-card {
-    padding: 0;
-    overflow: hidden;
+  /* 列表不再套卡片外壳：204 场本身就是这一页的主体，多一层卡面只是多一圈边 */
+  .combined-list-zone {
+    min-width: 0;
   }
 
+  /* 排序行：无边框，靠右；只放两个排序按钮 */
   .combined-list-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
-    padding: 10px 20px;
-    border-bottom: 1px solid var(--art-card-border);
+    margin-bottom: 8px;
   }
 
   /* 排序：两个小胶囊，当前排序的那颗高亮（箭头方向见 sortIcon） */
@@ -1397,18 +1376,20 @@
    * 两个边界上的坑，都在这里处理掉：
    *   1. scrollbar-gutter: stable —— 不加的话，滚动条出现/消失会让可用宽度跳 10px，
    *      列宽跟着变，最后一行卡片看起来"被切掉一截"；
-   *   2. 右边多留 4px（16 + 4）：1fr 的列宽是带小数的（如 312.6px），Chrome 会向上取整，
-   *      5 列最多多出 2px，贴着 16px 内边距时会把最后一列的圆角切掉。
+   *   2. 右边多留几 px：1fr 的列宽是带小数的（如 312.6px），Chrome 会向上取整，
+   *      贴着内边距时会把最后一列的圆角切掉。
+   *
+   * 列表现在不套卡片外壳，左内边距归零 —— 卡片左边缘直接跟筛选卡的左边缘对齐。
    */
   .combined-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 8px;
     align-items: start;
-    max-height: 58vh;
+    max-height: 62vh;
     overflow-y: auto;
     scrollbar-gutter: stable;
-    padding: 12px 24px 12px 20px;
+    padding: 2px 14px 2px 0;
   }
 
   /* 一张场次卡：勾选框 + （可选）接续条 + 时间/主播/时长 + 三项指标 */
@@ -1419,8 +1400,8 @@
     align-items: start;
     padding: 8px 10px;
     cursor: pointer;
-    background: var(--art-gray-100);
-    border: 1px solid transparent;
+    background: var(--default-box-color);
+    border: 1px solid var(--art-card-border);
     border-radius: 10px;
     transition:
       background-color 0.15s,
@@ -1428,7 +1409,8 @@
   }
 
   .combined-item:hover {
-    background: var(--art-gray-200);
+    background: var(--art-gray-100);
+    border-color: var(--art-gray-200);
   }
 
   /* 选中：主题色描边 + 淡主题底（不引入新配色） */
@@ -1578,12 +1560,26 @@
    */
   @media (max-width: 767px) {
     /*
-     * 主播标签在手机上**换行铺开**（不横滑）：横滑会把后面几个主播藏起来，
-     * 而横向滚动条默认是隐身的，藏了也看不出来。代价是两行高度，换清楚。
+     * 筛选行在手机上竖排：主播下拉、日期范围各占一整行，
+     * 快捷操作整行靠左排开（不再 ml-auto 右推）。
      */
-    .combined-chip {
-      height: 24px;
-      padding: 0 8px;
+    .combined-filter-row {
+      gap: 10px;
+    }
+
+    .combined-filter-item {
+      flex: 1 1 100%;
+    }
+
+    .combined-filter-select,
+    .combined-filter-date {
+      flex: 1;
+      width: auto;
+      min-width: 0;
+    }
+
+    .combined-filter-actions {
+      margin-left: 0;
     }
 
     /*
@@ -1595,18 +1591,13 @@
     }
 
     .combined-list {
-      max-height: 62vh;
-      padding: 10px 20px 10px 14px;
+      padding: 2px 10px 2px 0;
     }
 
-    /* 窄屏卡片更窄，四周收一点，但仍要跟工具条对齐（14px） */
+    /* 窄屏卡片更窄，四周收一点（与筛选卡同一档 14px） */
     .combined-filters,
     .combined-reco {
       padding: 12px 14px;
-    }
-
-    .combined-list-toolbar {
-      padding: 8px 14px;
     }
 
     .combined-item {
