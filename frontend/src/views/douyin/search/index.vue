@@ -4,23 +4,49 @@
     <!-- 顶部工具条 -->
     <div class="art-card dy-toolbar mb-5 flex items-center justify-between gap-4 flex-wrap">
       <!--
-        左侧标题块保持原来的 flex（basis auto）。
-        注意**不能**改成 flex-1/basis-0：那样在 1024 附近左侧块会被挤到接近 0 宽，
-        统计行折成一竖条，反而更糟。真正的解法是把统计行压短（见下面去掉「列出前 N 个」），
-        让它任何状态下都只占一行 —— 工具的抖动来自"这一行从 1 行变 2 行"。
+        左侧标题块：标题 + 结果汇总（「N 个匹配用户」+ ⓘ）同一行。
+        汇总原来有「匹配用户 / 参与场次 / 累计钻石」三段、且独占一整行（basis-full）——
+        那是为了修"数字变长把右侧控件组挤到第二行"的抖动。现在用户只需要人数，
+        删掉后两个指标后这行只有约 120px，放回标题右侧也不会和右侧控件组抢宽度。
+        实测三态（未查询 / 查询中 / 有结果）工具条高度与右侧控件组 y 完全一致。
+        数字仍用等宽数位（.dy-count）：位数变化时视觉重量不变。
+        注意左侧块保持 basis auto，**不能**改成 flex-1/basis-0。
       -->
       <div class="flex items-center gap-3 min-w-0">
         <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
           <ArtSvgIcon icon="ri:user-search-line" class="text-base text-theme" />
         </div>
-        <div class="min-w-0">
-          <div class="dy-toolbar-title">信息查询</div>
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="dy-toolbar-title shrink-0">信息查询</div>
           <!--
-            全页唯一一处结果汇总：多少人有匹配、列出前几个、参与场次、累计钻石。
-            原来结果区上方还单独有一行「共 N 个匹配用户 · 显示前 K」，和这里同一个数
-            出现两次（用户反馈），已合并到这一行。
+            全页唯一一处结果汇总。加载中/失败不残留上一轮的数字，分别显示「查询中…」「查询失败」。
+            口径说明 + 明细都收在 ⓘ 里（toolbarTip）。
           -->
-          <!-- 结果汇总行见工具条末尾的 .dy-result-stats（独占一整行，见那里的注释） -->
+          <span
+            class="dy-toolbar-summary flex items-center gap-1.5 min-w-0 whitespace-nowrap text-xs text-g-500"
+          >
+            <span class="text-g-400" aria-hidden="true">·</span>
+            <span v-if="loading">查询中…</span>
+            <span v-else-if="queryError" class="text-danger">查询失败</span>
+            <template v-else>
+              <span class="inline-flex items-baseline gap-1 shrink-0">
+                <b class="dy-count text-g-900">{{ searched ? resultTotal : 0 }}</b>个匹配用户
+              </span>
+              <!-- 原来口径挂在 title 上、明细在结果区另一个 ⓘ，现在合到这一个 -->
+              <el-tooltip placement="top" :show-after="100">
+                <span
+                  class="inline-flex items-center justify-center size-5 shrink-0 rounded-full c-p hover:bg-g-100/70"
+                  role="img"
+                  aria-label="查询结果说明"
+                >
+                  <ArtSvgIcon icon="ri:information-line" class="text-sm text-g-400" />
+                </span>
+                <template #content>
+                  <div class="max-w-[320px] leading-relaxed">{{ toolbarTip }}</div>
+                </template>
+              </el-tooltip>
+            </template>
+          </span>
         </div>
       </div>
 
@@ -93,63 +119,6 @@
           <ArtSvgIcon v-if="!loading" icon="ri:search-line" class="mr-1" />
           查询
         </el-button>
-      </div>
-
-      <!--
-        结果汇总行：**独占一整行**（basis-full），不参与上面那一行的宽度竞争。
-        用户反馈"匹配用户等信息会变动导致排版难看、模块大小抖动"。
-        实测根因：这一行会随结果变长（275 → 451px），把右侧控件组（704px）
-        挤到第二行 —— 工具条高度 88 → 140px、控件组从 y=146 掉到 y=201。
-        试过把它压短（去掉与 ⓘ 重复的「列出前 N 个」）让 1440 放得下：只差 12px，
-        这种"差一点"的布局会随数据长度反复摇摆，不能算修好。
-        独占一行后：这一行永远只占一行，控件组永远在第一行，任何屏宽/任何数据都不再抖。
-        min-h-5（20px）固定一行高：加载态的「查询中…」只有 16px，不固定会让工具条差 4px。
-        另外数字用等宽数位（.dy-count），计数更新时宽度也不变。
-      -->
-      <div
-        class="dy-result-stats flex basis-full min-h-5 items-center gap-2.5 mt-3 text-xs text-g-500 flex-wrap min-w-0"
-      >
-        <!-- 加载中/失败时不显示（也不残留）上一轮的统计数字 -->
-        <span v-if="loading">查询中…</span>
-        <span v-else-if="queryError" class="text-danger">查询失败</span>
-        <template v-else>
-          <!--
-            三个分段各给一个固定最小宽度（.dy-stat-seg--*）：
-            数字位数变化时（0 → 2,294、0 → 938.30万）后面的分段会被推着左右滑动 ——
-            实测分段宽度 71.8→95.1 / 71.8→87.3 / 59.8→108.3，第二个分段最多移 23px、
-            第三个最多移 38px，看着就是"抖动"（用户反馈"信息变动导致抖动"）。
-            预留宽度后各段位置恒定。
-          -->
-          <span class="dy-stat-seg dy-stat-seg--users flex items-baseline gap-1 shrink-0">
-            <b class="dy-count text-g-900">{{ searched ? resultTotal : 0 }}</b>个匹配用户
-          </span>
-          <!--
-            这里原来还有一段「· 列出前 N 个」，已去掉：
-              1) 与 ⓘ 里的说明重复（toolbarTip 已写明"参与场次/累计钻石只统计本次列出的 N 人"）；
-              2) 它把这一行从 275px 拉到 451px，是抖动的直接来源。
-          -->
-          <span class="w-px h-3 bg-g-300 shrink-0" />
-          <span class="dy-stat-seg dy-stat-seg--sessions flex items-baseline gap-1 shrink-0">
-            <b class="dy-count text-g-900">{{ totalSessions }}</b>个参与场次
-          </span>
-          <span class="w-px h-3 bg-g-300 shrink-0" />
-          <span class="dy-stat-seg dy-stat-seg--diamonds flex items-baseline gap-1 shrink-0">
-            <b class="dy-count text-theme">{{ fmtNum(totalDiamonds) }}</b>累计钻石
-          </span>
-          <!-- 口径说明 + 明细都收进这一个 ⓘ（原来口径挂在 title 上、明细在结果区另一个 ⓘ） -->
-          <el-tooltip placement="top" :show-after="100">
-            <span
-              class="inline-flex items-center justify-center size-5 shrink-0 rounded-full c-p hover:bg-g-100/70"
-              role="img"
-              aria-label="查询结果说明"
-            >
-              <ArtSvgIcon icon="ri:information-line" class="text-sm text-g-400" />
-            </span>
-            <template #content>
-              <div class="max-w-[320px] leading-relaxed">{{ toolbarTip }}</div>
-            </template>
-          </el-tooltip>
-        </template>
       </div>
     </div>
 
@@ -708,14 +677,6 @@
 
   const users = computed(() => results.value || [])
 
-  const totalDiamonds = computed(() =>
-    users.value.reduce((sum, u) => sum + (u.total_diamonds || 0), 0)
-  )
-  const totalSessions = computed(
-    // 去重统计：同一场次里有多个匹配用户时只算一场（原来是把各人的场次数相加，得到的是"人次"）
-    () => new Set(users.value.flatMap((u) => (u.sessions || []).map((s: any) => s.id))).size
-  )
-
   /** 「仅进场记录」= 没弹幕没送礼 —— 排序时整体沉底（用户决定：照常展示仅靠后） */
   function isEntryOnly(u: any): boolean {
     return !u.danmaku_count && !u.total_diamonds
@@ -825,19 +786,13 @@
   }
 
   /**
-   * 工具条 ⓘ 的内容：口径说明（哪些数字是"本次列出的人"的口径）+ 明细。
-   * 两段原来分别挂在工具条的 title 和结果区的另一个 ⓘ 上，现在合成一个提示。
+   * 工具条 ⓘ 的内容：「匹配用户」的口径 + 本次查询的明细。
+   * 「参与场次 / 累计钻石」两个汇总段已删除，所以提示里不再提这两个指标；
+   * 「只显示前 N 个」的说明由 detailTip 负责，这里不重复。
    */
-  const toolbarTip = computed(() => {
-    const parts = []
-    if (truncated.value) {
-      parts.push(`「匹配用户」是库内全量；「参与场次 / 累计钻石」只统计本次列出的 ${returnedCount.value} 人`)
-    }
-    parts.push(detailTip.value)
-    return parts.join('。')
-  })
+  const toolbarTip = computed(() => `「匹配用户」是库内命中的总人数。${detailTip.value}`)
 
-  /** 结果头的明细说明（悬浮提示用）：原来这些直接铺在页面上，一行两百多字没重点 */
+  /** 本次查询的明细说明（并入工具条 ⓘ 的提示）：原来这些直接铺在页面上，一行两百多字没重点 */
   const detailTip = computed(() => {
     const parts = [`库内命中 ${fmtNum(totalRecords.value)} 条记录`]
     if (truncated.value) {
@@ -1015,26 +970,10 @@
   /*
    * 统计数字用**等宽数位**：数字从 0 → 1,234 → 855.44万 变化时，
    * 每个数字占宽一致，更新/计数时不会左右抖。
+   * 现在只剩「N 个匹配用户」一个数字，不再需要给分段预留 min-width。
    */
   .dy-count {
     font-variant-numeric: tabular-nums;
-  }
-
-  /*
-   * 统计分段预留宽度：数字位数变化时不再推动后面的分段（见标记里的注释）。
-   * 取值按实测最长值再留一点余量：匹配用户 95.1 → 118、参与场次 87.3 → 112、
-   * 累计钻石 108.3 → 112。
-   */
-  .dy-stat-seg--users {
-    min-width: 118px;
-  }
-
-  .dy-stat-seg--sessions {
-    min-width: 112px;
-  }
-
-  .dy-stat-seg--diamonds {
-    min-width: 112px;
   }
 
   /*
