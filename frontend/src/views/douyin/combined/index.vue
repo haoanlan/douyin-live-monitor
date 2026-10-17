@@ -95,13 +95,6 @@
               :shortcuts="dateShortcuts"
             />
           </div>
-
-          <!-- 只剩刷新：重新拉主播与场次 -->
-          <div class="combined-filter-actions">
-            <el-button :loading="loading" title="重新拉取主播与场次" @click="refresh">
-              <ArtSvgIcon icon="ri:refresh-line" />
-            </el-button>
-          </div>
         </div>
       </div>
 
@@ -1021,15 +1014,6 @@
     width: 268px;
   }
 
-  /* 快捷操作靠右；换行时自成一组 */
-  .combined-filter-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-  }
-
   /* 一键「合并这两场」：做成轻量文字按钮，不跟主按钮抢注意力 */
   .combined-cont__btn {
     display: inline-flex;
@@ -1087,27 +1071,18 @@
   }
 
   /*
-   * 滚动区：204 场全渲染，滚动只发生在这个容器里（页面本身不被拉成十几屏）。
+   * 滚动区：**不再做内部滚动**（原来限高 62vh + overflow-y: auto）。
+   * 内部滚动会让卡片右侧要多留一截给滚动条，卡片右边缘就比筛选卡短十几像素，
+   * 上下两块对不齐；改成让整页滚，卡片左右边缘直接跟筛选卡重合。
    * 列数交给 auto-fill：宽屏 5 列、笔记本 4 列、平板 2~3 列、手机 1 列，不用写断点。
    * 260px 是实测能放下「2026/10/15 15:32 → 17:54」一行 + 三项指标的最小宽度。
-   *
-   * 两个边界上的坑，都在这里处理掉：
-   *   1. scrollbar-gutter: stable —— 不加的话，滚动条出现/消失会让可用宽度跳 10px，
-   *      列宽跟着变，最后一行卡片看起来"被切掉一截"；
-   *   2. 右边多留几 px：1fr 的列宽是带小数的（如 312.6px），Chrome 会向上取整，
-   *      贴着内边距时会把最后一列的圆角切掉。
-   *
-   * 列表现在不套卡片外壳，左内边距归零 —— 卡片左边缘直接跟筛选卡的左边缘对齐。
    */
   .combined-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 8px;
     align-items: start;
-    max-height: 62vh;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-    padding: 2px 14px 2px 0;
+    padding: 0;
   }
 
   /* 一张场次卡：勾选框 + （可选）接续条 + 时间/主播/时长 + 三项指标 */
@@ -1296,12 +1271,8 @@
       min-width: 0;
     }
 
-    .combined-filter-actions {
-      margin-left: 0;
-    }
-
     .combined-list {
-      padding: 2px 10px 2px 0;
+      padding: 0;
     }
 
     /* 窄屏卡片更窄，四周收一点 */
