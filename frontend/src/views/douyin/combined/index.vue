@@ -67,6 +67,7 @@
               collapse-tags
               collapse-tags-tooltip
               :max-collapse-tags="1"
+              placeholder="选择主播（可多选）"
               aria-label="筛选主播"
             >
               <!--
@@ -87,10 +88,9 @@
               </el-option>
             </el-select>
             <!--
-              Element 自带的多选 placeholder 是 position:absolute + z-index:-1，
-              实测被 .el-select__wrapper 的底色盖住（DOM 里有文字、像素全白）。
-              所以不用它的 placeholder，自己在同一位置画一行 —— pointer-events:none，
-              点上去还是落到下面的 select 上。
+              Element 自带的多选 placeholder（position:absolute + z-index:-1）在这个页面里
+              被 wrapper 底色盖住 —— DOM 有字、样式正常、像素全白（提 z-index 也压不上去）。
+              所以自己在同一位置画一行：pointer-events:none，点击仍然落到下面的 select。
             -->
             <span v-if="!filterStreamerIds.length" class="combined-select-ph" aria-hidden="true">
               选择主播（可多选）
@@ -121,20 +121,16 @@
               已选 <b>{{ selectedIds.size }}</b> 场
             </span>
             <span class="combined-selection__actions">
+              <!--
+                一个按钮两用：没选时是「全选」（选中当前筛选结果），有选时变「清空」。
+                原来两个按钮并排，位置固定但占地方；合成一个后右边只留合并按钮。
+              -->
               <el-button
-                :disabled="!filteredRows.length"
-                title="把当前筛选结果里的场次全部选中"
-                @click="selectAllFiltered"
+                :disabled="!filteredRows.length && !selectedIds.size"
+                :title="selectedIds.size ? '清空已选场次' : '把当前筛选结果里的场次全部选中'"
+                @click="toggleSelectAll"
               >
-                全选
-              </el-button>
-              <el-button
-                text
-                :disabled="!selectedIds.size"
-                title="清空已选场次"
-                @click="clearSelection"
-              >
-                清空
+                {{ selectedIds.size ? '清空' : '全选' }}
               </el-button>
               <span class="combined-selection__cta" @click="onMergeClick">
                 <el-button
@@ -685,6 +681,12 @@
     selectedIds.value = new Set()
   }
 
+  /** 一个按钮两用：有选中就清空，没选中就全选当前筛选结果 */
+  function toggleSelectAll() {
+    if (selectedIds.value.size) clearSelection()
+    else selectAllFiltered()
+  }
+
   const statCards = computed(() => {
     const s = result.value?.summary
     return [
@@ -847,7 +849,7 @@
     min-width: 0;
   }
 
-  /* 主播下拉：外面套一层相对定位，用来画自己的 placeholder */
+  /* 主播下拉：外面套一层相对定位，用来叠一行自己的占位文字 */
   .combined-filter-item--select {
     position: relative;
   }
@@ -856,12 +858,14 @@
     position: absolute;
     top: 50%;
     left: 12px;
+    z-index: 2;
     font-size: 13px;
     color: var(--el-text-color-secondary);
     pointer-events: none;
     white-space: nowrap;
     transform: translateY(-50%);
   }
+
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
   .combined-filter-select {
     width: 240px;
