@@ -57,7 +57,7 @@
       -->
       <div class="art-card combined-filters mb-5">
         <div class="combined-filter-row">
-          <div class="combined-filter-item">
+          <div class="combined-filter-item combined-filter-item--select">
             <el-select
               v-model="filterStreamerIds"
               class="combined-filter-select"
@@ -67,7 +67,7 @@
               collapse-tags
               collapse-tags-tooltip
               :max-collapse-tags="1"
-              placeholder="全部主播"
+              aria-label="筛选主播"
             >
               <!--
                 label 只放主播名：el-select 的已选标签显示的是 label，
@@ -86,6 +86,15 @@
                 </span>
               </el-option>
             </el-select>
+            <!--
+              Element 自带的多选 placeholder 是 position:absolute + z-index:-1，
+              实测被 .el-select__wrapper 的底色盖住（DOM 里有文字、像素全白）。
+              所以不用它的 placeholder，自己在同一位置画一行 —— pointer-events:none，
+              点上去还是落到下面的 select 上。
+            -->
+            <span v-if="!filterStreamerIds.length" class="combined-select-ph" aria-hidden="true">
+              选择主播（可多选）
+            </span>
           </div>
 
           <div class="combined-filter-item">
@@ -102,33 +111,43 @@
           </div>
 
           <!--
-            选中情况 + 操作：只留「已选 N 场」，后面跟全选/清空/查看合并。
-            未满 2 场时按钮 disabled —— Chrome 不给 disabled 按钮派发 click，
+            选中情况 + 操作。三个按钮**位置固定**（清空改成常驻 + 未选时禁用），
+            否则「清空」随选择出现/消失，右边几个按钮会左右跳一下。
+            未满 2 场时「查看合并」禁用 —— Chrome 不给 disabled 按钮派发 click，
             所以提示挂在外层 span 上（锁定态给按钮 pointer-events: none）。
           -->
           <div class="combined-selection">
             <span class="combined-selection__count">
               已选 <b>{{ selectedIds.size }}</b> 场
             </span>
-            <el-button
-              :disabled="!filteredRows.length"
-              title="把当前筛选结果里的场次全部选中"
-              @click="selectAllFiltered"
-            >
-              全选
-            </el-button>
-            <el-button v-if="selectedIds.size" text @click="clearSelection">清空</el-button>
-            <span class="combined-selection__cta" @click="onMergeClick">
+            <span class="combined-selection__actions">
               <el-button
-                type="primary"
-                :class="{ 'is-locked': selectedIds.size < 2 }"
-                :disabled="selectedIds.size < 2 || merging"
-                :loading="merging"
-                @click="viewCombined"
+                :disabled="!filteredRows.length"
+                title="把当前筛选结果里的场次全部选中"
+                @click="selectAllFiltered"
               >
-                <ArtSvgIcon icon="ri:merge-cells-horizontal" class="mr-1" />
-                查看合并
+                全选
               </el-button>
+              <el-button
+                text
+                :disabled="!selectedIds.size"
+                title="清空已选场次"
+                @click="clearSelection"
+              >
+                清空
+              </el-button>
+              <span class="combined-selection__cta" @click="onMergeClick">
+                <el-button
+                  type="primary"
+                  :class="{ 'is-locked': selectedIds.size < 2 }"
+                  :disabled="selectedIds.size < 2 || merging"
+                  :loading="merging"
+                  @click="viewCombined"
+                >
+                  <ArtSvgIcon icon="ri:merge-cells-horizontal" class="mr-1" />
+                  查看合并
+                </el-button>
+              </span>
             </span>
           </div>
         </div>
@@ -828,6 +847,21 @@
     min-width: 0;
   }
 
+  /* 主播下拉：外面套一层相对定位，用来画自己的 placeholder */
+  .combined-filter-item--select {
+    position: relative;
+  }
+
+  .combined-select-ph {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translateY(-50%);
+  }
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
   .combined-filter-select {
     width: 240px;
@@ -1063,6 +1097,19 @@
     white-space: nowrap;
   }
 
+  /* 右侧操作组：三个按钮固定位置，不随选择状态增删（否则会左右跳） */
+  .combined-selection__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 选中区与筛选控件之间一条竖线，视觉上分开「筛选」和「操作」 */
+  .combined-selection {
+    padding-left: 16px;
+    border-left: 1px solid var(--art-card-border);
+  }
+
   .combined-selection__count b {
     font-weight: 600;
     color: var(--theme-color);
@@ -1101,6 +1148,12 @@
       min-width: 0;
     }
 
+    /* 窄屏：选中区换行后不再画左侧竖线，也不额外缩进 */
+    .combined-selection {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: none;
+    }
     .combined-list {
       padding: 0;
     }
