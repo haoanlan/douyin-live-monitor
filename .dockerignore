@@ -1,0 +1,80 @@
+# =============================================================================
+# Docker 构建上下文排除清单
+#
+# 最关键的一条：db/ 下有 ~1.1GB 的真实 SQLite 库（douyin.db + WAL），
+# 绝不能进构建上下文，更不能被打进镜像层。运行时通过 bind mount 使用宿主机库。
+# =============================================================================
+
+# 版本控制 / IDE
+.git
+.git/**
+.gitignore
+.github
+.vscode
+.idea
+
+# Node 依赖（镜像内重新安装，不能复用 Windows 上装的二进制）
+node_modules
+node_modules/**
+frontend/node_modules
+frontend/node_modules/**
+
+# 前端构建产物（由 builder 阶段生成；带上宿主机的 dist 会掩盖构建问题）
+frontend/dist
+frontend/dist/**
+frontend/*.tsbuildinfo
+frontend/.tsbuildinfo
+
+# 数据库（真实数据，绝不入镜像）
+db
+db/**
+*.db
+*.db-wal
+*.db-shm
+
+# 运行时数据 / 日志 / 报告 / 临时产物
+logs
+logs/**
+reports
+reports/**
+team
+team/**
+backup_*
+backup_*/**
+streamers
+streamers/**
+current_sessions
+current_sessions/**
+snapshot_*.json
+pending_report_*.json
+current_session.json
+runtime-config.json
+monitor.pid
+monitor.sock
+gift_debug.json
+proxy-config.yaml
+dashboard-*.log
+*.log
+
+# 敏感配置：config.yaml（cookie/token）与 .env 由 compose 挂载/运行时注入；
+# 镜像里只带 config.example.yaml
+config.yaml
+.env
+
+# 扫码登录的独立浏览器配置（含登录态）
+.qrlogin-profile
+.qrlogin-profile/**
+
+# 大文件 / 文档 / 测试 / 一次性脚本
+docs
+docs/**
+deploy
+deploy/**
+test
+test/**
+scripts/tmp-*
+*.tar.gz
+*.tgz
+*.zip
+*.bak
+*.bak2

@@ -1,0 +1,62 @@
+# 抖音直播监控（Node 看板 + 内嵌 worker + Go 抓取代理）单容器编排
+#
+# 首次使用：
+#   cp config.example.yaml config.yaml      # 填 cookie（config.yaml 含敏感信息，不要提交）
+#   mkdir -p db logs
+#   # 若 db/logs 是已有目录且属主不是 1000，先修正属主（容器内以 node uid=1000 运行）：
+#   # sudo chown -R 1000:1000 db logs
+#   docker compose up -d --build
+#
+# 端口：
+#   9871 看板（浏览器访问 http://<服务器IP>:9871，默认账号 admin / 123456）
+#   1088 Go 抓取代理（只建议内网访问；代理本身没有绑定地址参数）
+name: douyinlive
+
+services:
+  douyinlive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # github.com 不可达时覆盖成可达的镜像地址（tar.gz 或裸二进制均可）
+        PROXY_BINARY_URL: "${PROXY_BINARY_URL:-https://github.com/jwwsjlm/douyinLive/releases/download/v2.3.1/douyinLive-v2.3.1-0e506f3cf935-linux-amd64.tar.gz}"
+        # 默认校验官方 v2.3.1 linux-amd64 资产的 SHA256；换镜像/重打包时改成对应哈希。
+        # 确实不想校验就把本行改成：PROXY_BINARY_SHA256: "${PROXY_BINARY_SHA256:-}"
+        PROXY_BINARY_SHA256: "${PROXY_BINARY_SHA256:-85d735e62468a8a3db956cd9bf978bc1fc79fd276632428583d666506738a456}"
+    image: douyinlive:v2.3.1
+    container_name: douyinlive
+    restart: unless-stopped
+    init: true
+    # 镜像内默认就是 node(1000:1000)；这里显式写出来，方便宿主机目录属主不同时覆盖：
+    #   APP_UID=1001 APP_GID=1001 docker compose up -d
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    ports:
+      - "9871:9871"
+      - "1088:1088"
+    environment:
+      TZ: Asia/Shanghai
+      # 容器内必须绑 0.0.0.0，端口映射才能生效（config.yaml 里默认是 127.0.0.1）
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: "9871"
+      NODE_ENV: production
+      # 可选：覆盖 config.yaml 里的 dashboard.token / 账号密码
+      # DASHBOARD_TOKEN: "${DASHBOARD_TOKEN:-}"
+      # DASHBOARD_USERNAME: "${DASHBOARD_USERNAME:-admin}"
+      # DASHBOARD_PASSWORD: "${DASHBOARD_PASSWORD:-}"
+    volumes:
+      # 真实数据库（~1.1GB）：容器只读写宿主机这份，不会复制进镜像
+      - ./db:/app/db
+      - ./logs:/app/logs
+      # cookie / 代理配置：宿主机文件直接挂载，改完重启容器即可，不用重新 build。
+      # 注意：若宿主机没有 config.yaml，Docker 会把该路径建成空目录；请先 cp 一份。
+      - ./config.yaml:/app/config.yaml
+      # 房间列表默认存在容器内 /app/runtime-config.json，重建容器会丢。
+      # 需要保留时，先在宿主机 `touch runtime-config.json`，再取消下面这行注释：
+      # - ./runtime-config.json:/app/runtime-config.json
+    # 优雅退出：给 worker 刷库、收尾场次留时间（web-dashboard.js 里有 SIGTERM 处理）
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
