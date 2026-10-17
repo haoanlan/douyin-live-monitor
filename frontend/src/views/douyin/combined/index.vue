@@ -134,12 +134,17 @@
               <span class="combined-selection__cta" @click="onMergeClick">
                 <el-button
                   type="primary"
+                  class="combined-merge-btn"
                   :class="{ 'is-locked': selectedIds.size < 2 }"
                   :disabled="selectedIds.size < 2 || merging"
                   :loading="merging"
                   @click="viewCombined"
                 >
-                  <ArtSvgIcon icon="ri:merge-cells-horizontal" class="mr-1" />
+                  <!--
+                    loading 时 Element 会自己插一个转圈图标，这里把原图标去掉，
+                    宽度才不会因为"多塞一个图标"而变（再配合 .combined-merge-btn 的 min-width）
+                  -->
+                  <ArtSvgIcon v-if="!merging" icon="ri:merge-cells-horizontal" class="mr-1" />
                   查看合并
                 </el-button>
               </span>
@@ -296,14 +301,13 @@
         </el-row>
 
         <!--
-          本次合并包含的场次。
-          原来只在头部把 id 连成一串（"场次 252、207"）—— 认不出是哪天哪场，
-          看完数据也没法跳过去核对。现在给主播名 + 开始时间，并且可点进详情。
+          本次合并包含的场次：最多显示 3 场，其余折成「+N 场」（一场活动能合十几场，
+          全列出来会把弹窗顶部撑得很高）。点 chip 进该场次详情。
         -->
         <div v-if="combinedSessionChips.length" class="flex flex-wrap items-center gap-1.5 mb-4">
           <span class="text-xs text-g-500 shrink-0">包含场次</span>
           <button
-            v-for="s in combinedSessionChips"
+            v-for="s in combinedSessionChips.slice(0, 3)"
             :key="s.id"
             class="dy-combined-chip dy-pressable"
             :title="`打开场次 #${s.id} 的详情`"
@@ -311,119 +315,91 @@
           >
             {{ s.streamer }} · {{ fmtSessionRange(s.started_at, null) }}
           </button>
+          <span
+            v-if="combinedSessionChips.length > 3"
+            class="dy-combined-chip dy-combined-chip--more"
+            :title="
+              combinedSessionChips
+                .slice(3)
+                .map((s) => `#${s.id} ${s.streamer}`)
+                .join('\n')
+            "
+          >
+            +{{ combinedSessionChips.length - 3 }} 场
+          </span>
         </div>
 
         <!--
-          三个榜单**并排同时可见**（原来是三个 tab，一次只看得到一个，
-          想对照"送礼榜前几名在弹幕榜上排第几"就得来回切）。
-          窄屏自动堆成一列。
+          三个榜单用「场次详情」页那套卡片（art-card + art-card-header + dy-detail-row）：
+          排名徽标、头像、昵称、主数值 + 次数值，同一个视觉语言，不用另造一套。
+          桌面并排三列；手机端换成 tab 切换（一列三张太高，弹窗里滚不动）。
         -->
-        <div class="dy-combined-panels">
-          <section class="dy-combined-panel">
-            <div class="dy-combined-panel__head">
-              <span>礼物排行</span>
-              <span class="text-xs text-g-500">按钻石降序 Top {{ result.gifts.length }}</span>
+        <div v-if="!isMobile" class="combined-rank-grid">
+          <section v-for="p in rankPanels" :key="p.key" class="art-card p-5 flex flex-col">
+            <div class="art-card-header">
+              <div class="title">
+                <h4>{{ p.title }}</h4>
+                <p>{{ p.sub }}</p>
+              </div>
             </div>
-            <div class="dy-combined-panel__list">
+            <div class="dy-scroll combined-rank-list mt-4">
               <div
-                v-for="(g, i) in result.gifts"
-                :key="g.user_sec_uid || g.nickname"
-                class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+                v-for="(row, i) in p.rows"
+                :key="row.id"
+                class="dy-detail-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
               >
                 <span
                   class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
                   :class="rankClass(i)"
                   >{{ i + 1 }}</span
                 >
-                <el-avatar :size="32" :src="avatarSrc(g.avatar_url)" class="shrink-0">
-                  {{ g.nickname?.[0] || '?' }}
+                <el-avatar :size="32" :src="avatarSrc(row.avatar)" class="shrink-0">
+                  {{ row.name?.[0] || '?' }}
                 </el-avatar>
-                <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ g.nickname }}</span>
+                <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
                 <div class="text-right shrink-0">
-                  <div class="text-sm font-bold text-theme" :title="fmtFull(g.total_diamonds)">
-                    {{ fmtFull(g.total_diamonds) }}
-                  </div>
-                  <div class="text-xs text-g-500">{{ fmtFull(g.gift_count) }} 个礼物</div>
+                  <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
+                  <div v-if="row.extra" class="text-xs text-g-500">{{ row.extra }}</div>
                 </div>
               </div>
-              <div v-if="!result.gifts.length" class="text-xs text-g-500 py-6 text-center">
-                所选场次暂无礼物数据
-              </div>
-            </div>
-          </section>
-
-          <section class="dy-combined-panel">
-            <div class="dy-combined-panel__head">
-              <span>主播排行</span>
-              <span class="text-xs text-g-500">共 {{ result.anchorRanking.length }} 位</span>
-            </div>
-            <div class="dy-combined-panel__list">
-              <div
-                v-for="(a, i) in result.anchorRanking"
-                :key="a.anchor_sec_uid || a.anchor_name"
-                class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
-              >
-                <span
-                  class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
-                  :class="rankClass(i)"
-                  >{{ i + 1 }}</span
-                >
-                <el-avatar :size="32" :src="avatarSrc(a.anchor_avatar)" class="shrink-0">
-                  {{ a.anchor_name?.[0] || '?' }}
-                </el-avatar>
-                <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ a.anchor_name }}</span>
-                <div class="text-right shrink-0">
-                  <div class="text-sm font-bold text-theme" :title="fmtFull(a.total_diamonds)">
-                    {{ fmtFull(a.total_diamonds) }}
-                  </div>
-                  <div class="text-xs text-g-500">{{ fmtFull(a.user_count) }} 人送礼</div>
-                </div>
-              </div>
-              <div v-if="!result.anchorRanking.length" class="text-xs text-g-500 py-6 text-center">
-                所选场次暂无主播数据
-              </div>
-            </div>
-          </section>
-
-          <section class="dy-combined-panel">
-            <div class="dy-combined-panel__head">
-              <span>弹幕排行</span>
-              <span class="text-xs text-g-500"
-                >按条数降序 Top {{ result.danmakuRanking.length }}</span
-              >
-            </div>
-            <div class="dy-combined-panel__list">
-              <div
-                v-for="(d, i) in result.danmakuRanking"
-                :key="d.user_sec_uid || d.nickname"
-                class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
-              >
-                <span
-                  class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
-                  :class="rankClass(i)"
-                  >{{ i + 1 }}</span
-                >
-                <el-avatar :size="32" :src="avatarSrc(d.avatar)" class="shrink-0">
-                  {{ d.nickname?.[0] || '?' }}
-                </el-avatar>
-                <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ d.nickname }}</span>
-                <span class="text-sm font-bold text-g-800 shrink-0">
-                  {{ fmtFull(d.msg_count) }} 条
-                </span>
-              </div>
-              <div v-if="!result.danmakuRanking.length" class="text-xs text-g-500 py-6 text-center">
-                所选场次暂无弹幕数据
-              </div>
+              <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
             </div>
           </section>
         </div>
+
+        <el-tabs v-else v-model="rankTab" class="combined-rank-tabs">
+          <el-tab-pane v-for="p in rankPanels" :key="p.key" :label="p.title" :name="p.key">
+            <div class="dy-scroll combined-rank-list">
+              <div
+                v-for="(row, i) in p.rows"
+                :key="row.id"
+                class="dy-detail-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+              >
+                <span
+                  class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
+                  :class="rankClass(i)"
+                  >{{ i + 1 }}</span
+                >
+                <el-avatar :size="32" :src="avatarSrc(row.avatar)" class="shrink-0">
+                  {{ row.name?.[0] || '?' }}
+                </el-avatar>
+                <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
+                <div class="text-right shrink-0">
+                  <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
+                  <div v-if="row.extra" class="text-xs text-g-500">{{ row.extra }}</div>
+                </div>
+              </div>
+              <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed, onActivated, onMounted, ref } from 'vue'
+  import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import {
@@ -524,6 +500,65 @@
   const combinedStreamerCount = computed(
     () => new Set(combinedSessionChips.value.map((c) => c.streamer)).size
   )
+
+  /** 窄屏（<768px）弹窗里的榜单改用 tab 切换（三列并排在手机上一列都看不清） */
+  const isMobile = ref(false)
+  let mobileMq: MediaQueryList | null = null
+  const onMobileChange = (e: MediaQueryListEvent) => {
+    isMobile.value = e.matches
+  }
+  /** 手机端当前选中的榜单 tab */
+  const rankTab = ref('gifts')
+
+  /**
+   * 弹窗里的三个榜单：统一成同一套行结构，桌面并排三列、手机 tab 切换共用。
+   * 行的样式直接沿用场次详情页的 .dy-detail-row（排名徽标 + 头像 + 昵称 + 数值）。
+   */
+  const rankPanels = computed(() => {
+    const r = result.value
+    if (!r) return []
+    return [
+      {
+        key: 'gifts',
+        title: '礼物排行',
+        sub: `按钻石降序 Top ${r.gifts.length}`,
+        rows: r.gifts.map((g) => ({
+          id: g.user_sec_uid || g.nickname,
+          name: g.nickname,
+          avatar: g.avatar_url,
+          value: fmtFull(g.total_diamonds),
+          extra: `${fmtFull(g.gift_count)} 个礼物`
+        })),
+        empty: '所选场次暂无礼物数据'
+      },
+      {
+        key: 'anchors',
+        title: '主播排行',
+        sub: `共 ${r.anchorRanking.length} 位`,
+        rows: r.anchorRanking.map((a) => ({
+          id: a.anchor_sec_uid || a.anchor_name,
+          name: a.anchor_name,
+          avatar: a.anchor_avatar,
+          value: fmtFull(a.total_diamonds),
+          extra: `${fmtFull(a.user_count)} 人送礼`
+        })),
+        empty: '所选场次暂无主播数据'
+      },
+      {
+        key: 'danmaku',
+        title: '弹幕排行',
+        sub: `按条数降序 Top ${r.danmakuRanking.length}`,
+        rows: r.danmakuRanking.map((d) => ({
+          id: d.user_sec_uid || d.nickname,
+          name: d.nickname,
+          avatar: d.avatar,
+          value: `${fmtFull(d.msg_count)} 条`,
+          extra: ''
+        })),
+        empty: '所选场次暂无弹幕数据'
+      }
+    ]
+  })
 
   /** 跳到场次详情；先关弹窗，避免返回时还被它盖着 */
   function openSessionDetail(id: number) {
@@ -763,7 +798,13 @@
   // keep-alive：切回来时刷新一次（首次挂载 mounted 与 activated 都会触发，跳过重复请求）
   let activatedOnce = false
   onMounted(() => {
+    mobileMq = window.matchMedia('(max-width: 767px)')
+    isMobile.value = mobileMq.matches
+    mobileMq.addEventListener('change', onMobileChange)
     refresh()
+  })
+  onUnmounted(() => {
+    mobileMq?.removeEventListener('change', onMobileChange)
   })
   onActivated(() => {
     if (!activatedOnce) {
@@ -1181,46 +1222,46 @@
     max-width: 94vw;
   }
 
-  /* 三块并排；窄屏（<1280）堆成一列 */
-  .dy-combined-panels {
+  /* 「查看合并」按钮：给个最小宽度，loading 时换图标也不会把按钮撑宽/缩窄 */
+  .combined-merge-btn {
+    min-width: 116px;
+  }
+
+  /* 桌面：三张榜单卡并排（-md 以下换成 tab，见模板） */
+  .combined-rank-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
   }
 
-  /* 每块：浅灰底 + 边框，头部固定、列表自己滚（三块互不影响） */
-  .dy-combined-panel {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: 12px;
-    background: var(--art-gray-100);
-    border: 1px solid var(--art-card-border);
-    border-radius: 12px;
-  }
-
-  .dy-combined-panel__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--art-gray-800);
-  }
-
-  /*
-   * 列表高度：桌面 52vh（1440×900 下约 12-13 行，Top20 基本一屏看完）。
-   * 原来三个榜挤在一个 tab 里、列表限高 420px（约 7 行），看 Top20 要滚动还要来回切。
-   */
-  .dy-combined-panel__list {
+  /* 榜单列表：一列滚动（46vh ≈ 1440×900 下 10-11 行） */
+  .combined-rank-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 52vh;
-    overflow-y: auto;
+    max-height: 46vh;
     padding-right: 2px;
+    overflow-y: auto;
+  }
+
+  /*
+   * 弹窗内容区：留够高度让三张榜单卡**完整**露出来（922 高视口实测：
+   * 统计卡 96 + chips 46 + 卡头 60 + 内边距 40 + 列表 46vh ≈ 666px，78vh = 719px，装得下）。
+   * 再超出时内容区自己滚，不会把最后一张卡切在弹窗下沿。
+   */
+  :deep(.dy-combined-dialog .el-dialog__body) {
+    max-height: 78vh;
+    overflow-y: auto;
+    padding-bottom: 4px;
+  }
+
+  /* 手机端 tab：列表高度略高一点（没有三张卡并排的空间了） */
+  .combined-rank-tabs .combined-rank-list {
+    max-height: 58vh;
+  }
+
+  .combined-rank-tabs :deep(.el-tabs__header) {
+    margin-bottom: 12px;
   }
 
   /* 场次 chip：主播名 + 开始时间，点了进该场次详情 */
@@ -1251,25 +1292,15 @@
     border-color: color-mix(in srgb, var(--theme-color) 30%, transparent);
   }
 
-  @media (max-width: 1279px) {
-    .dy-combined-panels {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  /* 「+N 场」不是按钮，别给手型 */
+  .dy-combined-chip--more {
+    color: var(--art-gray-500);
+    cursor: default;
+  }
 
-    /*
-     * 堆叠时**不再给每块各自限高**：实测三块各 40vh 会让弹窗长到 1644px（视口才 900），
-     * 而且三块各自可滚 → 手机上嵌套滚动，很难操作。
-     * 改成：三块列表全部展开，滚动交给**弹窗内容区一个滚动条**（下面那条）。
-     */
-    .dy-combined-panel__list {
-      max-height: none;
-      overflow: visible;
-      padding-right: 0;
-    }
-
-    :deep(.dy-combined-dialog .el-dialog__body) {
-      max-height: 68vh;
-      overflow-y: auto;
-    }
+  .dy-combined-chip--more:hover {
+    color: var(--art-gray-500);
+    background: var(--art-gray-100);
+    border-color: var(--art-card-border);
   }
 </style>
