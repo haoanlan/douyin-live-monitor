@@ -232,11 +232,13 @@ export interface CombinedDanmakuItem {
 /**
  * 多场次合并统计（GET /api/sessions/combined?ids=1,2,3）。
  *
- * 后端约定（lib/routes/sessions.js:394-486）：
- *   - `ids` 少于 2 个 / 全是无效 id → HTTP 400（前端在点按钮前就挡掉）
- *   - `gifts` 按钻石降序 top20、`danmakuRanking` 按条数降序 top30、`anchorRanking` 不截断
- *   - `summary.user_count` 是**各场次预聚合 `agg_users` 之和**，跨场次不去重
- *     （同一人看了两场会被算两次），UI 上必须说明，不能读成"去重后的独立用户"
+ * 后端约定（lib/routes/sessions.js「合并场次数据」段）：
+ *   - `ids` 先去重；少于 2 个 / 全是无效 id → HTTP 400（前端在点按钮前就挡掉）
+ *   - 已结束场次读全量按人表（session_user_gift_totals / session_user_danmaku_totals），
+ *     老场次没有该表时退回 Top20/Top30 快照；直播中场次实时算
+ *   - `gifts` 按钻石降序 top20、`danmakuRanking` 按条数降序 top20、`anchorRanking` 不截断
+ *   - `summary.user_count` 是**跨场次去重后的真实人数**（送礼人 ∪ 发言者，按 sec_uid）
+ *   - `summary.user_count_sum` 是旧口径（各场 agg_users 相加），仅作对照
  */
 export interface CombinedResult {
   /** 实际参与合并的场次 id（后端回显，用于确认没有漏场） */

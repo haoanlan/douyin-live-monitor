@@ -283,22 +283,28 @@
       />
 
       <template v-else-if="result">
-        <!-- 4 张统计卡 -->
-        <el-row :gutter="16">
-          <el-col v-for="c in statCards" :key="c.label" :xs="12" :sm="6">
-            <div class="art-card h-20 mb-4 flex items-center justify-between px-4" :title="c.title">
-              <div class="min-w-0">
-                <div class="text-xs text-g-500">{{ c.label }}</div>
-                <div class="text-[20px] font-medium text-g-900 mt-1 leading-none truncate">
-                  {{ c.value }}
-                </div>
-              </div>
-              <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
-                <ArtSvgIcon :icon="c.icon" class="text-base text-theme" />
+        <!--
+          4 张统计卡：用 grid 而不是 el-row/el-col —— el-row 的 :gutter 会给行加负边距，
+          在弹窗里正好溢出 8px（实测弹窗横向滚动条就是这么来的）。
+        -->
+        <div class="combined-stat-grid">
+          <div
+            v-for="c in statCards"
+            :key="c.label"
+            class="art-card h-20 flex items-center justify-between px-4"
+            :title="c.title"
+          >
+            <div class="min-w-0">
+              <div class="text-xs text-g-500">{{ c.label }}</div>
+              <div class="text-[20px] font-medium text-g-900 mt-1 leading-none truncate">
+                {{ c.value }}
               </div>
             </div>
-          </el-col>
-        </el-row>
+            <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
+              <ArtSvgIcon :icon="c.icon" class="text-base text-theme" />
+            </div>
+          </div>
+        </div>
 
         <!--
           本次合并包含的场次：最多显示 3 场，其余折成「+N 场」（一场活动能合十几场，
@@ -359,7 +365,7 @@
                 <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
                 <div class="text-right shrink-0">
                   <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
-                  <div v-if="row.extra" class="text-xs text-g-500">{{ row.extra }}</div>
+                  <div class="combined-rank-extra text-xs text-g-500">{{ row.extra }}</div>
                 </div>
               </div>
               <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
@@ -386,7 +392,7 @@
                 <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
                 <div class="text-right shrink-0">
                   <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
-                  <div v-if="row.extra" class="text-xs text-g-500">{{ row.extra }}</div>
+                  <div class="combined-rank-extra text-xs text-g-500">{{ row.extra }}</div>
                 </div>
               </div>
               <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
@@ -1217,9 +1223,41 @@
   }
   /* ============ 合并结果弹窗（三个榜单并排） ============ */
 
-  /* 弹窗宽度：1180 在 1024 之类的小屏会超出视口，这里夹一道 */
+  /*
+   * 弹窗固定高度、自身不滚动：
+   * 高度 min(820px, 86vh) 让任何视口都装得下；header 固定，body 变 flex 容器，
+   * 多出来的高度给三张榜单卡，滚动只发生在**列表内部**。
+   * 原来是 body 上 max-height + overflow:auto → 纵向滚（最后一张卡被切）、
+   * 横向还冒一条滚动条（用户截图就是那样）。
+   */
   :deep(.dy-combined-dialog) {
+    display: flex;
+    flex-direction: column;
+    height: min(820px, 86vh);
     max-width: 94vw;
+    overflow: hidden;
+  }
+
+  :deep(.dy-combined-dialog .el-dialog__body) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 统计卡 / 场次 chips 不参与拉伸 */
+  :deep(.dy-combined-dialog .el-dialog__body > .el-row) {
+    flex-shrink: 0;
+  }
+
+  /* 4 张统计卡：4 列（手机 2 列），间距 16 */
+  .combined-stat-grid {
+    display: grid;
+    flex-shrink: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
   /* 「查看合并」按钮：给个最小宽度，loading 时换图标也不会把按钮撑宽/缩窄 */
@@ -1227,41 +1265,77 @@
     min-width: 116px;
   }
 
-  /* 桌面：三张榜单卡并排（-md 以下换成 tab，见模板） */
+  /* 桌面：三张榜单卡并排，占满剩余高度 */
   .combined-rank-grid {
     display: grid;
+    flex: 1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  /* 榜单列表：一列滚动（46vh ≈ 1440×900 下 10-11 行） */
-  .combined-rank-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 46vh;
-    padding-right: 2px;
-    overflow-y: auto;
+  .combined-rank-grid > .art-card {
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
 
   /*
-   * 弹窗内容区：留够高度让三张榜单卡**完整**露出来（922 高视口实测：
-   * 统计卡 96 + chips 46 + 卡头 60 + 内边距 40 + 列表 46vh ≈ 666px，78vh = 719px，装得下）。
-   * 再超出时内容区自己滚，不会把最后一张卡切在弹窗下沿。
+   * 榜单列表：唯一会滚的区域（只纵向，横向禁止）。
+   * 行高统一 48px —— 弹幕没有第二行，不固定的话那栏每行会比礼物/主播矮 14px。
    */
-  :deep(.dy-combined-dialog .el-dialog__body) {
-    max-height: 78vh;
+  .combined-rank-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    padding-right: 2px;
+    overflow-x: hidden;
     overflow-y: auto;
-    padding-bottom: 4px;
   }
 
-  /* 手机端 tab：列表高度略高一点（没有三张卡并排的空间了） */
-  .combined-rank-tabs .combined-rank-list {
-    max-height: 58vh;
+  .combined-rank-list .dy-detail-row {
+    flex-shrink: 0;
+    height: 48px;
+  }
+
+  /* 第二行：没有内容也占位，保证三栏主数值在同一条水平线上 */
+  .combined-rank-extra {
+    min-height: 14px;
+    line-height: 14px;
+  }
+
+  @media (max-width: 767px) {
+    .combined-stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+  }
+  /* 手机端：tab 占满剩余高度，只有列表滚 */
+  .combined-rank-tabs {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .combined-rank-tabs :deep(.el-tabs__header) {
-    margin-bottom: 12px;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+  }
+
+  .combined-rank-tabs :deep(.el-tabs__content) {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .combined-rank-tabs :deep(.el-tab-pane) {
+    height: 100%;
   }
 
   /* 场次 chip：主播名 + 开始时间，点了进该场次详情 */
