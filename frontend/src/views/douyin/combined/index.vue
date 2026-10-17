@@ -96,6 +96,7 @@
             </el-select>
           </div>
 
+          <!-- 时间：日期范围（桌面手机同一套，不再挂快捷项） -->
           <div class="combined-filter-item">
             <el-date-picker
               v-model="dateRange"
@@ -105,7 +106,6 @@
               range-separator="至"
               start-placeholder="开始日期"
               end-placeholder="结束日期"
-              :shortcuts="dateShortcuts"
             />
           </div>
 
@@ -485,55 +485,8 @@
 
   /** 主播筛选：空数组 = 全部（el-select 的 clearable 清空后也是空数组） */
   const filterStreamerIds = ref<Array<string | number>>([])
-  /**
-   * 时间范围：日期选择器（空 = 不限）。
-   * 之前是「全部 / 24 小时 / 7 天 / 30 天」四个固定档，活动常常落在"9 月 3 日到 9 月 5 日"
-   * 这种具体区间上，固定档选不出来，所以换成日期范围。
-   */
+  /** 时间范围（空 = 不限）：桌面手机同一个 daterange 控件 */
   const dateRange = ref<[Date, Date] | null>(null)
-
-  /** 日期选择器的快捷项（等价于原来的 24 小时 / 7 天 / 30 天，用起止日期表达） */
-  const dateShortcuts = [
-    {
-      text: '今天',
-      value: () => {
-        const end = new Date()
-        const start = new Date()
-        start.setHours(0, 0, 0, 0)
-        return [start, end]
-      }
-    },
-    {
-      text: '最近 7 天',
-      value: () => {
-        const end = new Date()
-        const start = new Date()
-        start.setDate(start.getDate() - 6)
-        start.setHours(0, 0, 0, 0)
-        return [start, end]
-      }
-    },
-    {
-      text: '最近 30 天',
-      value: () => {
-        const end = new Date()
-        const start = new Date()
-        start.setDate(start.getDate() - 29)
-        start.setHours(0, 0, 0, 0)
-        return [start, end]
-      }
-    },
-    {
-      text: '本月',
-      value: () => {
-        const end = new Date()
-        const start = new Date()
-        start.setDate(1)
-        start.setHours(0, 0, 0, 0)
-        return [start, end]
-      }
-    }
-  ]
 
   const merging = ref(false)
   const mergeError = ref('')
@@ -1186,6 +1139,36 @@
 
     .combined-item {
       padding: 9px 10px;
+    }
+  }
+  /*
+   * 手机上的日期范围面板：Element 的 daterange 面板是**两个整月并排**（约 646px），
+   * 390 宽的视口里装不下，两个月份会挤在一起互相压住。
+   * 这里只调弹层（不影响输入框本身）：面板收窄成单列、两个月份上下排，面板内部自己滚。
+   * 弹层是 teleport 到 body 的，所以必须用 :global 才选得到。
+   */
+  @media (max-width: 767px) {
+    :global(.el-picker-panel.el-date-range-picker) {
+      width: 322px !important;
+    }
+
+    :global(.el-date-range-picker .el-picker-panel__body) {
+      max-height: 62vh;
+      overflow-y: auto;
+    }
+
+    /* 左右两个月改成上下排 */
+    :global(.el-date-range-picker__content) {
+      float: none;
+      width: 100% !important;
+      padding: 0;
+    }
+
+    :global(.el-date-range-picker__content.is-right) {
+      border-left: none;
+      border-top: 1px solid var(--art-card-border);
+      margin-top: 8px;
+      padding-top: 8px;
     }
   }
   /* ============ 合并结果弹窗（三个榜单并排） ============ */
