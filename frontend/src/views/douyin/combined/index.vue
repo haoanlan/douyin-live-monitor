@@ -1195,11 +1195,12 @@
 
   /*
    * 推荐条也走"一横多个"：每组一张小卡，按宽度自动 1/2/3/4 列。
-   * 原来每组一整行，宽屏上右边全是空白，看起来像没收尾的列表。
+   * 这里用 auto-fit（不是 auto-fill）——只有 3 组时卡片会**撑满整行**，
+   * auto-fill 会让它们挤在左边、右边空一大片，看着像没对齐。
    */
   .combined-reco__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 8px;
     margin-top: 8px;
   }
@@ -1347,8 +1348,14 @@
 
   /*
    * 滚动区：204 场全渲染，滚动只发生在这个容器里（页面本身不被拉成十几屏）。
-   * 列数交给 auto-fill：宽屏 4 列、笔记本 3 列、平板 2 列、手机 1 列，不用写断点。
+   * 列数交给 auto-fill：宽屏 5 列、笔记本 4 列、平板 2~3 列、手机 1 列，不用写断点。
    * 260px 是实测能放下「2026/10/15 15:32 → 17:54」一行 + 三项指标的最小宽度。
+   *
+   * 两个边界上的坑，都在这里处理掉：
+   *   1. scrollbar-gutter: stable —— 不加的话，滚动条出现/消失会让可用宽度跳 10px，
+   *      列宽跟着变，最后一行卡片看起来"被切掉一截"；
+   *   2. 右边多留 4px（16 + 4）：1fr 的列宽是带小数的（如 312.6px），Chrome 会向上取整，
+   *      5 列最多多出 2px，贴着 16px 内边距时会把最后一列的圆角切掉。
    */
   .combined-list {
     display: grid;
@@ -1357,7 +1364,8 @@
     align-items: start;
     max-height: 58vh;
     overflow-y: auto;
-    padding: 12px 16px;
+    scrollbar-gutter: stable;
+    padding: 12px 20px 12px 16px;
   }
 
   /* 一张场次卡：勾选框 + （可选）接续条 + 时间/主播/时长 + 三项指标 */
