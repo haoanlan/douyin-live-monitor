@@ -809,9 +809,10 @@
  * 滑块写死 #cccccc、轨道用 --art-gray-200，而且用了 !important。
  * 放进卡片的浅灰底（--art-gray-100）上就是一条突兀的深色带。
  * 这里覆盖成"细、透明轨道、浅色滑块、悬停才明显"的样式：
- *   - 保留可见（8px→6px）：滚动条本身是"还能往下滚"的提示，直接隐藏会削弱可发现性
+ *   - 现在改为**自动隐藏**（全站统一）：默认透明，滚动时由 .dy-scrolling 显示、
+ *     停止滚动 700ms 后淡出；宽度/沟槽不变，所以隐藏不会推动内容。
  *   - 轨道透明：融进卡片底色，不再出现一条色带
- *   - Firefox 同样处理（scrollbar-width / scrollbar-color）
+ *   - Firefox 同样处理（scrollbar-width / scrollbar-color，见 core/reset.scss）
  * ========================================================================== */
 /*
  * 滚动条**不再在这里定义**：全站统一在 core/reset.scss 里一套
@@ -1039,12 +1040,19 @@
 
 .douyin-page .el-scrollbar__wrap {
   scrollbar-width: thin;
-  scrollbar-color: var(--dy-scrollbar-thumb) transparent;
+  /*
+   * 这里原来还写死了 scrollbar-color: var(--dy-scrollbar-thumb) transparent。
+   * 自动隐藏之后它是"常显"的（而且特异性 (0,2,0) 会压过全局 .dy-scrolling），
+   * 必须删掉：颜色交给 core/reset.scss 的 * / .dy-scrolling 一套统一控制。
+   */
 }
 
-html.dark .dy-select-popper .el-select-dropdown__wrap::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 34%);
-}
+/*
+ * 这条原来硬编码深色下滑块悬停色。现在全站由
+ * `.dy-scrolling::-webkit-scrollbar-thumb:hover { background: var(--dy-scrollbar-thumb-hover) }`
+ * 统一提供（深色下该变量就是 34% 白），且要求 .dy-scrolling 存在 —— 不会再出现
+ * "空闲时鼠标划过下拉框就冒出一条滚动条"。故删除。
+ */
 
 /* ==========================================================================
  * 结果首次出现：极短的透明度淡入（无位移、无缩放）

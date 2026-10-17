@@ -12,8 +12,11 @@ import { prefetchPagesWhenIdle } from './router/core/prefetch'
 // 离线图标：必须在任何组件渲染前注册 —— 否则首屏图标会先走一次运行时 CDN，
 // 而这台机器上三个 iconify CDN 域名全部连不上（实测），结果就是图标空白。
 import { registerOfflineIcons } from './utils/ui/iconify-loader'
+import { setupScrollbarAutoHide } from './utils/ui/scrollbar-auto-hide'
 
 registerOfflineIcons()
+// 滚动条自动隐藏：全局只装一次 scroll 捕获监听（见 utils/ui/scrollbar-auto-hide.ts）
+setupScrollbarAutoHide()
 
 document.addEventListener(
   'touchstart',

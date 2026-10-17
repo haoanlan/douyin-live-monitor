@@ -11,13 +11,19 @@
  *      但它把 Firefox 的 scrollbar-color 写成了硬编码 rgb(0 0 0 / 18%)
  *      → 结果 **Chrome 与 Firefox 长得不一样**（同一页两个浏览器两套滚动条）
  *
- * 现在统一成一套：细、轨道透明、滑块低对比、悬停加深；浅色/深色 + Firefox 全覆盖。
+ * 现在统一成一套：细、轨道透明、滑块低对比；浅色/深色 + Firefox 全覆盖。
  * 不再需要各页面自己覆盖滚动条 —— 页面里只保留 overflow 之类的**布局**声明。
+ *
+ * 自动隐藏（用户要求："默认看不见，滚动时出现，停止滚动一会儿后淡出"）：
+ *   · 默认把滑块颜色设成透明（**只改颜色，不改宽度/沟槽** → 隐藏时内容不左右跳）；
+ *   · 全局只监听一次 scroll（捕获阶段），给真正滚动的元素加 .dy-scrolling，
+ *     停止滚动约 700ms 后移除（utils/ui/scrollbar-auto-hide.ts）；
+ *   · 显示/隐藏都是颜色变化，所以能淡入淡出；箭头（::-webkit-scrollbar-button）统一去掉。
  * ========================================================================== */
 
 :root {
   --dy-scrollbar-size: 8px;
-  /* 滑块：浅色下用低对比黑、深色下用低对比白，都只在悬停时明显 */
+  /* 滑块：浅色下用低对比黑、深色下用低对比白（滚动时才显示） */
   --dy-scrollbar-thumb: rgb(0 0 0 / 18%);
   --dy-scrollbar-thumb-hover: rgb(0 0 0 / 30%);
 }
@@ -27,10 +33,40 @@ html.dark {
   --dy-scrollbar-thumb-hover: rgb(255 255 255 / 34%);
 }
 
-/* Firefox（两个属性都要给，缺一个就是"Firefox 不生效"） */
+/*
+ * 自动隐藏的"颜色"必须能过渡。
+ *
+ * scrollbar-color 本身**不可动画**，直接改它只会硬切；把颜色放进 @property 注册的
+ * <color> 自定义属性里再过渡，浏览器会逐帧重算 scrollbar-color —— 实测能截到
+ * 中间的灰度（0 → 18% 黑 过程中的 214/104/43/142），所以"停止滚动后淡出"是真的淡出，
+ * 不是"等 700ms 突然消失"。
+ */
+@property --dy-scrollbar-active {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+/*
+ * Firefox 与 Chrome 121+ 真正给滑块上色的是 scrollbar-color。
+ * 实测（本机 Chrome）：同时给 scrollbar-color: red 与 ::-webkit-scrollbar-thumb: blue，
+ * 画出来是**红色** —— 新内核里 thumb 的 background-color 不参与绘制；
+ * 只有 Safari / 旧 Chrome 走下面 -webkit 那一套。两套都写，各内核观感一致。
+ *
+ * 默认 transparent = 看不见；滚动时 JS 给实际滚动元素加 .dy-scrolling 恢复主题色。
+ * 宽度由 scrollbar-width: thin 决定（保持改动前占位，隐藏与否都不影响布局）。
+ */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--dy-scrollbar-thumb) transparent;
+  --dy-scrollbar-active: transparent;
+  scrollbar-color: var(--dy-scrollbar-active) transparent;
+  /* 只过渡这一个自定义属性；其它属性的 transition 由各组件自己声明 */
+  transition: --dy-scrollbar-active 200ms ease;
+}
+
+/* 滚动中 / 刚滚完：见 frontend/src/utils/ui/scrollbar-auto-hide.ts */
+.dy-scrolling {
+  --dy-scrollbar-active: var(--dy-scrollbar-thumb);
 }
 
 /* 滚动条整体部分,必须要设置 */
@@ -44,22 +80,33 @@ html.dark {
   background-color: transparent;
 }
 
-/* 滚动条的滑块 */
+/*
+ * 滑块的**默认**状态：透明。
+ * 宽度/圆角/透明边框都不动 —— 只把颜色归零，滑块仍然占原来的位置，
+ * 所以隐藏时不会出现"内容突然变宽"的跳动。
+ */
 ::-webkit-scrollbar-thumb {
   border-radius: 9999px;
-  background-color: var(--dy-scrollbar-thumb) !important;
+  background-color: transparent !important;
   /* 透明边框把滑块"收窄"，看起来更细，也不贴边 */
   border: 1px solid transparent;
   background-clip: content-box !important;
   transition: background-color 0.2s;
 }
 
-::-webkit-scrollbar-thumb:hover {
+/* 滚动中才显形（Safari / 旧 Chrome；新内核看上方的 scrollbar-color 变量） */
+.dy-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--dy-scrollbar-thumb) !important;
+}
+
+/* 悬停再深一档（同样只对仍走 -webkit 的内核有效） */
+.dy-scrolling::-webkit-scrollbar-thumb:hover {
   background-color: var(--dy-scrollbar-thumb-hover) !important;
 }
 
-/* 滚动条的上下两端的按钮 */
+/* 滚动条上下两端的按钮（箭头）：统一去掉，不参与滚动条宽度 */
 ::-webkit-scrollbar-button {
+  display: none !important;
   height: 0;
   width: 0;
 }
