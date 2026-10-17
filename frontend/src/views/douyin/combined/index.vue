@@ -60,15 +60,25 @@
               clearable
               collapse-tags
               collapse-tags-tooltip
-              :max-collapse-tags="2"
+              :max-collapse-tags="1"
               placeholder="全部主播"
             >
+              <!--
+                label 只放主播名：el-select 的已选标签显示的是 label，
+                把「（147 场）」写进 label 会让标签变宽、两个就换行，把整块筛选条撑高。
+                场次数改在选项内部显示，不影响标签。
+              -->
               <el-option
                 v-for="o in streamerOptions"
                 :key="String(o.id)"
-                :label="`${o.name}（${o.count} 场）`"
+                :label="o.name"
                 :value="o.id"
-              />
+              >
+                <span class="combined-option">
+                  <span class="combined-option__name">{{ o.name }}</span>
+                  <span class="combined-option__count">{{ o.count }} 场</span>
+                </span>
+              </el-option>
             </el-select>
           </div>
 
@@ -965,6 +975,46 @@
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
   .combined-filter-select {
     width: 240px;
+  }
+
+  /*
+   * 多选时已选标签**不许换行**：Element 默认 flex-wrap: wrap，
+   * 标签一多就叠成两行，把整块筛选条从 46px 撑到 70px+（用户反馈"高度被顶高"）。
+   * 这里强制单行 + 省略号，多余的用「+N」折叠（collapse-tags + max-collapse-tags=1）。
+   */
+  .combined-filter-select :deep(.el-select__selection),
+  .combined-filter-select :deep(.el-select__tags) {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .combined-filter-select :deep(.el-tag),
+  .combined-filter-select :deep(.el-select__selected-item) {
+    max-width: 132px;
+  }
+
+  .combined-filter-select :deep(.el-tag__content) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 下拉选项：主播名 + 场次数（右对齐的灰字） */
+  .combined-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .combined-option__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .combined-option__count {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--dy-text-muted);
   }
 
   .combined-filter-date {
