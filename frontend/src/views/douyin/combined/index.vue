@@ -58,7 +58,6 @@
       <div class="art-card combined-filters mb-5">
         <div class="combined-filter-row">
           <div class="combined-filter-item">
-            <span class="combined-filter-label">主播</span>
             <el-select
               v-model="filterStreamerIds"
               class="combined-filter-select"
@@ -90,7 +89,6 @@
           </div>
 
           <div class="combined-filter-item">
-            <span class="combined-filter-label">时间</span>
             <el-date-picker
               v-model="dateRange"
               class="combined-filter-date"
@@ -104,7 +102,7 @@
           </div>
 
           <!--
-            选中情况 + 合并入口：原来在底部浮动条上，现在并进这一行（底栏已删除）。
+            选中情况 + 操作：只留「已选 N 场」，后面跟全选/清空/查看合并。
             未满 2 场时按钮 disabled —— Chrome 不给 disabled 按钮派发 click，
             所以提示挂在外层 span 上（锁定态给按钮 pointer-events: none）。
           -->
@@ -112,20 +110,13 @@
             <span class="combined-selection__count">
               已选 <b>{{ selectedIds.size }}</b> 场
             </span>
-            <!-- 跨直播间合并时必须一眼看出"这几个主播各选了几场"，否则合完才发现比例失衡 -->
-            <span
-              v-if="selectedBreakdown"
-              class="combined-selection__break"
-              :title="selectedBreakdown"
+            <el-button
+              :disabled="!filteredRows.length"
+              title="把当前筛选结果里的场次全部选中"
+              @click="selectAllFiltered"
             >
-              {{ selectedBreakdown }}
-            </span>
-            <span
-              class="combined-selection__diamonds"
-              :title="`所选场次钻石合计（精确值 ${fmtFull(selectedDiamonds)}）`"
-            >
-              合计 <b>{{ fmtNum(selectedDiamonds) }}</b> 钻
-            </span>
+              全选
+            </el-button>
             <el-button v-if="selectedIds.size" text @click="clearSelection">清空</el-button>
             <span class="combined-selection__cta" @click="onMergeClick">
               <el-button
@@ -641,27 +632,6 @@
       .sort((a, b) => b.ms - a.ms)
   })
 
-  /** 浮动条上的「各主播各选了几场」（跨直播间合并时确认比例，别合完才发现失衡） */
-  const selectedBreakdown = computed(() => {
-    if (!selectedIds.value.size) return ''
-    const counts = new Map<string, number>()
-    for (const r of allRows.value) {
-      if (!selectedIds.value.has(r.id)) continue
-      counts.set(r.streamerName, (counts.get(r.streamerName) || 0) + 1)
-    }
-    const items = [...counts.entries()].sort((a, b) => b[1] - a[1])
-    const head = items
-      .slice(0, 3)
-      .map(([name, n]) => `${name} ${n}`)
-      .join(' · ')
-    return items.length > 3 ? `${head} 等 ${items.length} 个主播` : head
-  })
-
-  /** 所选场次的钻石合计（浮动条上的「合计 X 钻」） */
-  const selectedDiamonds = computed(() =>
-    allRows.value.reduce((sum, r) => (selectedIds.value.has(r.id) ? sum + r.diamonds : sum), 0)
-  )
-
   /** 时长文案：4080 → "3h 20m" */
   function fmtDur(minutes: number | null): string {
     if (!minutes || minutes <= 0) return ''
@@ -678,6 +648,17 @@
       `${fmtSessionRange(row.startedAt, row.endedAt)}\n` +
       `钻石 ${fmtFull(row.diamonds)} · 礼物 ${fmtFull(row.gifts)} · 弹幕 ${fmtFull(row.danmaku)}`
     )
+  }
+
+  /**
+   * 「全选」：把**当前筛选结果**并入选择（只新增，不取消已有的）。
+   * 筛选在这里的用途就是"缩小范围后一次多选"，所以不提供"再点一次反选"的隐藏语义
+   * —— 要取消请用「清空」或直接点卡片。
+   */
+  function selectAllFiltered() {
+    const next = new Set(selectedIds.value)
+    for (const r of filteredRows.value) next.add(r.id)
+    selectedIds.value = next
   }
 
   /** 「清空选择」：清掉所有已选（含筛选范围外的），彻底回到 0 */
@@ -845,12 +826,6 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-  }
-
-  .combined-filter-label {
-    flex-shrink: 0;
-    font-size: 12px;
-    color: var(--dy-text-muted);
   }
 
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
@@ -1081,26 +1056,16 @@
     margin-left: auto;
   }
 
-  .combined-selection__count,
-  .combined-selection__diamonds {
+  .combined-selection__count {
     flex-shrink: 0;
     font-size: 13px;
     color: var(--dy-text-primary);
+    white-space: nowrap;
   }
 
-  .combined-selection__count b,
-  .combined-selection__diamonds b {
+  .combined-selection__count b {
     font-weight: 600;
     color: var(--theme-color);
-  }
-
-  .combined-selection__break {
-    max-width: 240px;
-    overflow: hidden;
-    font-size: 12px;
-    color: var(--dy-text-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .combined-selection__cta {
