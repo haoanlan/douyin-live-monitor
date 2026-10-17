@@ -67,9 +67,17 @@
               collapse-tags
               collapse-tags-tooltip
               :max-collapse-tags="1"
-              placeholder="选择主播（可多选）"
               aria-label="筛选主播"
             >
+              <!--
+                占位文字走 prefix 插槽：它在 wrapper 内部、正常文档流里，
+                既不会被底色盖住，也不会像绝对定位那样跑到框外；没选主播时才显示。
+              -->
+              <template #prefix>
+                <span v-if="!filterStreamerIds.length" class="combined-select-ph">
+                  选择主播（可多选）
+                </span>
+              </template>
               <!--
                 label 只放主播名：el-select 的已选标签显示的是 label，
                 把「（147 场）」写进 label 会让标签变宽、两个就换行，把整块筛选条撑高。
@@ -87,14 +95,6 @@
                 </span>
               </el-option>
             </el-select>
-            <!--
-              Element 自带的多选 placeholder（position:absolute + z-index:-1）在这个页面里
-              被 wrapper 底色盖住 —— DOM 有字、样式正常、像素全白（提 z-index 也压不上去）。
-              所以自己在同一位置画一行：pointer-events:none，点击仍然落到下面的 select。
-            -->
-            <span v-if="!filterStreamerIds.length" class="combined-select-ph" aria-hidden="true">
-              选择主播（可多选）
-            </span>
           </div>
 
           <div class="combined-filter-item">
@@ -849,21 +849,17 @@
     min-width: 0;
   }
 
-  /* 主播下拉：外面套一层相对定位，用来叠一行自己的占位文字 */
-  .combined-filter-item--select {
-    position: relative;
-  }
-
+  /*
+   * 主播下拉的占位文字：走 prefix 插槽，渲染在 wrapper 内部的正常文档流里。
+   * 试过两种都不行：Element 自带的多选占位层是 absolute + z-index:-1（被底色盖住，
+   * 提层级也压不上去）；自己叠一层 absolute 又会在样式没跟上时跑到框外。
+   * prefix 是 flex 子项，天然在框内 —— 和「信息查询」页那个搜索框的占位文字一个效果。
+   */
   .combined-select-ph {
-    position: absolute;
-    top: 50%;
-    left: 12px;
-    z-index: 2;
+    margin-right: 4px;
     font-size: 13px;
     color: var(--el-text-color-secondary);
-    pointer-events: none;
     white-space: nowrap;
-    transform: translateY(-50%);
   }
 
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
