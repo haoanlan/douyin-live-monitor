@@ -888,12 +888,17 @@
     text-overflow: ellipsis;
   }
 
-  /* 下拉选项：主播名 + 场次数（右对齐的灰字） */
+  /*
+   * 下拉选项：主播名靠左、场次数靠右。
+   * 右边留 18px 是给选中那个对勾的位置 —— 不留的话「147 场」和 ✓ 挤在一起；
+   * 所有选项都留同样宽度，选中/未选中的场次数才能上下对齐。
+   */
   .combined-option {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    padding-right: 18px;
   }
 
   .combined-option__name {
