@@ -310,7 +310,10 @@
           本次合并包含的场次：最多显示 3 场，其余折成「+N 场」（一场活动能合十几场，
           全列出来会把弹窗顶部撑得很高）。点 chip 进该场次详情。
         -->
-        <div v-if="combinedSessionChips.length" class="flex flex-wrap items-center gap-1.5 mb-4">
+        <div
+          v-if="combinedSessionChips.length"
+          class="combined-chips flex items-center gap-1.5 mb-4"
+        >
           <span class="text-xs text-g-500 shrink-0">包含场次</span>
           <button
             v-for="s in combinedSessionChips.slice(0, 3)"
@@ -365,7 +368,6 @@
                 <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
                 <div class="text-right shrink-0">
                   <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
-                  <div class="combined-rank-extra text-xs text-g-500">{{ row.extra }}</div>
                 </div>
               </div>
               <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
@@ -392,7 +394,6 @@
                 <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ row.name }}</span>
                 <div class="text-right shrink-0">
                   <div class="text-sm font-bold text-theme" :title="row.value">{{ row.value }}</div>
-                  <div class="combined-rank-extra text-xs text-g-500">{{ row.extra }}</div>
                 </div>
               </div>
               <el-empty v-if="!p.rows.length" :description="p.empty" :image-size="60" />
@@ -532,8 +533,7 @@
           id: g.user_sec_uid || g.nickname,
           name: g.nickname,
           avatar: g.avatar_url,
-          value: fmtFull(g.total_diamonds),
-          extra: `${fmtFull(g.gift_count)} 个礼物`
+          value: fmtFull(g.total_diamonds)
         })),
         empty: '所选场次暂无礼物数据'
       },
@@ -545,8 +545,7 @@
           id: a.anchor_sec_uid || a.anchor_name,
           name: a.anchor_name,
           avatar: a.anchor_avatar,
-          value: fmtFull(a.total_diamonds),
-          extra: `${fmtFull(a.user_count)} 人送礼`
+          value: fmtFull(a.total_diamonds)
         })),
         empty: '所选场次暂无主播数据'
       },
@@ -558,8 +557,7 @@
           id: d.user_sec_uid || d.nickname,
           name: d.nickname,
           avatar: d.avatar,
-          value: `${fmtFull(d.msg_count)} 条`,
-          extra: ''
+          value: `${fmtFull(d.msg_count)} 条`
         })),
         empty: '所选场次暂无弹幕数据'
       }
@@ -1260,6 +1258,29 @@
     margin-bottom: 16px;
   }
 
+  /* 「包含场次」：桌面换行；手机一行横向滑（两行 chip 会把榜单高度挤掉） */
+  .combined-chips {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 767px) {
+    .combined-chips {
+      flex-wrap: nowrap;
+      padding-bottom: 2px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .combined-chips::-webkit-scrollbar {
+      display: none;
+    }
+
+    .combined-chips .dy-combined-chip {
+      flex-shrink: 0;
+    }
+  }
+
   /* 「查看合并」按钮：给个最小宽度，loading 时换图标也不会把按钮撑宽/缩窄 */
   .combined-merge-btn {
     min-width: 116px;
@@ -1301,12 +1322,6 @@
     height: 48px;
   }
 
-  /* 第二行：没有内容也占位，保证三栏主数值在同一条水平线上 */
-  .combined-rank-extra {
-    min-height: 14px;
-    line-height: 14px;
-  }
-
   @media (max-width: 767px) {
     .combined-stat-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1334,8 +1349,16 @@
     overflow: hidden;
   }
 
+  /*
+   * tab 面板得是 flex 列容器，里面的列表（flex:1 + min-height:0）才能拿到可用高度并自己滚。
+   * 只写 height:100% 时列表按内容算高，超出部分被 content 的 overflow:hidden 直接裁掉，
+   * 连滚动条都没有 —— 手机上就表现为"下面是死的、滚不动"。
+   */
   .combined-rank-tabs :deep(.el-tab-pane) {
+    display: flex;
+    flex-direction: column;
     height: 100%;
+    min-height: 0;
   }
 
   /* 场次 chip：主播名 + 开始时间，点了进该场次详情 */
