@@ -102,6 +102,44 @@
               :shortcuts="dateShortcuts"
             />
           </div>
+
+          <!--
+            选中情况 + 合并入口：原来在底部浮动条上，现在并进这一行（底栏已删除）。
+            未满 2 场时按钮 disabled —— Chrome 不给 disabled 按钮派发 click，
+            所以提示挂在外层 span 上（锁定态给按钮 pointer-events: none）。
+          -->
+          <div class="combined-selection">
+            <span class="combined-selection__count">
+              已选 <b>{{ selectedIds.size }}</b> 场
+            </span>
+            <!-- 跨直播间合并时必须一眼看出"这几个主播各选了几场"，否则合完才发现比例失衡 -->
+            <span
+              v-if="selectedBreakdown"
+              class="combined-selection__break"
+              :title="selectedBreakdown"
+            >
+              {{ selectedBreakdown }}
+            </span>
+            <span
+              class="combined-selection__diamonds"
+              :title="`所选场次钻石合计（精确值 ${fmtFull(selectedDiamonds)}）`"
+            >
+              合计 <b>{{ fmtNum(selectedDiamonds) }}</b> 钻
+            </span>
+            <el-button v-if="selectedIds.size" text @click="clearSelection">清空</el-button>
+            <span class="combined-selection__cta" @click="onMergeClick">
+              <el-button
+                type="primary"
+                :class="{ 'is-locked': selectedIds.size < 2 }"
+                :disabled="selectedIds.size < 2 || merging"
+                :loading="merging"
+                @click="viewCombined"
+              >
+                <ArtSvgIcon icon="ri:merge-cells-horizontal" class="mr-1" />
+                查看合并
+              </el-button>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -109,7 +147,7 @@
         场次列表：不要卡片外壳，也不要排序行 —— 永远按开始时间倒序（最近的播在最上面）。
         204 场本来就是这一页的主体，多一层卡面/工具条只是多一圈边。
       -->
-      <div class="combined-list-zone mb-24">
+      <div class="combined-list-zone mb-5">
         <div class="combined-list">
           <div
             v-for="row in filteredRows"
@@ -183,48 +221,6 @@
         </div>
       </div>
     </template>
-
-    <!-- 底部浮动操作条：只在有场次可选时出现 -->
-    <div v-if="groups.length" class="dy-combined-bar">
-      <div class="flex items-center gap-3 min-w-0">
-        <span class="text-sm text-g-700 shrink-0">
-          已选 <b class="text-theme">{{ selectedIds.size }}</b> 场
-        </span>
-        <!-- 跨直播间合并时必须一眼看出"这几个主播各选了几场"，否则合完才发现比例失衡 -->
-        <span
-          v-if="selectedBreakdown"
-          class="text-xs text-g-500 truncate"
-          :title="selectedBreakdown"
-        >
-          {{ selectedBreakdown }}
-        </span>
-        <span
-          class="text-sm text-g-700 shrink-0"
-          :title="`所选场次钻石合计（精确值 ${fmtFull(selectedDiamonds)}）`"
-        >
-          合计 <b class="text-theme">{{ fmtNum(selectedDiamonds) }}</b> 钻
-        </span>
-        <el-button v-if="selectedIds.size" text @click="clearSelection">清空</el-button>
-      </div>
-      <!--
-        点击兜底：Element 的 disabled 按钮在 Chrome 里**不派发 click**，
-        所以「未满 2 场时点一下要提示」这条靠外层 span 接住 ——
-        锁定态给按钮加 pointer-events:none，事件就落到这层 span 上。
-      -->
-      <span class="dy-combined-bar__cta" @click="onMergeClick">
-        <el-button
-          type="primary"
-          class="dy-combined-bar__btn"
-          :class="{ 'is-locked': selectedIds.size < 2 }"
-          :disabled="selectedIds.size < 2 || merging"
-          :loading="merging"
-          @click="viewCombined"
-        >
-          <ArtSvgIcon icon="ri:merge-cells-horizontal" class="mr-1" />
-          查看合并
-        </el-button>
-      </span>
-    </div>
 
     <!-- ===================== 合并结果弹窗 ===================== -->
     <!--
@@ -1075,39 +1071,46 @@
     color: var(--dy-text-muted);
   }
 
-  /*
-   * 底部浮动操作条。
-   *
-   * 故意**不挂** `.art-card` / `.dy-toolbar`：那两个类会被 mobile-check 的
-   * 「卡片左右边与页面容器对齐」扫描命中，而固定定位的元素左右边天然不等宽，
-   * 会被误报成对齐问题。这里自带一套卡面样式（同一个 --default-box-color 底色）。
-   */
-  .dy-combined-bar {
-    position: fixed;
-    left: 50%;
-    bottom: 24px;
-    z-index: 20;
-    transform: translateX(-50%);
+  /* 选中情况 + 合并入口：原来在底部浮动条上，现在跟着筛选行走 */
+  .combined-selection {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    max-width: calc(100vw - 24px);
-    padding: 10px 16px;
-    background: var(--default-box-color);
-    border: 1px solid var(--art-gray-200);
-    border-radius: 12px;
-    box-shadow: 0 6px 24px rgb(0 0 0 / 12%);
+    gap: 8px;
+    min-width: 0;
+    margin-left: auto;
   }
 
-  /* 锁定态：让 click 穿过按钮落到外层 span 上，「点一下给提示」才生效 */
-  .dy-combined-bar__btn.is-locked {
-    pointer-events: none;
+  .combined-selection__count,
+  .combined-selection__diamonds {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--dy-text-primary);
   }
 
-  .dy-combined-bar__cta {
+  .combined-selection__count b,
+  .combined-selection__diamonds b {
+    font-weight: 600;
+    color: var(--theme-color);
+  }
+
+  .combined-selection__break {
+    max-width: 240px;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--dy-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .combined-selection__cta {
     display: inline-flex;
   }
 
+  /* 锁定态：让 click 穿过按钮落到外层 span 上，「点一下给提示」才生效 */
+  .combined-selection__cta .is-locked {
+    pointer-events: none;
+  }
   /* ============ 窄屏（<768px） ============ */
   /*
    * 卡片网格靠 auto-fill 自己掉到 1 列，这里只把间距、字号收一收；
@@ -1243,18 +1246,6 @@
     :deep(.dy-combined-dialog .el-dialog__body) {
       max-height: 68vh;
       overflow-y: auto;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .dy-combined-bar {
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      transform: none;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 8px 12px;
     }
   }
 </style>
