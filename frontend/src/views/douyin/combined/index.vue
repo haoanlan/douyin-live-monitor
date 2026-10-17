@@ -70,15 +70,6 @@
               aria-label="筛选主播"
             >
               <!--
-                占位文字走 prefix 插槽：它在 wrapper 内部、正常文档流里，
-                既不会被底色盖住，也不会像绝对定位那样跑到框外；没选主播时才显示。
-              -->
-              <template #prefix>
-                <span v-if="!filterStreamerIds.length" class="combined-select-ph">
-                  选择主播（可多选）
-                </span>
-              </template>
-              <!--
                 label 只放主播名：el-select 的已选标签显示的是 label，
                 把「（147 场）」写进 label 会让标签变宽、两个就换行，把整块筛选条撑高。
                 场次数改在选项内部显示，不影响标签。
@@ -849,19 +840,6 @@
     min-width: 0;
   }
 
-  /*
-   * 主播下拉的占位文字：走 prefix 插槽，渲染在 wrapper 内部的正常文档流里。
-   * 试过两种都不行：Element 自带的多选占位层是 absolute + z-index:-1（被底色盖住，
-   * 提层级也压不上去）；自己叠一层 absolute 又会在样式没跟上时跑到框外。
-   * prefix 是 flex 子项，天然在框内 —— 和「信息查询」页那个搜索框的占位文字一个效果。
-   */
-  .combined-select-ph {
-    margin-right: 4px;
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
-    white-space: nowrap;
-  }
-
   /* 给固定宽度，否则默认 240px 会把日期挤到第二行 */
   .combined-filter-select {
     width: 240px;
@@ -1135,11 +1113,17 @@
    */
   @media (max-width: 767px) {
     /*
-     * 筛选行在手机上竖排：主播下拉、日期范围各占一整行，
-     * 快捷操作整行靠左排开（不再 ml-auto 右推）。
+     * 手机上把顶栏压成三行：
+     *   1. 主播下拉（整行）
+     *   2. 日期范围（整行）
+     *   3. 「已选 N 场 ........ 全选  查看合并」（一行，不再各占一行）
      */
+    .combined-filters {
+      padding: 10px 12px;
+    }
+
     .combined-filter-row {
-      gap: 10px;
+      gap: 8px;
     }
 
     .combined-filter-item {
@@ -1153,26 +1137,39 @@
       min-width: 0;
     }
 
-    /* 窄屏：选中区换行后不再画左侧竖线，也不额外缩进 */
+    /* 选中区：不再画左侧竖线，改成一行「已选 N 场 ……… 按钮」 */
     .combined-selection {
+      flex-wrap: nowrap;
+      width: 100%;
       margin-left: 0;
       padding-left: 0;
       border-left: none;
     }
-    .combined-list {
-      padding: 0;
+
+    .combined-selection__count {
+      font-size: 12px;
     }
 
-    /* 窄屏卡片更窄，四周收一点 */
-    .combined-filters {
-      padding: 12px 14px;
+    /* 按钮往右靠，跟左边的「已选 N 场」拉开 */
+    .combined-selection__actions {
+      margin-left: auto;
+      gap: 6px;
+    }
+
+    /* 手机上把按钮收窄一点，两个按钮才放得下一行 */
+    .combined-selection__actions :deep(.el-button) {
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .combined-list {
+      padding: 0;
     }
 
     .combined-item {
       padding: 9px 10px;
     }
   }
-
   /* ============ 合并结果弹窗（三个榜单并排） ============ */
 
   /* 弹窗宽度：1180 在 1024 之类的小屏会超出视口，这里夹一道 */
