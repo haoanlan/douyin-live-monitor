@@ -146,18 +146,22 @@
               @change="toggle(row.id)"
             />
             <div class="combined-item__body">
+              <!-- 第一行：时间段（独占一行，跨天写法才不会被挤成省略号） -->
               <div class="combined-item__time">
                 {{ fmtSessionRange(row.startedAt, row.endedAt, narrow) }}
               </div>
+              <!-- 第二行：主播胶囊 + 状态（直播中红标 / 已结束灰字）+ 时长 -->
               <div class="combined-item__meta">
                 <span class="combined-item__streamer" :title="row.streamerName">
                   {{ row.streamerName }}
                 </span>
                 <span v-if="row.isLive" class="combined-item__live">直播中</span>
+                <span v-else class="combined-item__ended">已结束</span>
                 <span v-if="row.durationMin" class="combined-item__dur">
                   {{ fmtDur(row.durationMin) }}
                 </span>
               </div>
+              <!-- 第三行：三项指标（上面一条虚线分隔，和场次历史卡一样） -->
               <div class="combined-item__stats">
                 <span :title="`钻石 ${fmtFull(row.diamonds)}`">
                   <ArtSvgIcon icon="ri:diamond-line" />{{ fmtNum(row.diamonds) }}
@@ -1142,7 +1146,7 @@
     min-width: 0;
   }
 
-  /* 主播 + 时长这一行：主播名占位可截断，时长永远贴右边 */
+  /* 主播 + 状态 + 时长这一行：主播名占位可截断，时长永远贴右边 */
   .combined-item__meta {
     display: flex;
     align-items: center;
@@ -1150,10 +1154,14 @@
     min-width: 0;
   }
 
-  /* 时间是一行里最该先看的信息：加粗 + 等宽数字，跨天也不会左右晃 */
+  /*
+   * 时间独占一行：跨天场次是 "2026/10/07 21:01 → 2026/10/08 00:04"（33 字符），
+   * 和状态标签挤一行就会被省略号截断 —— 而"这场是哪天到哪天"正是选场次时最该看清的。
+   */
   .combined-item__time {
     font-size: 13px;
     font-weight: 600;
+    line-height: 1.35;
     color: var(--dy-text-primary);
     font-variant-numeric: tabular-nums;
   }
@@ -1174,10 +1182,27 @@
     border-radius: 999px;
   }
 
+  /*
+   * 正在进行的场次用红标（数据还在涨，合并进去之后数值会变），
+   * 已结束用灰字 —— 和「场次历史」页的 el-tag(danger/info) 一致，但不用 tag 的盒子，
+   * 免得 204 张卡上全是边框。
+   */
   .combined-item__live {
+    flex-shrink: 0;
+    height: 18px;
+    padding: 0 7px;
     font-size: 11px;
     font-weight: 600;
+    line-height: 18px;
     color: var(--el-color-danger);
+    background: color-mix(in srgb, var(--el-color-danger) 12%, transparent);
+    border-radius: 999px;
+  }
+
+  .combined-item__ended {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--dy-text-muted);
   }
 
   .combined-item__dur {
@@ -1187,13 +1212,17 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 指标行：上面一条虚线分隔（与场次历史卡的数据行同款） */
   .combined-item__stats {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 12px;
+    margin-top: 2px;
+    padding-top: 6px;
     font-size: 11px;
     color: var(--dy-text-muted);
+    border-top: 1px dashed var(--art-card-border);
   }
 
   .combined-item__stats span {
