@@ -1124,6 +1124,18 @@
 
 <style scoped>
   /* ============ 筛选行 ============ */
+  /*
+   * .art-card 本身**没有内边距**（各页自己加 p-4 / p-5），而工具条用的是 .dy-toolbar 的 20px。
+   * 这里不补内边距的话，「主播」「时间」这些标签会贴着卡片边框（实测 1px）。
+   * 统一成 20px，和工具条、列表工具条的文字左边缘对齐。
+   */
+  .combined-filters {
+    padding: 16px 20px;
+  }
+
+  .combined-reco {
+    padding: 16px 20px;
+  }
 
   /*
    * 主播标签：一排圆角小标签（名字 + 场次数）。
@@ -1344,7 +1356,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-bottom: 1px solid var(--art-card-border);
   }
 
@@ -1396,7 +1408,7 @@
     max-height: 58vh;
     overflow-y: auto;
     scrollbar-gutter: stable;
-    padding: 12px 20px 12px 16px;
+    padding: 12px 24px 12px 20px;
   }
 
   /* 一张场次卡：勾选框 + （可选）接续条 + 时间/主播/时长 + 三项指标 */
@@ -1584,7 +1596,17 @@
 
     .combined-list {
       max-height: 62vh;
-      padding: 10px 16px 10px 12px;
+      padding: 10px 20px 10px 14px;
+    }
+
+    /* 窄屏卡片更窄，四周收一点，但仍要跟工具条对齐（14px） */
+    .combined-filters,
+    .combined-reco {
+      padding: 12px 14px;
+    }
+
+    .combined-list-toolbar {
+      padding: 8px 14px;
     }
 
     .combined-item {
