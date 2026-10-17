@@ -86,37 +86,8 @@
             />
           </div>
 
-          <!-- 快捷操作都只作用于**当前筛选结果**（见脚本里各自的注释） -->
+          <!-- 只剩刷新：重新拉主播与场次 -->
           <div class="combined-filter-actions">
-            <el-button
-              :disabled="!filteredRows.length"
-              title="选中筛选结果里开始时间最新的 3 场（会替换掉筛选结果内原有的选择，筛选外的选择保留）"
-              @click="selectRecentFiltered"
-            >
-              <ArtSvgIcon icon="ri:time-line" class="mr-1" />
-              最近 {{ recentCount }} 场
-            </el-button>
-            <el-button
-              :disabled="!filteredRows.length"
-              :title="`把筛选出的 ${filteredRows.length} 场全部选中（筛选范围外已选的场次保留）`"
-              @click="selectAllFiltered"
-            >
-              <ArtSvgIcon icon="ri:list-check" class="mr-1" />
-              全选筛选结果
-            </el-button>
-            <!--
-              跨直播间合并的常见形态：「一场活动里每个直播间各取最近一场」。
-              逐个主播去点太慢，这里按当前筛选范围，每个主播各取开始时间最新的一场。
-            -->
-            <el-button
-              :disabled="streamerOptions.length < 2"
-              title="跨直播间合并用：当前范围内每个主播各选最近的一场（已在选择里的场次保留）"
-              @click="selectLatestPerStreamer"
-            >
-              <ArtSvgIcon icon="ri:live-line" class="mr-1" />
-              每个主播最近 1 场
-            </el-button>
-            <el-button :disabled="!selectedIds.size" @click="clearSelection">清空选择</el-button>
             <el-button :loading="loading" title="重新拉取主播与场次" @click="refresh">
               <ArtSvgIcon icon="ri:refresh-line" />
             </el-button>
@@ -125,36 +96,10 @@
       </div>
 
       <!--
-        场次列表：**不要卡片外壳**（原来是 art-card + 「当前 N 场」工具条）。
-        204 场本来就是这一页的主体，套一层卡面只是多一圈边和多一个计数；
-        排序按钮单独一行靠右，列表直接铺在页面上。
+        场次列表：不要卡片外壳，也不要排序行 —— 永远按开始时间倒序（最近的播在最上面）。
+        204 场本来就是这一页的主体，多一层卡面/工具条只是多一圈边。
       -->
       <div class="combined-list-zone mb-24">
-        <div class="combined-list-toolbar">
-          <div class="flex items-center gap-1">
-            <button
-              type="button"
-              class="combined-sort"
-              :class="{ 'combined-sort--on': sortKey === 'time' }"
-              title="按开始时间排序（再点一次切换正序/倒序）"
-              @click="toggleSort('time')"
-            >
-              时间
-              <ArtSvgIcon :icon="sortIcon('time')" />
-            </button>
-            <button
-              type="button"
-              class="combined-sort"
-              :class="{ 'combined-sort--on': sortKey === 'diamonds' }"
-              title="按钻石排序（再点一次切换正序/倒序）"
-              @click="toggleSort('diamonds')"
-            >
-              钻石
-              <ArtSvgIcon :icon="sortIcon('diamonds')" />
-            </button>
-          </div>
-        </div>
-
         <div class="combined-list">
           <div
             v-for="row in filteredRows"
@@ -519,9 +464,6 @@
     ms: number
   }
 
-  /** 排序字段；默认按开始时间降序（最近开的播在最上面） */
-  type SortKey = 'time' | 'diamonds'
-
   const router = useRouter()
 
   const groups = ref<StreamerGroup[]>([])
@@ -583,10 +525,6 @@
       }
     }
   ]
-
-  /** 当前排序字段 + 方向（false = 降序） */
-  const sortKey = ref<SortKey>('time')
-  const sortAsc = ref(false)
 
   const merging = ref(false)
   const mergeError = ref('')
@@ -694,17 +632,15 @@
   const hasFilter = computed(() => filterStreamerIds.value.length > 0 || !!dateRange.value)
 
   /**
-   * 当前筛选 + 排序后的行。
+   * 当前筛选后的行，**固定按开始时间倒序**（最近的播在最上面）。
+   * 这一页不再提供排序切换：合并看的是"同一段时间的几场"，按时间排是唯一合理的顺序。
    * filter 已返回新数组，所以这里的 sort 不会改动 allRows。
    */
   const filteredRows = computed<SessionItem[]>(() => {
     const picked = filterStreamerIds.value
-    const rows = allRows.value.filter(
-      (r) => (!picked.length || picked.includes(r.streamerId)) && inRange(r.ms)
-    )
-    const dir = sortAsc.value ? 1 : -1
-    const key = sortKey.value
-    return rows.sort((a, b) => (key === 'time' ? a.ms - b.ms : a.diamonds - b.diamonds) * dir)
+    return allRows.value
+      .filter((r) => (!picked.length || picked.includes(r.streamerId)) && inRange(r.ms))
+      .sort((a, b) => b.ms - a.ms)
   })
 
   /* ============ 相邻场次（这一页的主场景） ============
@@ -808,25 +744,6 @@
     return m ? `${h} 小时 ${m} 分钟` : `${h} 小时`
   }
 
-  /**
-   * 「每个主播最近 1 场」：跨直播间合并的常见形态 —— 一场活动里每个直播间各取最近一场。
-   * 作用范围是当前主播筛选（没筛 = 全部主播），只新增不取消已有选择。
-   */
-  function selectLatestPerStreamer() {
-    const picked = filterStreamerIds.value
-    const scope = picked.length
-      ? allRows.value.filter((r) => picked.includes(r.streamerId))
-      : allRows.value
-    const latest = new Map<string | number, SessionItem>()
-    for (const r of scope) {
-      const cur = latest.get(r.streamerId)
-      if (!cur || r.ms > cur.ms) latest.set(r.streamerId, r)
-    }
-    const next = new Set(selectedIds.value)
-    for (const r of latest.values()) next.add(r.id)
-    selectedIds.value = next
-  }
-
   /** 浮动条上的「各主播各选了几场」（跨直播间合并时确认比例，别合完才发现失衡） */
   const selectedBreakdown = computed(() => {
     if (!selectedIds.value.size) return ''
@@ -848,21 +765,6 @@
     allRows.value.reduce((sum, r) => (selectedIds.value.has(r.id) ? sum + r.diamonds : sum), 0)
   )
 
-  /** 点排序按钮切换：同一个再点一次换方向；换字段时先给降序（先看最大的那几场） */
-  function toggleSort(k: SortKey) {
-    if (sortKey.value === k) sortAsc.value = !sortAsc.value
-    else {
-      sortKey.value = k
-      sortAsc.value = false
-    }
-  }
-
-  /** 排序按钮的箭头：非当前排序项给中性双箭头（低透明度），当前项给粗单箭头 */
-  function sortIcon(k: SortKey) {
-    if (sortKey.value !== k) return 'ri:arrow-up-down-fill'
-    return sortAsc.value ? 'ri:arrow-up-wide-fill' : 'ri:arrow-down-wide-fill'
-  }
-
   /** 时长文案：4080 → "3h 20m" */
   function fmtDur(minutes: number | null): string {
     if (!minutes || minutes <= 0) return ''
@@ -879,39 +781,6 @@
       `${fmtSessionRange(row.startedAt, row.endedAt)}\n` +
       `钻石 ${fmtFull(row.diamonds)} · 礼物 ${fmtFull(row.gifts)} · 弹幕 ${fmtFull(row.danmaku)}`
     )
-  }
-
-  /* ============ 三个快捷操作（都只作用于**当前筛选结果**） ============
-   * 主用法是"合同一个直播间的相邻几场"：先把主播筛到一个（或几个），
-   * 再用下面三个按钮批量操作，最后点「查看合并」。
-   */
-  const recentCount = 3
-
-  /**
-   * 「最近 N 场」：把**筛选结果里**开始时间最新的 3 场设为已选。
-   *
-   * 语义是**替换筛选结果内的选择**，不是追加：用户点这个按钮的意图是
-   * "我要合的就是这几场"，追加会把之前在这个范围内点乱选的那些场次一起带进去，
-   * 还得手动去清。筛选范围**外**已选的场次不动 —— 那是在别的筛选条件（比如另一个
-   * 主播）下特意选好的，不该被这里的操作牵连。
-   */
-  function selectRecentFiltered() {
-    const next = new Set(selectedIds.value)
-    for (const r of filteredRows.value) next.delete(r.id)
-    const recent = [...filteredRows.value].sort((a, b) => b.ms - a.ms).slice(0, recentCount)
-    for (const r of recent) next.add(r.id)
-    selectedIds.value = next
-  }
-
-  /**
-   * 「全选筛选结果」：把筛选结果**并入**选择（只新增，不取消已有的）。
-   * 筛选在这里的用途就是"缩小范围后一次多选"，所以不提供"再点一次反选"的隐藏语义
-   * —— 要取消请用「清空选择」或直接点行。
-   */
-  function selectAllFiltered() {
-    const next = new Set(selectedIds.value)
-    for (const r of filteredRows.value) next.add(r.id)
-    selectedIds.value = next
   }
 
   /** 「清空选择」：清掉所有已选（含筛选范围外的），彻底回到 0 */
@@ -1165,44 +1034,6 @@
   /* 列表不再套卡片外壳：204 场本身就是这一页的主体，多一层卡面只是多一圈边 */
   .combined-list-zone {
     min-width: 0;
-  }
-
-  /* 排序行：无边框，靠右；只放两个排序按钮 */
-  .combined-list-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  /* 排序：两个小胶囊，当前排序的那颗高亮（箭头方向见 sortIcon） */
-  .combined-sort {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    height: 24px;
-    padding: 0 8px;
-    font-size: 12px;
-    color: var(--dy-text-muted);
-    cursor: pointer;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    transition:
-      color 0.15s,
-      background-color 0.15s;
-  }
-
-  .combined-sort:hover {
-    color: var(--theme-color);
-    background: var(--art-gray-100);
-  }
-
-  .combined-sort--on {
-    font-weight: 600;
-    color: var(--theme-color);
-    background: color-mix(in srgb, var(--theme-color) 10%, transparent);
   }
 
   /*
