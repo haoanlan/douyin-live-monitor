@@ -31,20 +31,16 @@
     />
 
     <!--
-      首屏骨架：与真实列表**同形**（一条条卡片），数据到达时不会跳高度。
+      首屏骨架：与真实列表**同形**（一条条卡片、同样的网格列数），数据到达时不跳高度。
     -->
     <div v-else-if="loading && !groups.length" class="art-card combined-list-card mb-5">
       <div class="combined-list">
-        <div v-for="i in 6" :key="i" class="combined-item combined-item--ghost">
+        <div v-for="i in 9" :key="i" class="combined-item combined-item--ghost">
           <el-skeleton-item variant="text" style="width: 14px; height: 14px" />
           <div class="combined-item__body">
-            <div class="combined-item__head">
-              <el-skeleton-item variant="text" style="width: 220px" />
-              <el-skeleton-item variant="text" style="width: 96px" />
-            </div>
-            <div class="combined-item__stats">
-              <el-skeleton-item variant="text" style="width: 140px" />
-            </div>
+            <el-skeleton-item variant="text" style="width: 86%" />
+            <el-skeleton-item variant="text" style="width: 46%" />
+            <el-skeleton-item variant="text" style="width: 68%" />
           </div>
         </div>
       </div>
@@ -173,18 +169,18 @@
             {{ recoExpanded ? '收起' : `展开全部 ${cutPairs.length} 组` }}
           </el-button>
         </div>
-        <div class="flex flex-col">
-          <div v-for="p in visibleCutPairs" :key="p.key" class="combined-reco__row">
-            <span class="combined-reco__streamer" :title="p.streamerName">{{
-              p.streamerName
-            }}</span>
-            <span class="combined-reco__range">{{ p.prevLabel }}</span>
-            <span class="combined-reco__arrow">↔</span>
-            <span class="combined-reco__range">{{ p.nextLabel }}</span>
-            <span class="combined-reco__gap">间隔 {{ fmtGap(p.minutes) }}</span>
-            <button type="button" class="combined-reco__btn" @click="selectPair(p)">
-              合并这两场
-            </button>
+        <div class="combined-reco__grid">
+          <div v-for="p in visibleCutPairs" :key="p.key" class="combined-reco__item">
+            <div class="combined-reco__head-row">
+              <span class="combined-reco__name" :title="p.streamerName">{{ p.streamerName }}</span>
+              <span class="combined-reco__gap">间隔 {{ fmtGap(p.minutes) }}</span>
+              <button type="button" class="combined-reco__btn" @click="selectPair(p)">
+                合并这两场
+              </button>
+            </div>
+            <div class="combined-reco__ranges">
+              {{ p.prevLabel }} <span class="combined-reco__arrow">＋</span> {{ p.nextLabel }}
+            </div>
           </div>
         </div>
       </div>
@@ -217,72 +213,73 @@
         </div>
 
         <div class="combined-list">
-          <template v-for="(row, i) in filteredRows" :key="row.id">
+          <div
+            v-for="row in filteredRows"
+            :key="row.id"
+            class="combined-item"
+            :class="selectedIds.has(row.id) ? 'combined-item--on' : ''"
+            :aria-selected="selectedIds.has(row.id)"
+            :title="rowTitle(row)"
+            @click="toggle(row.id)"
+          >
             <!--
-              同一主播相邻两场之间的连接条。
-              直播被切断重开后两场之间只隔几分钟，这种只有挨着看才看得出关系，
-              所以把间隔画在两条目中间，并自带一键「合并这两场」，不用先找再逐个勾。
+              这场是接着上一场的（同一主播、间隔 ≤30 分钟）：多半是直播被切断重开，
+              所以在这张卡上方给一条"距上一场 X 分钟 + 合并这两场"。
+              网格里卡片一行好几个，没有"上一行"可言，所以这条跟着**较晚的那一场**走。
             -->
-            <div v-if="rowGaps[i]" class="combined-link">
-              <span class="combined-link__text">距上一场 {{ fmtGap(rowGaps[i]?.minutes) }}</span>
+            <div v-if="pairOf(row.id)" class="combined-cont">
+              <span class="combined-cont__text">
+                <ArtSvgIcon icon="ri:arrow-up-double-line" class="text-g-400" />
+                距上一场 {{ fmtGap(pairOf(row.id)?.minutes) }}
+              </span>
               <button
                 type="button"
-                class="combined-link__btn"
+                class="combined-cont__btn"
                 title="同时选中这两场（同一主播的相邻两场）"
-                @click.stop="selectPair(rowGaps[i])"
+                @click.stop="selectPair(pairOf(row.id))"
               >
-                <ArtSvgIcon icon="ri:add-line" />
                 合并这两场
               </button>
             </div>
 
-            <!-- 整条目可点：拖选相邻几场时不用瞄准那个 14px 的复选框 -->
-            <div
-              class="combined-item"
-              :class="selectedIds.has(row.id) ? 'combined-item--on' : ''"
-              :aria-selected="selectedIds.has(row.id)"
-              :title="rowTitle(row)"
-              @click="toggle(row.id)"
-            >
-              <!--
-                勾选框的状态完全由 selectedIds 驱动（只给 :model-value）。
-                @click.stop 拦住冒泡，否则这次点击会先由本选框处理、再被整条的
-                @click 处理一次 —— 两下互相抵消，表现是"点勾选框没反应"。
-                真正的切换走 @change（一次用户点击只产生一次 change）。
-              -->
-              <el-checkbox
-                :model-value="selectedIds.has(row.id)"
-                :aria-label="`选择场次 #${row.id}`"
-                @click.stop
-                @change="toggle(row.id)"
-              />
-              <div class="combined-item__body">
-                <div class="combined-item__head">
-                  <span class="combined-item__time">
-                    {{ fmtSessionRange(row.startedAt, row.endedAt, narrow) }}
-                  </span>
-                  <span class="combined-item__streamer" :title="row.streamerName">
-                    {{ row.streamerName }}
-                  </span>
-                  <span v-if="row.isLive" class="combined-item__live">直播中</span>
-                  <span v-if="row.durationMin" class="combined-item__dur">
-                    {{ fmtDur(row.durationMin) }}
-                  </span>
-                </div>
-                <div class="combined-item__stats">
-                  <span :title="`钻石 ${fmtFull(row.diamonds)}`">
-                    <ArtSvgIcon icon="ri:diamond-line" />{{ fmtNum(row.diamonds) }}
-                  </span>
-                  <span :title="`礼物 ${fmtFull(row.gifts)}`">
-                    <ArtSvgIcon icon="ri:gift-2-line" />{{ fmtNum(row.gifts) }}
-                  </span>
-                  <span :title="`弹幕 ${fmtFull(row.danmaku)}`">
-                    <ArtSvgIcon icon="ri:chat-3-line" />{{ fmtNum(row.danmaku) }}
-                  </span>
-                </div>
+            <!--
+              勾选框的状态完全由 selectedIds 驱动（只给 :model-value）。
+              @click.stop 拦住冒泡，否则这次点击会先由本选框处理、再被整张卡的
+              @click 处理一次 —— 两下互相抵消，表现是"点勾选框没反应"。
+              真正的切换走 @change（一次用户点击只产生一次 change）。
+            -->
+            <el-checkbox
+              :model-value="selectedIds.has(row.id)"
+              :aria-label="`选择场次 #${row.id}`"
+              @click.stop
+              @change="toggle(row.id)"
+            />
+            <div class="combined-item__body">
+              <div class="combined-item__time">
+                {{ fmtSessionRange(row.startedAt, row.endedAt, narrow) }}
+              </div>
+              <div class="combined-item__meta">
+                <span class="combined-item__streamer" :title="row.streamerName">
+                  {{ row.streamerName }}
+                </span>
+                <span v-if="row.isLive" class="combined-item__live">直播中</span>
+                <span v-if="row.durationMin" class="combined-item__dur">
+                  {{ fmtDur(row.durationMin) }}
+                </span>
+              </div>
+              <div class="combined-item__stats">
+                <span :title="`钻石 ${fmtFull(row.diamonds)}`">
+                  <ArtSvgIcon icon="ri:diamond-line" />{{ fmtNum(row.diamonds) }}
+                </span>
+                <span :title="`礼物 ${fmtFull(row.gifts)}`">
+                  <ArtSvgIcon icon="ri:gift-2-line" />{{ fmtNum(row.gifts) }}
+                </span>
+                <span :title="`弹幕 ${fmtFull(row.danmaku)}`">
+                  <ArtSvgIcon icon="ri:chat-3-line" />{{ fmtNum(row.danmaku) }}
+                </span>
               </div>
             </div>
-          </template>
+          </div>
 
           <div v-if="!filteredRows.length" class="combined-empty">
             <ArtSvgIcon icon="ri:file-list-3-line" class="text-xl text-g-400" />
@@ -746,16 +743,6 @@
   const RECO_LIMIT = 3
   const recoExpanded = ref(false)
 
-  /** 每个场次 → 同一主播里**更早**那一场的 id（升序相邻关系） */
-  const prevOf = computed(() => {
-    const map = new Map<number, number>()
-    for (const g of groups.value) {
-      const asc = [...g.sessions].sort((a, b) => startMs(a) - startMs(b))
-      for (let i = 1; i < asc.length; i++) map.set(asc[i].id, asc[i - 1].id)
-    }
-    return map
-  })
-
   /** 上一场结束 → 这一场开始的间隔（分钟）；算不出来给 null */
   function rowGapMinutes(older: SessionItem, newer: SessionItem): number | null {
     const nextStart = newer.ms || toDate(newer.startedAt)?.getTime()
@@ -826,26 +813,20 @@
   )
 
   /**
-   * 列表里每一条**上方**要不要插一条「间隔」连接条（null = 不插）。
-   * 只在按时间排序时成立 —— 按钻石排序时两条相邻跟时间无关，插连接条是误导。
+   * 「这场是接着上一场的」查询表：key = 较晚那场的 id。
+   *
+   * 用 id 而不是列表下标 —— 卡片是网格排布（一行好几个），没有"上一行"这个概念；
+   * 换排序时下标全变，id 也不会变，所以这条提示在任何排序下都落在同一张卡上。
    */
-  const rowGaps = computed<Array<CutPair | null>>(() => {
-    const rows = filteredRows.value
-    const out: Array<CutPair | null> = new Array(rows.length).fill(null)
-    if (sortKey.value !== 'time') return out
-    for (let i = 1; i < rows.length; i++) {
-      // 降序时上一行是较新的那一场，升序时相反
-      const older = sortAsc.value ? rows[i - 1] : rows[i]
-      const newer = sortAsc.value ? rows[i] : rows[i - 1]
-      if (older.streamerId !== newer.streamerId) continue
-      // 只认"真的挨着的两场"：中间被别的场次隔着（比如同主播中间那场被筛掉了）就不插
-      if (prevOf.value.get(newer.id) !== older.id) continue
-      const minutes = rowGapMinutes(older, newer)
-      if (minutes === null || minutes > TIGHT_GAP_MIN) continue
-      out[i] = toCutPair(older, newer, minutes)
-    }
-    return out
+  const pairOfNewer = computed(() => {
+    const map = new Map<number, CutPair>()
+    for (const p of cutPairs.value) map.set(p.pairIds[1], p)
+    return map
   })
+
+  function pairOf(id: number) {
+    return pairOfNewer.value.get(id)
+  }
 
   /** 一键选中一对相邻场次（推荐条 / 分隔行共用） */
   function selectPair(p: CutPair | null | undefined) {
@@ -1212,14 +1193,51 @@
     white-space: nowrap;
   }
 
-  .combined-reco__range {
+  /*
+   * 推荐条也走"一横多个"：每组一张小卡，按宽度自动 1/2/3/4 列。
+   * 原来每组一整行，宽屏上右边全是空白，看起来像没收尾的列表。
+   */
+  .combined-reco__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .combined-reco__item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 10px;
+    background: var(--art-gray-100);
+    border: 1px solid var(--art-card-border);
+    border-radius: 10px;
+  }
+
+  .combined-reco__head-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .combined-reco__name {
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--art-gray-800);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .combined-reco__ranges {
     font-size: 12px;
     color: var(--dy-text-primary);
     font-variant-numeric: tabular-nums;
   }
 
   .combined-reco__arrow {
-    font-size: 12px;
     color: var(--dy-text-muted);
   }
 
@@ -1227,11 +1245,12 @@
     font-size: 11px;
     color: var(--theme-color);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   /* 一键「合并这两场」：做成轻量文字按钮，不跟主按钮抢注意力 */
   .combined-reco__btn,
-  .combined-link__btn {
+  .combined-cont__btn {
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -1248,46 +1267,40 @@
       border-color 0.15s;
   }
 
-  .combined-reco__btn {
-    margin-left: auto;
-  }
-
   .combined-reco__btn:hover,
-  .combined-link__btn:hover {
+  .combined-cont__btn:hover {
     background: color-mix(in srgb, var(--theme-color) 12%, transparent);
     border-color: color-mix(in srgb, var(--theme-color) 30%, transparent);
   }
 
-  /* ============ 相邻场次连接条 ============ */
+  /* ============ 场次卡片「接着上一场」的提示条 ============ */
   /*
-   * 夹在两条场次中间的细条：左侧一段虚线竖轨表示"这两场是接着的"，
-   * 右边给间隔与一键合并。刻意做得很轻（11px 灰字），不打断列表的节奏。
+   * 卡片是网格里的一个格子，没有"上一行"可言，所以这条提示挂在**较晚那一场**的卡上方：
+   * 一条虚线分隔 + 「距上一场 X 分钟」+ 一键合并。
    */
-  .combined-link {
+  .combined-cont {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-left: 22px;
-    padding: 1px 4px;
+    grid-column: 1 / -1;
+    padding-bottom: 6px;
     font-size: 11px;
     color: var(--dy-text-muted);
+    border-bottom: 1px dashed var(--art-card-border);
   }
 
-  .combined-link::before {
-    content: '';
-    width: 2px;
-    height: 14px;
-    background: repeating-linear-gradient(to bottom, var(--theme-color) 0 2px, transparent 2px 4px);
-    border-radius: 2px;
-    opacity: 0.55;
+  .combined-cont__text {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
   }
 
-  .combined-link__btn {
+  .combined-cont__btn {
     margin-left: auto;
   }
 
-  /* ============ 场次列表（卡片式，不用表格） ============ */
+  /* ============ 场次列表（卡片网格，不用表格） ============ */
   /* 卡片自带内边距会破坏工具条与列表的贴边，这里清零并裁掉圆角外的溢出 */
   .combined-list-card {
     padding: 0;
@@ -1332,22 +1345,28 @@
     background: color-mix(in srgb, var(--theme-color) 10%, transparent);
   }
 
-  /* 滚动区：204 场全渲染，滚动只发生在这个容器里（页面本身不被拉成十几屏） */
+  /*
+   * 滚动区：204 场全渲染，滚动只发生在这个容器里（页面本身不被拉成十几屏）。
+   * 列数交给 auto-fill：宽屏 4 列、笔记本 3 列、平板 2 列、手机 1 列，不用写断点。
+   * 260px 是实测能放下「2026/10/15 15:32 → 17:54」一行 + 三项指标的最小宽度。
+   */
   .combined-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 8px;
+    align-items: start;
     max-height: 58vh;
     overflow-y: auto;
     padding: 12px 16px;
   }
 
-  /* 一条场次：勾选框 + 时间/主播/时长 + 三项指标 */
+  /* 一张场次卡：勾选框 + （可选）接续条 + 时间/主播/时长 + 三项指标 */
   .combined-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 8px;
+    align-items: start;
+    padding: 8px 10px;
     cursor: pointer;
     background: var(--art-gray-100);
     border: 1px solid transparent;
@@ -1392,17 +1411,16 @@
 
   .combined-item__body {
     display: flex;
-    flex: 1;
     flex-direction: column;
     gap: 4px;
     min-width: 0;
   }
 
-  .combined-item__head {
+  /* 主播 + 时长这一行：主播名占位可截断，时长永远贴右边 */
+  .combined-item__meta {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
   }
 
@@ -1416,7 +1434,7 @@
 
   /* 主播名做成小胶囊：跨直播间合并时一眼看出这条属于哪个直播间 */
   .combined-item__streamer {
-    max-width: 200px;
+    max-width: 100%;
     height: 18px;
     padding: 0 7px;
     overflow: hidden;
@@ -1463,6 +1481,7 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    grid-column: 1 / -1;
     padding: 32px 0;
     font-size: 12px;
     color: var(--dy-text-muted);
@@ -1503,8 +1522,8 @@
 
   /* ============ 窄屏（<768px） ============ */
   /*
-   * 卡片式列表在手机上天然竖排，只需要把间距、字号收一收；
-   * 时间用短格式（省年份，见脚本里的 narrow），避免一条目里时间折两行。
+   * 卡片网格靠 auto-fill 自己掉到 1 列，这里只把间距、字号收一收；
+   * 时间用短格式（省年份，见脚本里的 narrow），免得一张卡里时间折成两行。
    */
   @media (max-width: 767px) {
     /*
@@ -1530,16 +1549,8 @@
       padding: 9px 10px;
     }
 
-    .combined-item__time {
-      font-size: 12px;
-    }
-
-    .combined-item__streamer {
-      max-width: 120px;
-    }
-
-    .combined-item__dur {
-      margin-left: 0;
+    .combined-reco__grid {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 
