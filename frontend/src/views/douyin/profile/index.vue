@@ -35,26 +35,24 @@
       </div>
 
       <!-- 头部 -->
-      <div v-else class="art-card p-5 mb-4">
+      <div v-else class="art-card p-5 mb-4 relative">
+        <!-- 返回信息查询：绝对定位在卡片右上角，不占行、不撑高头部 -->
+        <button
+          type="button"
+          class="dy-profile-back"
+          title="返回信息查询结果"
+          aria-label="返回信息查询结果"
+          @click="goBackToSearch"
+        >
+          <ArtSvgIcon icon="ri:arrow-left-line" class="text-xs" />
+          <span>返回查询</span>
+        </button>
         <div class="flex items-center gap-4 flex-wrap">
           <div class="relative shrink-0 flex">
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 min-w-0">
-              <div class="text-lg font-bold text-g-900 truncate">{{ profile?.nickname || '-' }}</div>
-              <!-- 返回信息查询：放在昵称这一行右侧，不再单独占一行（原来会把头部卡撑高） -->
-              <button
-                type="button"
-                class="dy-profile-back shrink-0"
-                title="返回信息查询结果"
-                aria-label="返回信息查询结果"
-                @click="goBackToSearch"
-              >
-                <ArtSvgIcon icon="ri:arrow-left-line" class="text-xs" />
-                <span>返回查询</span>
-              </button>
-            </div>
+            <div class="text-lg font-bold text-g-900 truncate pr-[86px]">{{ profile?.nickname || '-' }}</div>
             <div class="text-sm text-g-500 mt-0.5">
               <span v-if="profile?.giftStyle">{{ profile.giftStyle }}</span>
               <span v-if="profile?.danmakuStyle"> · 弹幕 {{ profile.danmakuStyle }}</span>
@@ -603,7 +601,9 @@
    * 不用胶囊（全圆角在卡片里显得突兀），也不用纯文字链（看着不像能点）。
    */
   .dy-profile-back {
-    position: relative;
+    position: absolute;
+    top: 12px;
+    right: 14px;
     display: inline-flex;
     gap: 3px;
     align-items: center;

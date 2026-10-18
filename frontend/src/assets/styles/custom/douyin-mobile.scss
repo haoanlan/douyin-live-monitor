@@ -582,6 +582,15 @@
    *    不再独占一行把头部撑高；标题区右侧留出 84px 避免被按钮压住
    *  - 时间行放开折行（见下面 __time）
    */
+/*
+   * 手机端：三个榜单在一个 grid、词云/动态在另一个 grid。
+   * 切到「动态」时，榜单 grid 里的卡片全被隐藏，但 grid 本身还留着 mb-5，
+   * 于是动态卡片离 tab 条比其它 tab 多出 12px（实测 24 vs 12）。
+   * 这里把"没有任何可见 pane"的 grid 整块隐藏。
+   */
+  .douyin-page .dy-detail-grid:not(:has(.dy-mobile-pane--on)) {
+    display: none;
+  }
   .douyin-page .dy-session-head {
     position: relative;
     padding: 12px 14px;
@@ -604,9 +613,17 @@
    * 比描边更像可点的实体，也不会像空盒子那样突兀。
    */
   .douyin-page .dy-session-head__actions .el-button {
-    width: 34px;
-    height: 34px;
+    /*
+     * 必须是**正方形**。!important 不是偷懒：
+     * 下面有一条 .douyin-page .el-button:not(.el-button--small):not(.is-text):not(.is-link)
+     * { min-height: 40px }（5 个类），权重压过这里，不提升就永远是 34×40 ——
+     * 比标题行高、右边顶到时间行上（用户："背景要正方形圆角矩形，不然占了时间的位置"）。
+     */
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 0 !important;
     padding: 0;
+    line-height: 1;
     color: var(--art-gray-600);
     background: var(--art-gray-100);
     border: 0;
