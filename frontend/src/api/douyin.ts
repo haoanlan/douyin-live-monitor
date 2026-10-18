@@ -271,6 +271,39 @@ export function fetchCombinedSessions(ids: number[]) {
   })
 }
 
+/** 某个主播在所选场次里的送礼人员（合并弹窗点主播那一行时用） */
+export interface CombinedAnchorPerson {
+  nickname: string
+  avatar_url?: string | null
+  user_sec_uid?: string | null
+  total_diamonds: number
+  gift_count: number
+}
+
+export function fetchCombinedAnchorPeople(ids: number[], anchor: string) {
+  return request.get<{ anchor: string; count: number; people: CombinedAnchorPerson[] }>({
+    url: '/api/sessions/combined/anchor-people',
+    params: { ids: ids.join(','), anchor },
+    showErrorMessage: false
+  })
+}
+
+/**
+ * 合并场次的「感谢榜单」图片地址。
+ *
+ * 和单场版同一个脚本（thanks-rank.js 本身就支持多场次：各场先连点去重再按人合并），
+ * 区别只是把 ids 都传进去、产物用哈希命名。
+ */
+export function getCombinedRankImageUrl(
+  ids: number[],
+  opts: { theme: string; page?: number; to: string; avatar?: string }
+): string {
+  const q = new URLSearchParams({ ids: ids.join(','), theme: opts.theme, to: opts.to })
+  if (opts.page && opts.page > 1) q.set('page', String(opts.page))
+  if (opts.avatar) q.set('avatar', opts.avatar)
+  return `/api/sessions/combined/rank-image?${q.toString()}`
+}
+
 // ===================== Streamers =====================
 
 /**
@@ -1030,7 +1063,8 @@ export interface QrLoginState {
   ok: boolean
   id?: string
   /** starting/loading=开窗口，waiting=等扫码，scanned=已扫码待确认，saved=已写入，其余为终止态 */
-  state?: 'starting' | 'loading' | 'waiting' | 'scanned' | 'saved' | 'error' | 'cancelled' | 'timeout'
+  state?:
+    'starting' | 'loading' | 'waiting' | 'scanned' | 'saved' | 'error' | 'cancelled' | 'timeout'
   message?: string
   /** 二维码（data:image/png;base64,…），等待扫码期间由后端截图给出 */
   qr?: string | null

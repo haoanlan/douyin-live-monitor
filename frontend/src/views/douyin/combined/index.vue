@@ -363,6 +363,12 @@
                 v-for="(row, i) in p.rows"
                 :key="row.id"
                 class="dy-detail-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+                :class="row.raw ? 'cursor-pointer hover:bg-g-100' : ''"
+                :role="row.raw ? 'button' : undefined"
+                :tabindex="row.raw ? 0 : undefined"
+                :aria-label="row.raw ? `查看 ${row.name} 收到的礼物` : undefined"
+                @click="row.raw && openAnchorPeople(row.raw)"
+                @keydown.enter.prevent="row.raw && openAnchorPeople(row.raw)"
               >
                 <span
                   class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
@@ -389,6 +395,12 @@
                 v-for="(row, i) in p.rows"
                 :key="row.id"
                 class="dy-detail-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+                :class="row.raw ? 'cursor-pointer hover:bg-g-100' : ''"
+                :role="row.raw ? 'button' : undefined"
+                :tabindex="row.raw ? 0 : undefined"
+                :aria-label="row.raw ? `查看 ${row.name} 收到的礼物` : undefined"
+                @click="row.raw && openAnchorPeople(row.raw)"
+                @keydown.enter.prevent="row.raw && openAnchorPeople(row.raw)"
               >
                 <span
                   class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
@@ -409,6 +421,97 @@
         </el-tabs>
       </template>
     </el-dialog>
+
+    <!--
+      「感谢榜单」：点主播排行里某一行 → 这个主播在所选场次里收到的礼物（谁送了多少）。
+      结构和场次详情页那个弹窗一致：标题栏右侧一颗下载图标，点开切成模板网格，
+      选模板就按「这次合并的场次」渲染并逐页下载该主播的感谢榜单。
+    -->
+    <el-dialog
+      v-model="peopleDialogVisible"
+      width="520"
+      class="combined-people-dialog"
+      align-center
+      :close-on-click-modal="false"
+    >
+      <template #header>
+        <div class="flex items-center gap-3">
+          <el-avatar :size="40" :src="avatarSrc(peopleAnchorAvatar)" class="shrink-0">
+            {{ peopleAnchorName?.[0] || '?' }}
+          </el-avatar>
+          <div class="min-w-0 flex-1">
+            <div class="text-base font-medium text-g-900 truncate">{{ peopleAnchorName }}</div>
+            <div class="text-xs text-g-500 mt-0.5">
+              所选 {{ selectedIds.size }} 场里收到礼物的人 · {{ peopleList.length }} 人
+            </div>
+          </div>
+          <button
+            class="size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            :disabled="rankDownloading || !rankThemes.length"
+            :title="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"
+            :aria-label="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"
+            @click="rankPickerOpen = !rankPickerOpen"
+          >
+            <ArtSvgIcon
+              :icon="
+                rankDownloading
+                  ? 'ri:loader-4-line'
+                  : rankPickerOpen
+                    ? 'ri:arrow-left-line'
+                    : 'ri:download-line'
+              "
+              class="text-base"
+              :class="rankDownloading ? 'animate-spin' : ''"
+            />
+          </button>
+        </div>
+      </template>
+
+      <!-- 选模板：选完自动下载并切回名单 -->
+      <div v-if="rankPickerOpen" class="max-h-80 overflow-y-auto">
+        <div class="mb-2.5 text-xs text-g-500">选择模板（选完自动下载这次合并的感谢榜单）</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <button
+            v-for="t in rankThemes"
+            :key="t"
+            class="dy-pressable rounded-xl border px-3 py-2.5 text-left transition-colors"
+            :class="
+              t === rankTheme
+                ? 'border-theme bg-theme/5 text-theme'
+                : 'border-g-200 text-g-700 hover:border-theme/50 hover:bg-g-100/60'
+            "
+            :disabled="rankDownloading"
+            @click="onPickRankTheme(t)"
+          >
+            <div class="text-sm font-medium truncate">{{ rankThemeLabel(t) }}</div>
+            <div class="mt-0.5 text-[11px] text-g-400 truncate">{{ t }}</div>
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="flex flex-col gap-2.5 max-h-80 overflow-y-auto">
+        <div
+          v-for="(p, i) in peopleList"
+          :key="`${p.user_sec_uid || p.nickname}-${i}`"
+          class="dy-detail-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+        >
+          <span class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0" :class="rankClass(i)">
+            {{ i + 1 }}
+          </span>
+          <el-avatar :size="28" :src="avatarSrc(p.avatar_url)" class="shrink-0">
+            {{ p.nickname?.[0] || '?' }}
+          </el-avatar>
+          <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ p.nickname }}</span>
+          <span class="text-sm font-bold text-theme shrink-0">{{ fmtFull(p.total_diamonds) }}</span>
+        </div>
+        <el-skeleton v-if="peopleLoading && !peopleList.length" :rows="4" animated />
+        <el-empty
+          v-else-if="!peopleList.length"
+          description="所选场次里这个主播没有收到礼物"
+          :image-size="60"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -417,13 +520,19 @@
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import {
+    fetchCombinedAnchorPeople,
     fetchCombinedSessions,
+    fetchRankThemes,
     fetchSessions,
     fetchStreamers,
+    getCombinedRankImageUrl,
+    type CombinedAnchorItem,
+    type CombinedAnchorPerson,
     type CombinedResult,
     type Session,
     type Streamer
   } from '@/api/douyin'
+  import { downloadWithAuth } from '@/utils/download'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtFull, fmtNum, fmtSessionRange, rankClass, toDate } from '@/utils/format'
 
@@ -527,8 +636,24 @@
   /**
    * 弹窗里的三个榜单：统一成同一套行结构，桌面并排三列、手机 tab 切换共用。
    * 行的样式直接沿用场次详情页的 .dy-detail-row（排名徽标 + 头像 + 昵称 + 数值）。
+   * 主播榜的每行带上原始对象（raw），点它就能查这个主播在所选场次里的送礼人员。
    */
-  const rankPanels = computed(() => {
+  interface RankRow {
+    id: string
+    name: string
+    avatar?: string | null
+    value: string
+    raw?: CombinedAnchorItem
+  }
+  interface RankPanel {
+    key: string
+    title: string
+    sub: string
+    rows: RankRow[]
+    empty: string
+  }
+
+  const rankPanels = computed<RankPanel[]>(() => {
     const r = result.value
     if (!r) return []
     return [
@@ -552,7 +677,8 @@
           id: a.anchor_sec_uid || a.anchor_name,
           name: a.anchor_name,
           avatar: a.anchor_avatar,
-          value: fmtFull(a.total_diamonds)
+          value: fmtFull(a.total_diamonds),
+          raw: a
         })),
         empty: '所选场次暂无主播数据'
       },
@@ -570,6 +696,113 @@
       }
     ]
   })
+
+  /* ==================== 感谢榜单下载（选主播 → 送礼人员 → 选模板 → 逐页下载） ==================== */
+  const peopleDialogVisible = ref(false)
+  const peopleAnchorName = ref('')
+  const peopleAnchorAvatar = ref('')
+  const peopleList = ref<CombinedAnchorPerson[]>([])
+  const peopleLoading = ref(false)
+
+  const rankTheme = ref('')
+  const rankThemes = ref<string[]>([])
+  const rankDefaultTheme = ref('depth-glass')
+  const rankDownloading = ref(false)
+  const rankPickerOpen = ref(false)
+
+  const RANK_THEME_LABELS: Record<string, string> = {
+    classic: '经典暗紫',
+    'depth-glass': '玻璃质感',
+    'depth-stack': '层叠玻璃',
+    'magazine-v1': '杂志封面 A',
+    'magazine-v2': '杂志封面 B',
+    noir: '黑白胶片',
+    typegrid: '字体网格',
+    cute: '可爱手绘',
+    news: '报纸排版',
+    ghost: '幽灵夜行',
+    faces: '人像拼贴',
+    ruler: '刻度尺',
+    'chroma-bar': '色带',
+    'chroma-tile': '色块拼贴',
+    'chroma-refined': '精致色块'
+  }
+  const rankThemeLabel = (t: string) => RANK_THEME_LABELS[t] || t
+
+  async function ensureRankThemes() {
+    if (rankThemes.value.length) return
+    try {
+      const r = await fetchRankThemes()
+      rankThemes.value = r.themes || []
+      rankDefaultTheme.value = r.default || 'depth-glass'
+      if (!rankTheme.value) rankTheme.value = rankDefaultTheme.value
+    } catch (e) {
+      console.warn('[rank-image] 模板清单获取失败:', apiErrorMessage(e, ''))
+    }
+  }
+
+  /** 点主播排行里的一行：拉这个主播在所选场次里的送礼人员 */
+  async function openAnchorPeople(row: CombinedAnchorItem) {
+    peopleAnchorName.value = row.anchor_name
+    peopleAnchorAvatar.value = row.anchor_avatar || ''
+    peopleList.value = []
+    rankPickerOpen.value = false
+    peopleDialogVisible.value = true
+    peopleLoading.value = true
+    void ensureRankThemes()
+    try {
+      const r = await fetchCombinedAnchorPeople([...selectedIds.value], row.anchor_name)
+      peopleList.value = r.people || []
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '送礼人员加载失败'))
+    } finally {
+      peopleLoading.value = false
+    }
+  }
+
+  /** 选模板 → 立刻下载这个主播的感谢榜单（多场次合并口径，分页下完） */
+  async function onPickRankTheme(theme: string) {
+    rankTheme.value = theme
+    rankPickerOpen.value = false
+    await downloadPeopleRank()
+  }
+
+  async function downloadPeopleRank() {
+    const ids = [...selectedIds.value]
+    if (!ids.length || !peopleAnchorName.value) return
+    if (ids.length > 20) {
+      ElMessage.warning('合并感谢榜单最多支持 20 场，请减少选择的场次')
+      return
+    }
+    await ensureRankThemes()
+    const theme = rankTheme.value || rankDefaultTheme.value
+    rankDownloading.value = true
+    let pages = 1
+    let ok = 0
+    try {
+      for (let p = 1; p <= pages; p++) {
+        await downloadWithAuth(
+          getCombinedRankImageUrl(ids, {
+            theme,
+            page: p,
+            to: peopleAnchorName.value,
+            avatar: peopleAnchorAvatar.value
+          }),
+          `感谢榜单_${peopleAnchorName.value}_${theme}_第${p}页.jpg`,
+          (headers) => {
+            const t = Number((headers['x-total-pages'] as string) || 1)
+            if (Number.isFinite(t) && t > 0) pages = Math.min(Math.floor(t), 20)
+          }
+        )
+        ok++
+      }
+      ElMessage.success(ok > 1 ? `已下载 ${ok} 张感谢榜单` : '感谢榜单已下载')
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '感谢榜单下载失败'))
+    } finally {
+      rankDownloading.value = false
+    }
+  }
 
   /** 跳到场次详情；先关弹窗，避免返回时还被它盖着 */
   function openSessionDetail(id: number) {
