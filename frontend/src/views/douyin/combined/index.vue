@@ -319,10 +319,17 @@
             v-for="s in combinedSessionChips.slice(0, 3)"
             :key="s.id"
             class="dy-combined-chip dy-pressable"
-            :title="`打开场次 #${s.id} 的详情`"
+            :title="`${s.streamer} · ${fmtSessionRange(s.started_at, null)}（点击打开场次 #${s.id}）`"
             @click="openSessionDetail(s.id)"
           >
-            {{ s.streamer }} · {{ fmtSessionRange(s.started_at, null) }}
+            <!--
+              文字必须包一层：chip 是 inline-flex，text-overflow: ellipsis 在
+              flex 容器上不生效（原来就是这么被硬裁成「…19:3」的）。
+              这层 span 成为 flex item 后被 blockify，省略号才真的出现。
+            -->
+            <span class="dy-combined-chip__text">
+              {{ s.streamer }} · {{ fmtSessionRange(s.started_at, null) }}
+            </span>
           </button>
           <span
             v-if="combinedSessionChips.length > 3"
@@ -1398,13 +1405,12 @@
   .dy-combined-chip {
     display: inline-flex;
     align-items: center;
-    max-width: 230px;
+    max-width: 260px;
     height: 26px;
     padding: 0 10px;
     overflow: hidden;
     font-size: 12px;
     color: var(--art-gray-700);
-    text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
     background: var(--art-gray-100);
@@ -1414,6 +1420,18 @@
       color 0.15s,
       background-color 0.15s,
       border-color 0.15s;
+  }
+
+  /*
+   * 省略号挂在文字这层上：chip 本身是 inline-flex（为了垂直居中），
+   * 而 text-overflow 在 flex 容器上不生效 —— 之前主播名长一点就直接被裁成
+   * 「…19:3」，连省略号都没有。span 作为 flex item 会被 blockify，才支持省略号。
+   */
+  .dy-combined-chip__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dy-combined-chip:hover {
