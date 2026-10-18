@@ -68,14 +68,17 @@
 
   /**
    * 回到顶部。
-   * 注意：手机上真正滚的是 **window**（实测 #app-main 的 overflow 是 visible、
-   * scrollHeight == clientHeight），只给 #app-main 赋 scrollTop 是无效的 ——
-   * 桌面的 useCommon().scrollToTop() 就只做了那一步。这里两个都归零。
+   *
+   * 手机上真正滚的是 **window**（实测 #app-main 的 overflow 是 visible、
+   * scrollHeight == clientHeight），只给 #app-main 赋 scrollTop 是无效的。
+   * 而且这里**不能直接赋 scrollTop**：那会瞬移，用户要的是线性滑动 ——
+   * 所以一律用 scrollTo({ behavior: 'smooth' })。
    */
   function backToTop(): void {
-    container = document.getElementById('app-main')
-    if (container) container.scrollTop = 0
-    if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+    const el = document.getElementById('app-main')
+    if (el && el.scrollHeight > el.clientHeight + 4) {
+      el.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 

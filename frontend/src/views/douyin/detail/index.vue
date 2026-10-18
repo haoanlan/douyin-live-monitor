@@ -102,11 +102,6 @@
       </div>
     </div>
 
-    <!--
-      手机端：三组内容切成 tab（榜单 / 数据 / 动态）。
-      桌面不渲染这条，页面保持原来的整页滚动；tab 只控制下面几块的显隐。
-    -->
-    <DyMobileTabs v-if="isMobile" v-model="mobileTab" :tabs="mobileTabs" />
 
     <!-- 统计卡片 -->
     <ElRow :gutter="20">
@@ -137,6 +132,11 @@
       </ElCol>
     </ElRow>
 
+    <!--
+      手机端：榜单/词云/动态切成四个 tab（礼物榜单 / 主播排名 / 弹幕榜单 / 动态）。
+      统计卡在 tab 之上，始终可见；桌面不渲染这条，页面保持原来的整页滚动。
+    -->
+    <DyMobileTabs v-if="isMobile" v-model="mobileTab" :tabs="mobileTabs" />
     <!--
       三个榜单：单行三列。
       原来这里是 el-row + 左右两个 el-col，各自 flex 竖堆若干个卡 ——

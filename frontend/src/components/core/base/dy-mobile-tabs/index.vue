@@ -5,6 +5,11 @@
   只在手机上按 tab 显示其中一组。el-tabs 的 el-tab-pane 会把内容拆进各自的
   容器里，等于把模板重写一遍；这里只要一条切换条，配合页面里的
   `.dy-mobile-pane` / `.dy-mobile-pane--on` 控制显隐即可。
+
+  视觉：下划线式 tab（和 Element 的 tab 一致），不用卡片胶囊 ——
+  胶囊样式在真机上会跟下面的卡片边缘叠出一条线，反馈过一次。
+  sticky 保留（长列表滚动时还能切），但底色是不透明的页面底色，
+  避免内容从下面透出来。
 -->
 <template>
   <div class="dy-mobile-tabs" role="tablist">
@@ -48,12 +53,10 @@
     z-index: 5;
     display: flex;
     gap: 4px;
-    padding: 4px;
     margin-bottom: 12px;
     overflow-x: auto;
     background: var(--default-box-color);
-    border: 1px solid var(--art-card-border);
-    border-radius: 12px;
+    border-bottom: 1px solid var(--art-card-border);
     scrollbar-width: none;
   }
 
@@ -62,25 +65,27 @@
   }
 
   .dy-mobile-tabs__item {
-    flex: 1 0 auto;
-    min-width: 84px;
-    padding: 8px 10px;
+    flex: 0 0 auto;
+    padding: 9px 12px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--art-gray-600);
+    color: var(--art-gray-500);
     white-space: nowrap;
     cursor: pointer;
     background: transparent;
     border: 0;
-    border-radius: 9px;
+    border-bottom: 2px solid transparent;
+    /* 压在容器那条 1px 线上，选中时线是连续的 */
+    margin-bottom: -1px;
     transition:
       color 0.15s,
-      background-color 0.15s;
+      border-color 0.15s;
   }
 
   .dy-mobile-tabs__item.is-active {
+    font-weight: 600;
     color: var(--theme-color);
-    background: color-mix(in srgb, var(--theme-color) 10%, transparent);
+    border-bottom-color: var(--theme-color);
   }
 
   .dy-mobile-tabs__count {

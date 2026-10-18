@@ -41,7 +41,7 @@
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
               <div class="text-lg font-bold text-g-900 truncate">{{ profile?.nickname || '-' }}</div>
               <!-- 返回信息查询：放在昵称这一行右侧，不再单独占一行（原来会把头部卡撑高） -->
               <button
@@ -598,34 +598,35 @@
     }
   }
 
-  /* 返回信息查询：跟昵称同一行的小胶囊，不额外占高度 */
+  /*
+   * 返回信息查询：跟昵称同一行的**文字链**（不是胶囊）。
+   * 胶囊在真机上跟卡片风格打架（用户反馈"不符合风格"），改成主题色小字 + 箭头，
+   * 视觉 22px 高，用透明伪元素把命中区扩到 34px。
+   */
   .dy-profile-back {
     position: relative;
     display: inline-flex;
-    gap: 3px;
+    gap: 2px;
     align-items: center;
-    height: 24px;
-    padding: 0 8px;
-    font-size: 11px;
-    color: var(--art-gray-600);
+    height: 28px;
+    padding: 0 2px;
+    font-size: 12px;
+    color: var(--art-gray-500);
     cursor: pointer;
-    background: var(--art-gray-100);
-    border: 1px solid var(--art-card-border);
-    border-radius: 999px;
-    transition:
-      color 0.15s,
-      border-color 0.15s;
+    background: transparent;
+    border: 0;
+    transition: color 0.15s;
 
-    /* 视觉 24px，但用一个透明伪元素把命中区扩到 36px（手指点得准） */
+
     &::after {
       position: absolute;
-      inset: -6px;
+      inset: -6px -4px;
       content: '';
     }
 
     &:hover {
       color: var(--theme-color);
-      border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
+      text-decoration: underline;
     }
   }
 </style>
