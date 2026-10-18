@@ -862,8 +862,6 @@
    */
   const statusKnown = computed(() => Boolean(status.value) && !statusError.value)
 
-  const configuredRooms = computed(() => status.value?.configuredRooms || 0)
-  const connectedRooms = computed(() => status.value?.ws?.rooms ?? 0)
 
 
   /**

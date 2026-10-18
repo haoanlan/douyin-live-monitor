@@ -53,7 +53,12 @@ export async function downloadWithAuth(
   try {
     const res = await axios.get(url, {
       responseType: 'blob',
-      timeout: 120000, // 报告可能是后端现生成（要渲染截图），给足时间
+      /*
+       * 后端渲染超时是 180s（report-image / thanks-rank 用 Chromium 截整页 HTML）；
+       * 前端 120s 会先断 —— 大报告（十几场合并）时用户看到"下载失败"，服务端其实还在跑。
+       * 两边统一到 180s。
+       */
+      timeout: 180000,
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
     })
     onResponse?.((res.headers || {}) as Record<string, unknown>)

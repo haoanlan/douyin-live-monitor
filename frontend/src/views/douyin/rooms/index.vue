@@ -586,7 +586,7 @@
     looking.value = true
     try {
       preview.value = await lookupRoom(id)
-    } catch (e) {
+    } catch {
       // 查询失败不阻断流程：允许直接添加，主播名交给后端自己解析
       ElMessage.warning('查询房间信息失败，可直接确认添加')
       preview.value = {

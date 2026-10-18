@@ -493,9 +493,6 @@
    * 下面两个 watch 会再各弹一条 —— 实测一次 500 弹了 3 条（用户只会觉得吵）。
    * 所以：状态失败时不再弹"状态数据已停止更新"；总览失败时不再弹"总览不是最新"。
    */
-  function suppressByRootCause(): boolean {
-    return Boolean(statusError.value || overviewError.value)
-  }
 
   /** 连接异常/加载失败 → 弹窗（带「重试」按钮） */
   watch(

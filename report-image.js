@@ -1332,46 +1332,8 @@ async function main() {
     if (ids.length === 1) {
       data = await loadFromDb(ids[0]);
     } else if (ids.length > 1) {
-      // 多session合并
-      const db = require('./db-sqlite.js');
-      const pool = db.getPool();
-      const placeholders = ids.map(() => '?').join(',');
-      const [sessRows] = await pool.query('SELECT id, duration_seconds FROM sessions WHERE id IN (' + placeholders + ')', ids);
-      const durMap = {};
-      sessRows.forEach(r => durMap[r.id] = r.duration_seconds || 0);
-      const parts = [];
-      for (const id of ids) {
-        const d = await loadFromDb(id);
-        if (d) { d.duration_seconds = durMap[id] || 0; parts.push(d); }
-      }
-      if (parts.length) {
-        const first = parts[0], last = parts[parts.length - 1];
-        data = {
-          ...first,
-          room_title: [first.room_title, ...parts.slice(1).map(p => p.room_title)].filter(Boolean).join(' / '),
-          start_time: first.start_time,
-          end_time: last.end_time,
-          duration_seconds: parts.reduce((s, p) => s + (p.duration_seconds || 0), 0),
-          gifts: parts.flatMap(p => p.gifts),
-          danmaku: parts.flatMap(p => p.danmaku),
-          members: parts.flatMap(p => p.members),
-          online: parts.flatMap(p => p.online || []),
-          rawMessages: new Map(parts.flatMap(p => [...(p.rawMessages || new Map()).entries()])),
-          stats: {
-            danmaku: parts.reduce((s, p) => s + (p.stats?.danmaku || 0), 0),
-            gift: parts.reduce((s, p) => s + (p.stats?.gift || 0), 0),
-            like: parts.reduce((s, p) => s + (p.stats?.like || 0), 0),
-            member: parts.reduce((s, p) => s + (p.stats?.member || 0), 0),
-            follow: parts.reduce((s, p) => s + (p.stats?.follow || 0), 0),
-            social: parts.reduce((s, p) => s + (p.stats?.social || 0), 0),
-            online: parts.reduce((max, p) => Math.max(max, p.stats?.online || 0), 0)
-          }
-        };
-        // 合并头像缓存
-        for (const p of parts) {
-          if (p._avatarCache) Object.assign(data._avatarCache || (data._avatarCache = {}), p._avatarCache);
-        }
-      }
+      // 多场次合并统一走 loadMergedFromDb（与看板「合并报告」同一套口径，避免两处逻辑漂移）
+      data = await loadMergedFromDb(ids);
     }
   }
   if (!data) data = useJson ? loadJson() : await load();

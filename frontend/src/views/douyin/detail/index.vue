@@ -678,7 +678,6 @@
 <script setup lang="ts">
   import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { echarts } from '@/plugins/echarts'
   import {
     fetchSessionDetail,
     fetchSessionGiftDetails,
@@ -695,6 +694,7 @@
   import { replaceDouyinEmoji, esc } from '@/utils/douyin-emoji'
   import { fmtTime, formatDuration, fmtNum, fmtFull, fmtTitle, fmtSessionRange, rankClass } from '@/utils/format'
   import { apiErrorMessage } from '@/utils/douyin-error'
+  import { rankThemeLabel } from '@/utils/rank-themes'
   import { useIsMobile } from '@/hooks/core/useIsMobile'
 
   interface FeedItem {
@@ -887,35 +887,6 @@
   const rankDefaultTheme = ref('depth-glass')
   const rankDownloading = ref(false)
 
-  /*
-   * 模板中文名（用户采纳："模板名是英文 key，配一套中文名"）。
-   * 只用于展示：清单本身来自脚本（后端读 MAG_THEME_NAMES），
-   * 这里没覆盖到的模板回落到原始 key，不会因为脚本加模板而显示不出来。
-   */
-  const RANK_THEME_LABELS: Record<string, string> = {
-    classic: '经典暗紫',
-    'depth-glass': '玻璃质感',
-    'depth-stack': '层叠玻璃',
-    'magazine-v1': '杂志封面 A',
-    'magazine-v2': '杂志封面 B',
-    noir: '黑白胶片',
-    typegrid: '字体网格',
-    cute: '可爱手绘',
-    news: '报纸排版',
-    energy: '活力渐变',
-    'cute-journal': '少女手帐',
-    'cute-candy': '糖果甜心',
-    'cute-story': '童话绘本',
-    'cute-chibi': 'Q 版人物',
-    ghost: '幽灵夜行',
-    faces: '人像拼贴',
-    ruler: '刻度尺',
-    monolith: '黑色巨石',
-    'chroma-bar': '色带',
-    'chroma-tile': '色块拼贴',
-    'chroma-refined': '精致色块',
-  }
-  const rankThemeLabel = (t: string) => RANK_THEME_LABELS[t] || t
 
   /** 弹窗内容是否切到"选模板"视图（点标题栏那颗下载图标切换） */
   const rankPickerOpen = ref(false)

@@ -136,8 +136,12 @@ ENV NODE_ENV=production \
     DASHBOARD_PORT=9871
 
 # tzdata: TZ 生效；lsof: 看板“重启 Go 代理”用 lsof 找 1088 的监听进程；ca-certificates: HTTPS
+# fonts-noto-cjk / fonts-noto-color-emoji：图片报告和感谢榜单是用 Chromium 把 HTML 截图的，
+#   容器里没有中文字体时，图上的中文、emoji 会全部渲染成方框（□□□，实测 debian-slim 默认无 CJK 字体）。
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates tzdata lsof \
+    && apt-get install -y --no-install-recommends \
+       ca-certificates tzdata lsof \
+       fonts-noto-cjk fonts-noto-color-emoji \
     && ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -154,8 +158,7 @@ COPY --from=proxy-download --chown=node:node /out/douyinLive-linux-amd64 ./douyi
 COPY --chown=node:node package.json package-lock.json config.example.yaml favicon.svg ./
 COPY --chown=node:node \
      web-dashboard.js monitor.js db-sqlite.js report-image.js feishu-send.js \
-     douyin-user.js thanks-rank.js thanks-rank-diamonds.js merge-sessions.js \
-     query-user-gifts.js sync-gift-icons.js ./
+     douyin-user.js thanks-rank.js sync-gift-icons.js ./
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node assets ./assets
 
@@ -168,6 +171,18 @@ RUN mkdir -p /app/db /app/logs /app/streamers /app/current_sessions \
     && chown node:node /app \
     && chown -R node:node /app/db /app/logs /app/streamers /app/current_sessions \
     && chmod 0755 /app/douyinLive-linux-amd64
+
+# 「图片报告」「感谢榜单」需要 Chromium（约 +300MB），默认不装，需要时构建带参：
+#   docker build --build-arg WITH_PLAYWRIGHT=1 -t douyin-live .
+# 注意两个点：
+#   1) 必须显式指定 PLAYWRIGHT_BROWSERS_PATH：默认装在 /root/.cache，切到 node 用户后读不到；
+#   2) chmod -R a+rX 让 node 用户能执行这份 chromium。
+ARG WITH_PLAYWRIGHT=0
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN if [ "$WITH_PLAYWRIGHT" = "1" ]; then \
+      npx playwright install --with-deps chromium \
+      && chmod -R a+rX /opt/ms-playwright ; \
+    fi
 
 USER node
 

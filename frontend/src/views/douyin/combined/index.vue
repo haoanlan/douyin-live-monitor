@@ -533,7 +533,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue'
+  import { computed, onActivated, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import {
@@ -553,6 +553,8 @@
   import { downloadWithAuth } from '@/utils/download'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtFull, fmtNum, fmtSessionRange, rankClass, toDate } from '@/utils/format'
+  import { rankThemeLabel } from '@/utils/rank-themes'
+  import { useIsMobile } from '@/hooks/core/useIsMobile'
 
   /*
    * keep-alive 的匹配靠组件 name（与路由 name 一致）。
@@ -643,11 +645,7 @@
   )
 
   /** 窄屏（<768px）弹窗里的榜单改用 tab 切换（三列并排在手机上一列都看不清） */
-  const isMobile = ref(false)
-  let mobileMq: MediaQueryList | null = null
-  const onMobileChange = (e: MediaQueryListEvent) => {
-    isMobile.value = e.matches
-  }
+  const { isMobile } = useIsMobile()
   /** 手机端当前选中的榜单 tab */
   const rankTab = ref('gifts')
 
@@ -729,25 +727,6 @@
   /** 总数据报告生成中（弹窗右上角那颗下载键转圈用） */
   const reportDownloading = ref(false)
   const rankPickerOpen = ref(false)
-
-  const RANK_THEME_LABELS: Record<string, string> = {
-    classic: '经典暗紫',
-    'depth-glass': '玻璃质感',
-    'depth-stack': '层叠玻璃',
-    'magazine-v1': '杂志封面 A',
-    'magazine-v2': '杂志封面 B',
-    noir: '黑白胶片',
-    typegrid: '字体网格',
-    cute: '可爱手绘',
-    news: '报纸排版',
-    ghost: '幽灵夜行',
-    faces: '人像拼贴',
-    ruler: '刻度尺',
-    'chroma-bar': '色带',
-    'chroma-tile': '色块拼贴',
-    'chroma-refined': '精致色块'
-  }
-  const rankThemeLabel = (t: string) => RANK_THEME_LABELS[t] || t
 
   async function ensureRankThemes() {
     if (rankThemes.value.length) return
@@ -1081,13 +1060,7 @@
   // keep-alive：切回来时刷新一次（首次挂载 mounted 与 activated 都会触发，跳过重复请求）
   let activatedOnce = false
   onMounted(() => {
-    mobileMq = window.matchMedia('(max-width: 767px)')
-    isMobile.value = mobileMq.matches
-    mobileMq.addEventListener('change', onMobileChange)
     refresh()
-  })
-  onUnmounted(() => {
-    mobileMq?.removeEventListener('change', onMobileChange)
   })
   onActivated(() => {
     if (!activatedOnce) {

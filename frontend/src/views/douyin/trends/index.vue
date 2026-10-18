@@ -329,7 +329,6 @@
     fetchStreamers,
     type HostTrendSummary,
     type HostTrendSeries,
-    type Streamer,
     type TrendMetricKey
   } from '@/api/douyin'
   import { apiErrorMessage } from '@/utils/douyin-error'

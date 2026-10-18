@@ -248,3 +248,32 @@ WebSocket 连接  2 / 2           直播中 1 · 录制中 0
   也可用环境变量 `DOUYIN_PROXY_BIN` 强制指定。
 - 二进制与 `proxy-config.yaml` 均已加入 `.gitignore`，不会误提交（后者含 cookie）。
 - 备份建议同时备份 `db/douyin.db`（WAL 模式下要连 `-wal`、`-shm` 一起，或先 checkpoint）。
+---
+
+## 10. 图片功能（图片报告 / 感谢榜单）
+
+这两个功能是**用 Chromium 把 HTML 截图**（eport-image.js、	hanks-rank.js），
+不是纯 Node 渲染，所以服务器上必须额外准备两样东西：
+
+`ash
+# 1) Chromium（playwright 自带浏览器，约 300MB）
+cd /opt/douyin-monitor
+npx playwright install --with-deps chromium
+
+# 2) 中文字体 + emoji（debian/ubuntu 精简镜像默认没有，缺了图上中文全是方框）
+sudo apt-get update
+sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+fc-list :lang=zh | head    # 验证：应能看到 Noto Sans CJK
+`
+
+补充说明：
+
+- **Docker**：镜像默认**不装** Chromium（体积原因），需要图片功能时构建带参：
+  docker build --build-arg WITH_PLAYWRIGHT=1 -t douyin-live .；
+  镜像里 PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright 已设好，中文字体也已预装。
+- 用系统已装的 Chrome/Edge 也行：设 CHROME_PATH=/usr/bin/google-chrome（或 Chromium 路径），
+  程序会优先用它（见 lib/browser-path.js）。
+- 只想跑数据、不需要出图：什么都不用装，接口会返回明确的
+  「Failed to launch chromium because executable doesn't exist」错误，不影响其它页面。
+- 出图很吃 CPU/内存：一次合并报告要渲染整页 HTML，建议服务器 ≥ 2C4G；
+  并发多人点「下载」会排队（同一个产物有缓存，第二次是秒回）。
