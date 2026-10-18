@@ -572,6 +572,47 @@
 
   .douyin-page .dy-session-head__actions {
     justify-content: flex-end;
+    gap: 6px;
+  }
+
+  /*
+   * 详情页头部在手机上重排（用户反馈"按钮突兀、时间显示不全"）：
+   *  - 卡片内边距 20 → 12/14
+   *  - 「场次列表 / 刷新」变成右上角两个图标按钮（文字标签在窄屏隐藏），
+   *    不再独占一行把头部撑高；标题区右侧留出 84px 避免被按钮压住
+   *  - 时间行放开折行（见下面 __time）
+   */
+  .douyin-page .dy-session-head {
+    position: relative;
+    padding: 12px 14px;
+  }
+
+  .douyin-page .dy-session-head > .flex:first-child {
+    padding-right: 84px;
+  }
+
+  .douyin-page .dy-session-head__actions {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    gap: 6px;
+  }
+
+  .douyin-page .dy-session-head__actions .el-button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 8px;
+
+    .el-icon + span,
+    span.dy-session-head__btn-label {
+      display: none;
+    }
+
+    /* 图标与文字之间有 margin，隐藏标签后这段空隙要收掉 */
+    .art-svg-icon + .dy-session-head__btn-label {
+      margin-left: 0;
+    }
   }
 
   /*
@@ -585,10 +626,12 @@
    */
   .douyin-page .dy-session-head__time {
     min-height: 18px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.5;
+    /* 允许折成两行：原来锁 single-line + ellipsis，长主播名/跨天时间会被截掉 */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   /*

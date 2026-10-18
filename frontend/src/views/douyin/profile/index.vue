@@ -36,25 +36,25 @@
 
       <!-- 头部 -->
       <div v-else class="art-card p-5 mb-4">
-        <!-- 返回信息查询：画像页是从搜索结果点进来的，之前没有任何回去的入口 -->
-        <div class="flex items-center gap-2 mb-3">
-          <button
-            type="button"
-            class="dy-profile-back"
-            title="返回信息查询结果"
-            aria-label="返回信息查询结果"
-            @click="goBackToSearch"
-          >
-            <ArtSvgIcon icon="ri:arrow-left-line" class="text-sm" />
-            <span>返回查询</span>
-          </button>
-        </div>
         <div class="flex items-center gap-4 flex-wrap">
           <div class="relative shrink-0 flex">
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-lg font-bold text-g-900 truncate">{{ profile?.nickname || '-' }}</div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-lg font-bold text-g-900 truncate">{{ profile?.nickname || '-' }}</div>
+              <!-- 返回信息查询：放在昵称这一行右侧，不再单独占一行（原来会把头部卡撑高） -->
+              <button
+                type="button"
+                class="dy-profile-back shrink-0"
+                title="返回信息查询结果"
+                aria-label="返回信息查询结果"
+                @click="goBackToSearch"
+              >
+                <ArtSvgIcon icon="ri:arrow-left-line" class="text-xs" />
+                <span>返回查询</span>
+              </button>
+            </div>
             <div class="text-sm text-g-500 mt-0.5">
               <span v-if="profile?.giftStyle">{{ profile.giftStyle }}</span>
               <span v-if="profile?.danmakuStyle"> · 弹幕 {{ profile.danmakuStyle }}</span>
@@ -598,14 +598,15 @@
     }
   }
 
-  /* 返回信息查询：低调的描边小按钮，桌面也合理（不抢主视觉） */
+  /* 返回信息查询：跟昵称同一行的小胶囊，不额外占高度 */
   .dy-profile-back {
+    position: relative;
     display: inline-flex;
-    gap: 4px;
+    gap: 3px;
     align-items: center;
-    height: 28px;
-    padding: 0 10px;
-    font-size: 12px;
+    height: 24px;
+    padding: 0 8px;
+    font-size: 11px;
     color: var(--art-gray-600);
     cursor: pointer;
     background: var(--art-gray-100);
@@ -614,6 +615,13 @@
     transition:
       color 0.15s,
       border-color 0.15s;
+
+    /* 视觉 24px，但用一个透明伪元素把命中区扩到 36px（手指点得准） */
+    &::after {
+      position: absolute;
+      inset: -6px;
+      content: '';
+    }
 
     &:hover {
       color: var(--theme-color);

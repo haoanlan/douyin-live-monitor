@@ -77,19 +77,27 @@
           "加载前后按钮位置都不一样"。常驻 + 禁用则宽度与位置全程不变。
         -->
         <el-button
+          class="dy-session-head__btn"
           :disabled="!streamerId"
+          title="回到该主播的场次列表"
+          aria-label="回到该主播的场次列表"
           @click="router.push({ path: '/douyin/sessions', query: { hostId: streamerId } })"
         >
-          <ArtSvgIcon icon="ri:arrow-left-line" class="mr-1" />场次列表
+          <ArtSvgIcon icon="ri:arrow-left-line" /><span class="dy-session-head__btn-label">场次列表</span>
         </el-button>
-        <el-button :disabled="loading" @click="() => refresh()">
+        <el-button
+          class="dy-session-head__btn"
+          :disabled="loading"
+          title="刷新"
+          aria-label="刷新"
+          @click="() => refresh()"
+        >
           <!-- 同状态监控页：不用 el-button 的 :loading（会在图标前再插一个转圈把按钮撑宽），
                改成图标原地旋转，宽度恒定 -->
           <ArtSvgIcon
             icon="ri:refresh-line"
-            class="mr-1"
             :class="loading ? 'dy-spin' : ''"
-          />刷新
+          /><span class="dy-session-head__btn-label">刷新</span>
         </el-button>
       </div>
     </div>
@@ -101,7 +109,7 @@
     <DyMobileTabs v-if="isMobile" v-model="mobileTab" :tabs="mobileTabs" />
 
     <!-- 统计卡片 -->
-    <ElRow :gutter="20" :class="paneClass('data')">
+    <ElRow :gutter="20">
       <ElCol v-for="stat in statCards" :key="stat.label" :xs="12" :sm="8" :md="8" :lg="4">
         <div class="art-card flex items-center justify-between h-20 px-5 mb-5">
           <div class="min-w-0">
@@ -135,8 +143,8 @@
       两栏内容高度天然不同，底部必然参差，数据少时更明显（强行对齐也对不齐）。
       改成单行 grid 后，行内卡片等高，底部由布局保证齐平。
     -->
-    <div class="dy-detail-grid dy-detail-grid--3 mb-5" :class="paneClass('ranks')">
-          <div class="art-card p-5 flex flex-col">
+    <div class="dy-detail-grid dy-detail-grid--3 mb-5">
+          <div class="art-card p-5 flex flex-col" :class="paneClass('gifts')">
             <div class="art-card-header">
               <div class="title">
                 <h4>礼物排行</h4>
@@ -197,7 +205,7 @@
               />
             </div>
           </div>
-          <div class="art-card p-5 flex flex-col">
+          <div class="art-card p-5 flex flex-col" :class="paneClass('anchors')">
             <div class="art-card-header">
               <div class="title">
                 <h4>团播主播排名</h4>
@@ -257,7 +265,7 @@
               />
             </div>
           </div>
-          <div class="art-card p-5 flex flex-col">
+          <div class="art-card p-5 flex flex-col" :class="paneClass('danmaku')">
             <div class="art-card-header">
               <div class="title">
                 <h4>弹幕排行</h4>
@@ -322,7 +330,7 @@
       而弹幕量级比礼物高两个数量级，礼物会被压成贴地的一条线，读不出信息。
     -->
     <div class="dy-detail-grid dy-detail-grid--2 mb-5">
-      <div class="art-card p-5 flex flex-col" :class="paneClass('data')">
+      <div class="art-card p-5 flex flex-col" :class="paneClass('danmaku')">
         <div class="art-card-header">
           <div class="title">
             <h4>弹幕词云</h4>
@@ -705,10 +713,11 @@
 
   /* ---------- 手机端 tab（榜单 / 数据 / 动态） ---------- */
   const { isMobile } = useIsMobile()
-  const mobileTab = ref('ranks')
+  const mobileTab = ref('gifts')
   const mobileTabs = [
-    { key: 'ranks', label: '榜单' },
-    { key: 'data', label: '数据' },
+    { key: 'gifts', label: '礼物榜单' },
+    { key: 'anchors', label: '主播排名' },
+    { key: 'danmaku', label: '弹幕榜单' },
     { key: 'feed', label: '动态' }
   ]
   /** 手机上只显示当前 tab 的区块；桌面返回空串 */
