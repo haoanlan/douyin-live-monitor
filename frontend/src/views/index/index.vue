@@ -25,6 +25,8 @@
 
     <div id="app-global">
       <ArtGlobalComponent />
+      <!-- 手机端悬浮操作（返回上一级 / 回到顶部），只在窄屏显示 -->
+      <ArtMobileFab />
     </div>
   </div>
 </template>

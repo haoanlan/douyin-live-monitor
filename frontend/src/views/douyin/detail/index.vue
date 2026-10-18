@@ -94,8 +94,14 @@
       </div>
     </div>
 
+    <!--
+      手机端：三组内容切成 tab（榜单 / 数据 / 动态）。
+      桌面不渲染这条，页面保持原来的整页滚动；tab 只控制下面几块的显隐。
+    -->
+    <DyMobileTabs v-if="isMobile" v-model="mobileTab" :tabs="mobileTabs" />
+
     <!-- 统计卡片 -->
-    <ElRow :gutter="20">
+    <ElRow :gutter="20" :class="paneClass('data')">
       <ElCol v-for="stat in statCards" :key="stat.label" :xs="12" :sm="8" :md="8" :lg="4">
         <div class="art-card flex items-center justify-between h-20 px-5 mb-5">
           <div class="min-w-0">
@@ -129,7 +135,7 @@
       两栏内容高度天然不同，底部必然参差，数据少时更明显（强行对齐也对不齐）。
       改成单行 grid 后，行内卡片等高，底部由布局保证齐平。
     -->
-    <div class="dy-detail-grid dy-detail-grid--3 mb-5">
+    <div class="dy-detail-grid dy-detail-grid--3 mb-5" :class="paneClass('ranks')">
           <div class="art-card p-5 flex flex-col">
             <div class="art-card-header">
               <div class="title">
@@ -316,7 +322,7 @@
       而弹幕量级比礼物高两个数量级，礼物会被压成贴地的一条线，读不出信息。
     -->
     <div class="dy-detail-grid dy-detail-grid--2 mb-5">
-      <div class="art-card p-5 flex flex-col">
+      <div class="art-card p-5 flex flex-col" :class="paneClass('data')">
         <div class="art-card-header">
           <div class="title">
             <h4>弹幕词云</h4>
@@ -345,7 +351,7 @@
         </div>
         <el-empty v-else description="暂无词频数据" :image-size="60" />
       </div>
-      <div class="art-card p-5 flex flex-col">
+      <div class="art-card p-5 flex flex-col" :class="paneClass('feed')">
         <div class="art-card-header">
           <div class="title">
             <h4>最新动态</h4>
@@ -672,6 +678,7 @@
   import { replaceDouyinEmoji, esc } from '@/utils/douyin-emoji'
   import { fmtTime, formatDuration, fmtNum, fmtFull, fmtTitle, fmtSessionRange, rankClass } from '@/utils/format'
   import { apiErrorMessage } from '@/utils/douyin-error'
+  import { useIsMobile } from '@/hooks/core/useIsMobile'
 
   interface FeedItem {
     _type: 'danmaku' | 'gift'
@@ -695,6 +702,20 @@
   const router = useRouter()
   const sessionId = String(route.params.sessionId)
   const detail = ref<SessionDetail | null>(null)
+
+  /* ---------- 手机端 tab（榜单 / 数据 / 动态） ---------- */
+  const { isMobile } = useIsMobile()
+  const mobileTab = ref('ranks')
+  const mobileTabs = [
+    { key: 'ranks', label: '榜单' },
+    { key: 'data', label: '数据' },
+    { key: 'feed', label: '动态' }
+  ]
+  /** 手机上只显示当前 tab 的区块；桌面返回空串 */
+  function paneClass(key: string): string {
+    if (!isMobile.value) return ''
+    return mobileTab.value === key ? 'dy-mobile-pane--on' : 'dy-mobile-pane--off'
+  }
   const streamerId = computed(() => detail.value?.session?.streamer_id)
   const loading = ref(true)
   /** 取数失败的原因（与「真的没有数据」区分开） */
@@ -1246,4 +1267,10 @@
    * 浏览器不认识 :deep() 于是整条规则被丢弃（实测样式完全没生效）。
    * 而全局块里又不能写裸的 `.el-input__wrapper`，那会泄漏到全站所有输入框。
    */
+/* ---------- 手机端 tab：只显示当前那一组区块（榜单 / 数据 / 动态） ---------- */
+@media (max-width: 767px) {
+  .dy-mobile-pane--off {
+    display: none !important;
+  }
+}
 </style>

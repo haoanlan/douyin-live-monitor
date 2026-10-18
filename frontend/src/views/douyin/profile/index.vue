@@ -36,6 +36,19 @@
 
       <!-- 头部 -->
       <div v-else class="art-card p-5 mb-4">
+        <!-- 返回信息查询：画像页是从搜索结果点进来的，之前没有任何回去的入口 -->
+        <div class="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            class="dy-profile-back"
+            title="返回信息查询结果"
+            aria-label="返回信息查询结果"
+            @click="goBackToSearch"
+          >
+            <ArtSvgIcon icon="ri:arrow-left-line" class="text-sm" />
+            <span>返回查询</span>
+          </button>
+        </div>
         <div class="flex items-center gap-4 flex-wrap">
           <div class="relative shrink-0 flex">
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
@@ -73,6 +86,12 @@
           </div>
         </div>
       </div>
+
+      <!--
+        手机端：把三列卡片切成三个 tab（概览 / 场次 / 明细）。
+        桌面不渲染这条，页面保持原来的整页滚动；tab 只控制下面卡片的显隐。
+      -->
+      <DyMobileTabs v-if="isMobile && !loading" v-model="mobileTab" :tabs="mobileTabs" />
 
       <!--
         加载中：**同形骨架**，与真实网格同样的 el-row/el-col/卡片结构与卡片标题。
@@ -204,7 +223,7 @@
       <el-row v-else :gutter="20" class="dy-profile-grid">
         <!-- 左列 -->
         <el-col :sm="24" :md="12">
-          <div class="art-card p-5 mb-5">
+          <div class="art-card p-5 mb-5" :class="paneClass('overview')">
             <div class="art-card-header"><div class="title"><h4>常用礼物</h4></div></div>
             <!-- 行样式与总览页一致：圆角矩形长条，不用表格分割线（用户要求） -->
             <div class="flex flex-col gap-2.5 mt-4">
@@ -245,7 +264,7 @@
             </div>
           </div>
 
-          <div class="art-card p-5 flex flex-col">
+          <div class="art-card p-5 flex flex-col" :class="paneClass('overview')">
             <div class="art-card-header"><div class="title"><h4>活跃时段</h4></div></div>
             <!-- 图表区 flex-1：矩形网格行内等高后由它吃掉多余高度，避免卡片下方留一大片空白 -->
             <div class="flex items-end gap-0.5 h-24 flex-1 min-h-24" role="img" :aria-label="hourBarsAria">
@@ -266,7 +285,7 @@
             </div>
           </div>
 
-          <div class="art-card p-5">
+          <div class="art-card p-5" :class="paneClass('sessions')">
             <div class="art-card-header"><div class="title"><h4>活跃场次</h4></div></div>
             <!-- 条形行 + 整行可点（与总览「最近场次」同一套交互） -->
             <!-- 固定高度 + 卡内滚动：场次可能上百条，全铺出来卡片会非常长（用户要求） -->
@@ -307,7 +326,7 @@
 
         <!-- 右列 -->
         <el-col :sm="24" :md="12">
-          <div class="art-card p-5 mb-5">
+          <div class="art-card p-5 mb-5" :class="paneClass('sessions')">
             <div class="art-card-header"><div class="title"><h4>常送主播</h4></div></div>
             <div class="flex flex-col gap-2.5 mt-4">
               <div
@@ -332,7 +351,7 @@
             </div>
           </div>
 
-          <div class="art-card p-5 mb-5">
+          <div class="art-card p-5 mb-5" :class="paneClass('detail')">
             <div class="art-card-header">
               <div class="title">
                 <h4>近期行为</h4>
@@ -379,7 +398,7 @@
             </div>
           </div>
 
-          <div class="art-card p-5">
+          <div class="art-card p-5" :class="paneClass('detail')">
             <div class="art-card-header"><div class="title"><h4>馈赠明细</h4></div></div>
             <!-- 固定高度 + 卡内滚动（与活跃场次同一套） -->
             <div class="flex flex-col gap-2.5 mt-4 max-h-[360px] overflow-y-auto dy-scroll">
@@ -432,6 +451,7 @@
   import { fmtNum, fmtTime, fmtTitle, rankClass } from '@/utils/format'
   import { emojiHtml } from '@/utils/douyin-emoji'
   import { apiErrorMessage } from '@/utils/douyin-error'
+  import { useIsMobile } from '@/hooks/core/useIsMobile'
 
   defineOptions({ name: 'DouyinProfile' })
 
@@ -441,6 +461,30 @@
   const profile = ref<UserProfile | null>(null)
   const loading = ref(true)
   const error = ref('')
+
+  /* ---------- 手机端 tab（概览 / 场次 / 明细） ---------- */
+  const { isMobile } = useIsMobile()
+  const mobileTab = ref('overview')
+  const mobileTabs = [
+    { key: 'overview', label: '概览' },
+    { key: 'sessions', label: '场次' },
+    { key: 'detail', label: '明细' }
+  ]
+  /** 手机上只显示当前 tab 的卡片；桌面返回空串（不影响布局） */
+  function paneClass(key: string): string {
+    if (!isMobile.value) return ''
+    return mobileTab.value === key ? 'dy-mobile-pane--on' : 'dy-mobile-pane--off'
+  }
+
+  /**
+   * 返回信息查询结果。
+   * 搜索页是 keep-alive 的，router.back() 能把它连同查询条件、滚动位置一起还原；
+   * 直接打开链接（没有历史）时退回到搜索页本身。
+   */
+  function goBackToSearch() {
+    if (window.history.state?.back) router.back()
+    else router.push('/douyin/search')
+  }
 
   /*
    * 原来这里有一份本地的 fmtTs()：输出「2026-10-14 12:00」（半角短横线），
@@ -546,5 +590,34 @@
   .hour-bar--empty {
     height: 2px;
     background-color: var(--art-gray-300);
+  }
+/* ---------- 手机端 tab：只显示当前那一组卡片 ---------- */
+  @media (max-width: 767px) {
+    .dy-mobile-pane--off {
+      display: none !important;
+    }
+  }
+
+  /* 返回信息查询：低调的描边小按钮，桌面也合理（不抢主视觉） */
+  .dy-profile-back {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--art-gray-600);
+    cursor: pointer;
+    background: var(--art-gray-100);
+    border: 1px solid var(--art-card-border);
+    border-radius: 999px;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+
+    &:hover {
+      color: var(--theme-color);
+      border-color: color-mix(in srgb, var(--theme-color) 35%, transparent);
+    }
   }
 </style>

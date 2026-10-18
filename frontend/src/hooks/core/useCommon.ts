@@ -46,6 +46,13 @@ export function useCommon() {
     if (scrollContainer) {
       scrollContainer.scrollTop = 0
     }
+    /*
+     * 手机上真正滚的是 window（实测 #app-main 的 overflow 是 visible，
+     * scrollHeight == clientHeight），只归零容器等于什么都没做。
+     * 两个都归零，桌面/手机行为一致。
+     */
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+    window.scrollTo({ top: 0 })
   }
 
   /**
