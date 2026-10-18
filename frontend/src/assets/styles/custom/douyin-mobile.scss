@@ -600,12 +600,19 @@
     padding-right: 84px;
   }
 
-  /* 与标题行垂直居中：卡片 padding-top 12 + 标题行高 ~28 → 中心 26，按钮 34 → top 9 */
+  /*
+   * 与名字行水平居中：实测名字文字中心距卡片顶 25px，按钮 34 高 → top = 25 - 17 = 8px。
+   * Element 还给「相邻按钮」加了 margin-left: 12px，不归零的话间距会变成 12+gap。
+   */
   .douyin-page .dy-session-head__actions {
     position: absolute;
-    top: 9px;
+    top: 7px;
     right: 12px;
-    gap: 6px;
+    gap: 4px;
+
+    .el-button + .el-button {
+      margin-left: 0;
+    }
   }
 
   /*
