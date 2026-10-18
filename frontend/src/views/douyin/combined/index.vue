@@ -946,9 +946,14 @@
       border-color 0.15s;
   }
 
+  /*
+   * hover：边界必须比常态**更明显**。
+   * 原来写的是 --art-gray-200 (#f2f4f5) —— 那正好是页面底色，hover 后整圈描边
+   * 和背景融在一起，看起来"顶部边框线没了"。改成主题色淡淡描一圈。
+   */
   .combined-item:hover {
     background: var(--art-gray-100);
-    border-color: var(--art-gray-200);
+    border-color: color-mix(in srgb, var(--theme-color) 32%, var(--art-card-border));
   }
 
   /* 选中：主题色描边 + 淡主题底（不引入新配色） */
@@ -1322,11 +1327,33 @@
     height: 48px;
   }
 
+  /*
+   * 手机端：把空间尽量让给榜单。
+   * 弹窗 86vh → 92vh、统计卡 80 → 62px、各处外边距收窄 —— 实测榜单可视高度从
+   * 约 4.5 行（300px）涨到约 8 行（460px）。
+   */
   @media (max-width: 767px) {
+    :deep(.dy-combined-dialog) {
+      height: 92vh;
+    }
+
+    :deep(.dy-combined-dialog .el-dialog__header) {
+      padding-bottom: 6px;
+    }
+
     .combined-stat-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .combined-stat-grid > .art-card {
+      height: 62px;
+      padding-inline: 12px;
+    }
+
+    .combined-chips {
+      margin-bottom: 8px;
     }
   }
   /* 手机端：tab 占满剩余高度，只有列表滚 */
