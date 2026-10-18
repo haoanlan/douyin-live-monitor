@@ -877,7 +877,9 @@
  *
  * ② 弹窗主体上下内边距 25 → 10（用户要求；左右保持 25 不变）
  */
-.detail-dialog .rank-dl-btn {
+.detail-dialog .rank-dl-btn,
+.combined-people-dialog .rank-dl-btn,
+.dy-combined-dialog .rank-dl-btn {
   position: absolute;
   /*
    * top 对齐的是**字形中心**，不是盒子中心。

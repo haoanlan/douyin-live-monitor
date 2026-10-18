@@ -158,6 +158,63 @@ async function loadFromDb(sessionId) {
   } finally { await pool.end(); }
 }
 
+/**
+ * 多场次合并取数（「数据合并查看」页的总数据报告用）。
+ *
+ * 口径与 CLI 的 `--session a,b,c` 分支一致，也和在数据合并页展示的一致：
+ *   - 六项统计：弹幕/礼物/点赞/进场/关注 相加，在线峰值取最大
+ *   - 明细：各场礼物**已按场次连击去重**，这里只做拼接（再按送礼人合并是渲染时的事）
+ *   - 时长：各场时长相加（不是"最早开始→最晚结束"的墙钟跨度）
+ *   - 头图：主播名去重后用 / 连起来，标题写成「合并 N 场」
+ */
+async function loadMergedFromDb(ids) {
+  const parts = [];
+  for (const id of ids) {
+    const d = await loadFromDb(id);
+    if (d) parts.push(d);
+  }
+  if (!parts.length) return null;
+  if (parts.length === 1) return parts[0];
+
+  const durSec = (p) => {
+    const s = new Date(p.start_time).getTime();
+    const e = p.end_time ? new Date(p.end_time).getTime() : Date.now();
+    return Number.isFinite(s) && Number.isFinite(e) && e > s ? Math.round((e - s) / 1000) : 0;
+  };
+  const sortedStarts = parts.map((p) => p.start_time).filter(Boolean).sort();
+  const sortedEnds = parts.map((p) => p.end_time).filter(Boolean).sort();
+
+  const merged = {
+    ...parts[0],
+    room_author:
+      [...new Set(parts.map((p) => p.room_author).filter(Boolean))].join(' / ') ||
+      parts[0].room_author,
+    room_title: `合并 ${parts.length} 场`,
+    start_time: sortedStarts[0] || parts[0].start_time,
+    end_time: sortedEnds.length ? sortedEnds[sortedEnds.length - 1] : null,
+    duration_seconds: parts.reduce((s, p) => s + durSec(p), 0),
+    gifts: parts.flatMap((p) => p.gifts),
+    danmaku: parts.flatMap((p) => p.danmaku),
+    members: parts.flatMap((p) => p.members),
+    online: parts.flatMap((p) => p.online || []),
+    rawMessages: new Map(parts.flatMap((p) => [...(p.rawMessages || new Map()).entries()])),
+    stats: {
+      danmaku: parts.reduce((s, p) => s + (p.stats?.danmaku || 0), 0),
+      gift: parts.reduce((s, p) => s + (p.stats?.gift || 0), 0),
+      like: parts.reduce((s, p) => s + (p.stats?.like || 0), 0),
+      member: parts.reduce((s, p) => s + (p.stats?.member || 0), 0),
+      follow: parts.reduce((s, p) => s + (p.stats?.follow || 0), 0),
+      social: parts.reduce((s, p) => s + (p.stats?.social || 0), 0),
+      online: parts.reduce((max, p) => Math.max(max, p.stats?.online || 0), 0)
+    },
+    session_count: parts.length,
+    session_ids: parts.map((_, i) => ids[i])
+  };
+  merged._avatarCache = {};
+  for (const p of parts) if (p._avatarCache) Object.assign(merged._avatarCache, p._avatarCache);
+  return merged;
+}
+
 /** 获取最新的直播 session ID */
 async function getLatestSessionId(roomId) {
   const db = require('./db-sqlite.js');
@@ -1514,4 +1571,4 @@ if (require.main === module) {
   main().catch(e => { console.error(e); process.exit(1); });
 }
 
-module.exports = { generateImage, generateHTML, generateUserImage, generateUserCardHTML, generateAllGiftRankingImage, generateAllGiftRankingHTML, load, loadJson, loadFromDb, getLatestSessionId };
+module.exports = { generateImage, generateHTML, generateUserImage, generateUserCardHTML, generateAllGiftRankingImage, generateAllGiftRankingHTML, load, loadJson, loadFromDb, loadMergedFromDb, getLatestSessionId };

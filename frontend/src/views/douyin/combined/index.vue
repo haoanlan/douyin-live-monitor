@@ -261,6 +261,23 @@
               <template v-else>正在合并 {{ pendingIds.length }} 场直播的数据…</template>
             </div>
           </div>
+          <!--
+            总数据报告：和场次历史页那张同一套模板。按钮定位复用全局 .rank-dl-btn 规则
+            （绝对定位、与关闭键同一中心线），否则又会像上次那样"按钮没对齐"。
+          -->
+          <button
+            class="rank-dl-btn flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            :disabled="reportDownloading || !result"
+            :title="reportDownloading ? '正在生成合并报告…' : '下载总数据报告'"
+            aria-label="下载总数据报告"
+            @click="downloadCombinedReport"
+          >
+            <ArtSvgIcon
+              :icon="reportDownloading ? 'ri:loader-4-line' : 'ri:download-line'"
+              class="text-base"
+              :class="reportDownloading ? 'animate-spin' : ''"
+            />
+          </button>
         </div>
       </template>
 
@@ -446,7 +463,7 @@
             </div>
           </div>
           <button
-            class="size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            class="rank-dl-btn flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
             :disabled="rankDownloading || !rankThemes.length"
             :title="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"
             :aria-label="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"
@@ -526,6 +543,7 @@
     fetchSessions,
     fetchStreamers,
     getCombinedRankImageUrl,
+    getCombinedReportUrl,
     type CombinedAnchorItem,
     type CombinedAnchorPerson,
     type CombinedResult,
@@ -708,6 +726,8 @@
   const rankThemes = ref<string[]>([])
   const rankDefaultTheme = ref('depth-glass')
   const rankDownloading = ref(false)
+  /** 总数据报告生成中（弹窗右上角那颗下载键转圈用） */
+  const reportDownloading = ref(false)
   const rankPickerOpen = ref(false)
 
   const RANK_THEME_LABELS: Record<string, string> = {
@@ -801,6 +821,25 @@
       ElMessage.error(apiErrorMessage(e, '感谢榜单下载失败'))
     } finally {
       rankDownloading.value = false
+    }
+  }
+
+  /** 总数据报告：和场次历史页那张同一套模板，只是喂给它的数据是这几场合并后的 */
+  async function downloadCombinedReport() {
+    const ids = [...selectedIds.value]
+    if (ids.length < 2) return
+    if (ids.length > 10) {
+      ElMessage.warning('总数据报告最多支持 10 场合并，请减少选择的场次')
+      return
+    }
+    reportDownloading.value = true
+    try {
+      await downloadWithAuth(getCombinedReportUrl(ids), `合并报告_${ids.length}场.jpg`)
+      ElMessage.success('合并报告已下载')
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '报告下载失败'))
+    } finally {
+      reportDownloading.value = false
     }
   }
 

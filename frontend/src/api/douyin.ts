@@ -289,6 +289,16 @@ export function fetchCombinedAnchorPeople(ids: number[], anchor: string) {
 }
 
 /**
+ * 合并场次的「总数据报告」图片地址。
+ *
+ * 和场次历史页那张报告同一套模板（report-image.js），只是取数改成多场合并：
+ * 统计相加、在线峰值取最大、明细拼接、时长相加。
+ */
+export function getCombinedReportUrl(ids: number[]): string {
+  return `/api/sessions/combined/report?ids=${ids.join(',')}`
+}
+
+/**
  * 合并场次的「感谢榜单」图片地址。
  *
  * 和单场版同一个脚本（thanks-rank.js 本身就支持多场次：各场先连点去重再按人合并），
