@@ -1291,14 +1291,20 @@
     min-width: 116px;
   }
 
-  /* 桌面：三张榜单卡并排，占满剩余高度 */
+  /*
+   * 桌面：三张榜单卡并排，占满剩余高度。
+   *
+   * overflow 必须 visible：全局的 .douyin-page .art-card:hover 会 translateY(-2px)，
+   * 网格若 overflow: hidden，抬起的那 2px（正好是顶部边框）会被直接裁掉 ——
+   * 用户看到的「hover 时顶部边框线没了」就是这个。裁切交给每张卡自己（见下一条）。
+   */
   .combined-rank-grid {
     display: grid;
     flex: 1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .combined-rank-grid > .art-card {
