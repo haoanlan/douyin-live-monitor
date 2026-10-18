@@ -599,23 +599,25 @@
   }
 
   /*
-   * 返回信息查询：跟昵称同一行的**文字链**（不是胶囊）。
-   * 胶囊在真机上跟卡片风格打架（用户反馈"不符合风格"），改成主题色小字 + 箭头，
-   * 视觉 22px 高，用透明伪元素把命中区扩到 34px。
+   * 返回信息查询：跟昵称同一行的**浅底圆角矩形按钮**（与详情页头部按钮同一套语言）。
+   * 不用胶囊（全圆角在卡片里显得突兀），也不用纯文字链（看着不像能点）。
    */
   .dy-profile-back {
     position: relative;
     display: inline-flex;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
     height: 28px;
-    padding: 0 2px;
+    padding: 0 9px;
     font-size: 12px;
-    color: var(--art-gray-500);
+    color: var(--art-gray-600);
     cursor: pointer;
-    background: transparent;
+    background: var(--art-gray-100);
     border: 0;
-    transition: color 0.15s;
+    border-radius: 9px;
+    transition:
+      color 0.15s,
+      background-color 0.15s;
 
 
     &::after {
@@ -626,7 +628,7 @@
 
     &:hover {
       color: var(--theme-color);
-      text-decoration: underline;
+      background: color-mix(in srgb, var(--theme-color) 12%, transparent);
     }
   }
 </style>

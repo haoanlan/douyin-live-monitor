@@ -591,22 +591,26 @@
     padding-right: 84px;
   }
 
+  /* 与标题行垂直居中：卡片 padding-top 12 + 标题行高 ~28 → 中心 26，按钮 34 → top 9 */
   .douyin-page .dy-session-head__actions {
     position: absolute;
-    top: 8px;
-    right: 10px;
+    top: 9px;
+    right: 12px;
     gap: 6px;
   }
 
-  /* 图标按钮：不要描边（描边在真机上像两个空盒子，反馈"突兀"），hover 才浮出底色 */
+  /*
+   * 图标按钮：**浅底圆角矩形**（用户："试试按钮加个圆角矩形背景，和名字对齐"）。
+   * 比描边更像可点的实体，也不会像空盒子那样突兀。
+   */
   .douyin-page .dy-session-head__actions .el-button {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     padding: 0;
-    color: var(--art-gray-500);
-    background: transparent;
+    color: var(--art-gray-600);
+    background: var(--art-gray-100);
     border: 0;
-    border-radius: 8px;
+    border-radius: 10px;
 
     .el-icon + span,
     span.dy-session-head__btn-label {
@@ -616,7 +620,7 @@
     &:hover,
     &:focus-visible {
       color: var(--theme-color);
-      background: var(--art-gray-100);
+      background: color-mix(in srgb, var(--theme-color) 12%, transparent);
     }
   }
 
@@ -629,14 +633,17 @@
    * ② 锁单行：窄屏用省略年份的紧凑格式（见模板里的 sm:hidden 分支），一行放得下；
    *    万一主播名很长也不换行（换行同样会把头部撑高），超长用省略号。
    */
+  /*
+   * 时间行锁单行：允许折行会把头部撑高一行（用户反馈"时间换行把高度撑高"）。
+   * 窄屏用的是省年份的紧凑写法（模板里的 sm:hidden 分支），一行放得下；
+   * 真的超长才省略号。
+   */
   .douyin-page .dy-session-head__time {
     min-height: 18px;
-    /* 允许折成两行：原来锁 single-line + ellipsis，长主播名/跨天时间会被截掉 */
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     line-height: 1.45;
-    overflow-wrap: anywhere;
   }
 
   /*
