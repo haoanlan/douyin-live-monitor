@@ -33,7 +33,16 @@
         }}</el-avatar>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <span class="text-base font-medium text-g-900 truncate">
+            <!--
+              手机端第一行放**直播间名字**（主播名），桌面端放直播标题：
+              之前手机上第一行是 room_title、第二行是「主播名 · 时间」，
+              主播名一长就把时间挤成「10/…」（用户截图）。
+              现在手机两行：名字一行、时间一行，时间不会再被挤。
+            -->
+            <span class="text-base font-medium text-g-900 truncate sm:hidden">
+              {{ detail?.session?.streamer_name || detail?.session?.room_title || '场次详情' }}
+            </span>
+            <span class="hidden text-base font-medium text-g-900 truncate sm:inline">
               {{ detail?.session?.room_title || detail?.session?.title || '场次详情' }}
             </span>
             <el-tag v-if="detail?.session?.is_live" type="danger" size="small" class="!border-none"
@@ -41,17 +50,17 @@
             >
           </div>
           <!--
-            窄屏（<640px）用省略年份的紧凑写法，宽屏用完整写法：
-            完整写法在 390px 上会折成两行，把头部撑高一行 —— 数据到达后按钮就往下跳
-            （用户反馈"加载前后按钮位置都不一样"）。紧凑写法一行放得下，高度恒定。
-            两份都渲染、用 Tailwind 断点切换，避免在 JS 里判断视口宽度。
+            手机端：只有时间（一行）；桌面：主播名 · 时间。
+            窄屏用省年份的紧凑写法，避免折行把头部撑高（加载前后按钮位置会跳）。
           -->
           <div class="dy-session-head__time text-xs text-g-500 mt-1 truncate">
-            {{ detail?.session?.streamer_name || '' }}
             <template v-if="detail?.session?.start_time">
-              <span class="sm:hidden"
-                >· {{ fmtSessionRange(detail.session.start_time, detail.session.end_time, true) }}</span
-              >
+              <span class="sm:hidden">{{
+                fmtSessionRange(detail.session.start_time, detail.session.end_time, true)
+              }}</span>
+            </template>
+            <span class="hidden sm:inline">{{ detail?.session?.streamer_name || '' }}</span>
+            <template v-if="detail?.session?.start_time">
               <span class="hidden sm:inline"
                 >· {{ fmtSessionRange(detail.session.start_time, detail.session.end_time) }}</span
               >

@@ -657,6 +657,7 @@
    */
   .douyin-page .dy-session-head__time {
     min-height: 18px;
+    margin-top: 10px; /* 名字与时间之间留开一点（用户："间距再大点"） */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
