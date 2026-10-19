@@ -1,153 +1,187 @@
-# 用 1Panel 部署成网站
+# 用 1Panel 部署（Node.js 运行环境）
 
-> 思路：**后端只在 `127.0.0.1:9871` 上跑**（Docker 或 systemd 都行），
-> **1Panel 的「网站 → 反向代理」**负责域名、HTTPS、外网访问。
-> 不要把 9871 直接暴露到公网 —— 反代能顺便加 SSL 与访问控制。
-
----
-
-## 一、先决定后端怎么跑（二选一）
-
-| 方式 | 适合 | 在 1Panel 里怎么管 |
-| --- | --- | --- |
-| **A. Docker** | 想隔离、想一键迁移 | 容器 → 编排（compose） |
-| **B. systemd** | 不想用 Docker / 想直接看进程 | 用本仓库 `deploy/deploy.sh` 装好，1Panel 里不用管 |
+> 目标：**把文件放进一个目录 → 在 1Panel 填好「创建运行环境」表单 → 点确认 → 就能用**。
+> 不需要写 Dockerfile、不需要命令行编译、不需要联网下载代理。
 
 ---
 
-## A. Docker 路线（1Panel「容器 → 编排」）
+## 一、准备目录（只做一次）
 
-### A1. 准备目录
+在 1Panel 的 **文件** 里进到 `/opt/` ，新建目录 `douyin-monitor`，最终结构必须是：
 
-在 1Panel 的 **文件** 里建目录，例如 `/opt/1panel/apps/douyin-live`，把这几样放进去：
-
-```
-docker-compose.yml     （仓库根目录那份，可改）
-Dockerfile             （仓库根目录那份）
-douyinLive-linux-amd64 （代理二进制，40.8MB，必须先传上来）
-config.yaml            （先 cp config.example.yaml 再填 cookie）
-db/  logs/             （建两个空目录，属主 1000:1000）
-```
-
-> ⚠️ **代理二进制必须在本地准备好**：服务器直连 github 会卡死（实测）。见文末「绕开代理下载」。
-
-### A2. 改 Dockerfile 用本地代理（推荐）
-
-默认 Dockerfile 会 `curl` 下载代理（会失败）。把 **proxy-download 阶段**换成从构建上下文复制：
-
-```dockerfile
-# 原：proxy-download 阶段 curl 下载
-# 改：直接把同目录的 douyinLive-linux-amd64 复制进镜像
+```text
+/opt/douyin-monitor/
+├─ web-dashboard.js          ← 启动入口
+├─ monitor.js  db-sqlite.js  douyin-user.js  feishu-send.js
+├─ report-image.js  thanks-rank.js  sync-gift-icons.js
+├─ lib/                      ← 后端实现（routes / worker）
+├─ frontend/
+│  └─ dist/                  ← 前端构建产物（必须有 index.html）
+├─ assets/
+│  └─ cute-ev.png            ← 榜单图片素材
+├─ package.json  package-lock.json
+├─ config.yaml               ← ★ 你自己填 cookie（下一步创建）
+├─ douyinLive-linux-amd64    ← ★ 代理二进制 40.8MB，必须 chmod +x
+├─ db/                       ← 空目录，数据会写这里
+└─ logs/                     ← 空目录
 ```
 
-> 这一步我可以直接帮你改好推上去 —— 说一句「改 Dockerfile 用本地代理」即可。
+**文件从哪来**：用发布包 `douyin-live-1.1.0-linux.zip`（自带 `frontend/dist` ✓），
+解压后把里面的内容**全部**放到 `/opt/douyin-monitor/`。
 
-### A3. 1Panel 里创建编排
+**代理二进制单独传**（服务器下不到 GitHub，这是必须手动的一步）：
 
-**容器 → 编排 → 创建编排**：
-
-- 名称：`douyin-live`
-- 来源：**从文件读取**（选 `docker-compose.yml`）或**粘贴内容**
-- 工作目录：`/opt/1panel/apps/douyin-live`
-- 点「确认」，等构建完成（首次 5-15 分钟：前端构建 + better-sqlite3 编译 + Chromium）
-
-构建成功后：**容器 → 容器** 里应看到 `douyinlive` 状态 **运行中/健康**。
-
----
-
-## B. systemd 路线
-
-在 **1Panel 的「终端」**里，进到项目目录执行：
+```powershell
+# 在你的 Windows 上执行
+scp "C:\路径\douyinLive-linux-amd64" root@服务器IP:/opt/douyin-monitor/
+```
 
 ```bash
+# 服务器上（1Panel 终端）
 cd /opt/douyin-monitor
-bash deploy/deploy.sh
+chmod +x douyinLive-linux-amd64
+mkdir -p db logs
+# 确认关键文件都在
+ls -lh douyinLive-linux-amd64 frontend/dist/index.html web-dashboard.js
+# 生成配置（然后编辑填 cookie）
+cp config.example.yaml config.yaml
+vi config.yaml        # 只需要填 cookie.douyin；dashboard.host 保持 127.0.0.1
 ```
 
-脚本会装依赖、编译、写 systemd 单元、开机自启、健康检查。
-（详见 `deploy/deploy.sh` 头部注释；进程与 SSH/面板完全解耦 ✓）
+`config.yaml` 最小内容：
+
+```yaml
+cookie:
+  douyin: "你的抖音cookie"
+port: "1088"
+dashboard:
+  port: "9871"
+  host: "127.0.0.1"
+```
 
 ---
 
-## 二、1Panel 建站（反向代理）
+## 二、在 1Panel 创建运行环境（照抄这张表）
 
-**网站 → 网站 → 创建网站**：
+**运行环境 → 创建运行环境 → 应用选 `Node.js`**，然后：
+
+| 表单字段 | 填什么 | 说明 |
+| --- | --- | --- |
+| **名称** | `douyin-live` | 随意 |
+| **应用** | `Node.js` + 版本选 **22.x** | ⚠️ **千万不要选 25**：`better-sqlite3` 是原生模块，Node 25 没有预编译包，装不上 |
+| **项目目录** | 点文件夹图标 → 选 `/opt/douyin-monitor` | 必须是有 `web-dashboard.js` 的那层 |
+| **启动命令** | 打开右侧 **「自定义启动命令」** → 填 `node web-dashboard.js` | 下拉是空的，因为我们的 package.json 没有 `start` 脚本 |
+| **容器名称** | `douyin-live-env` | ⚠️ 别用 `douyinlive`（避免和以前 compose 的容器重名） |
+| **包管理器** | `npm` | 默认即可 |
+| **安装 node_modules** | **保持开启** | 由 1Panel 在容器里执行 `npm install` |
+| **镜像源** | `https://registry.npmmirror.com` | 国内网络建议用这个，不然装依赖很慢 |
+| **端口** | 容器端口 `9871` → 主机端口 `9871` | 1088 **不用映射**（代理只在容器内部用） |
+
+再切到 **「环境变量」** 标签，加两条：
+
+```text
+DASHBOARD_HOST=0.0.0.0
+DASHBOARD_PORT=9871
+```
+
+> 为什么是 `0.0.0.0`：容器内必须监听全部地址，1Panel 的端口映射才能把 9871 转出去。
+> `config.yaml` 里保持 `127.0.0.1` 无所谓，环境变量优先级更高。
+
+**「挂载」** 标签：确认 `/opt/douyin-monitor` 已挂到容器内同路径（1Panel 会按项目目录自动加，检查一眼即可）。
+**「主机映射」** 不需要填。
+
+点 **确认** → 1Panel 开始创建容器并 `npm install`（首次 1-3 分钟，`better-sqlite3` 会下载预编译包）。
+
+---
+
+## 三、确认它起来了
+
+**运行环境** 列表里状态应为 **运行中**。点进容器 → **日志**，看到类似：
+
+```
+[dashboard] http://0.0.0.0:9871
+[worker] started ...
+```
+
+浏览器打开：
+
+```
+http://服务器IP:9871          → 出现登录页
+默认账号 admin / 123456       → 登录后立刻去「个人中心」改密
+```
+
+**功能自检**（登录后）：
+
+| 检查 | 期望 |
+| --- | --- |
+| 状态监控 → Go 代理 | 已连接（没连上 = 代理二进制没执行权限） |
+| 状态监控 → WebSocket | 正常 |
+| 房间管理 | 能看到你的直播间，能加新的 |
+| 总览 | 有历史数据（如果是全新库则为 0，正常） |
+
+---
+
+## 四、挂域名 + HTTPS（1Panel 网站功能）
+
+**网站 → 创建网站**：
 
 | 字段 | 填什么 |
 | --- | --- |
 | 类型 | **反向代理** |
-| 域名 | 你的域名（如 `live.example.com`，需先解析到服务器 IP） |
+| 域名 | `live.你的域名.com`（先解析到服务器 IP） |
 | 代理地址 | `http://127.0.0.1:9871` |
-| 端口 | 外部 80/443，内部留空 |
 
-创建后：
-
-1. **点进网站 → 反向代理 → 配置文件**，确认 `proxy_pass http://127.0.0.1:9871;`
-2. 加上这几个头（1Panel 默认一般已有，没有就补）：
+创建后进该网站 → **反向代理** → 配置文件，确认并补上超时（导出/报告可能较慢）：
 
 ```nginx
 proxy_set_header Host              $host;
 proxy_set_header X-Real-IP         $remote_addr;
 proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;
-
-# 导出/报告接口可能耗时较长，避免 504
 proxy_read_timeout  300s;
 proxy_send_timeout  300s;
-# 导出 CSV 可能较大
 client_max_body_size 20m;
 ```
 
-3. **SSL**：网站 → HTTPS → **Let's Encrypt** 一键申请 → 开启「强制 HTTPS」
-4. 保存 → 用域名访问，应看到登录页
+然后该网站 → **HTTPS** → Let's Encrypt 一键申请 → 开「强制 HTTPS」。
+
+**安全**：云安全组/防火墙**只放 80/443**，把 9871 关掉；**1088 绝对不要开放**（Go 代理没有鉴权）。
 
 ---
 
-## 三、域名与安全
+## 五、日常使用
 
-| 项 | 建议 |
+| 操作 | 在哪做 |
 | --- | --- |
-| 9871 端口 | **不要**在防火墙/云安全组里对公网开放 ✗（只让本机反代访问 ✓） |
-| 1088 代理端口 | **绝对不要**开放 ✗（Go 代理本身没有鉴权） |
-| 面板入口 | 1Panel 自带「安全」→ 改面板端口 + 开启二次验证 ✓ |
-| 登录 | 首次登录 `admin / 123456` → **立刻在「个人中心」改密** ✓ |
-| 访问控制 | 如果只想自己用：反代里加 IP 白名单 / Basic Auth ✓ |
+| 重启 | 1Panel → 运行环境 → 对应环境 → 重启 |
+| 看日志 | 运行环境 → 日志（或 `docker logs douyin-live-env`） |
+| 更新代码 | 覆盖 `/opt/douyin-monitor` 里的文件（保留 `config.yaml`、`db/`、`logs/`）→ 重启环境；`package.json` 变了才需要重新装依赖 |
+| 备份 | 只备份 `/opt/douyin-monitor/db/douyin.db` 即可（1Panel 计划任务里加个 tar 也行） |
+| 换端口 | 改「端口」映射 + 环境变量 `DASHBOARD_PORT`，同步改反代地址 |
 
 ---
 
-## 四、部署后验证
+## 六、常见问题（都是这个部署方式特有的）
 
-```bash
-# 服务器上
-curl -sI  http://127.0.0.1:9871 | head -1                                  # 200
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9871/api/overview # 401
-
-# 从外网（你的电脑）
-curl -sI https://live.example.com | head -1
-```
-
-浏览器访问域名 → 登录 → 「状态监控」页确认：**Go 代理已连接、WebSocket 正常**。
-
----
-
-## 五、绕开代理下载（必须处理）
-
-服务器连不上 `github.com` 时，Docker 构建会卡在 `proxy-download` 阶段。三种办法：
-
-1. **本地 COPY**（推荐）：把 `douyinLive-linux-amd64` 放进构建目录，Dockerfile 改成 `COPY`（我可代改 ✓）；
-2. **可达镜像源**：构建时传参
-   ```bash
-   PROXY_BINARY_URL="https://ghproxy.cc/https://github.com/jwwsjlm/douyinLive/releases/download/v2.3.1/douyinLive-v2.3.1-0e506f3cf935-linux-amd64.tar.gz" \
-   PROXY_BINARY_SHA256="85d735e62468a8a3db956cd9bf978bc1fc79fd276632428583d666506738a456" \
-   docker compose up -d --build
-   ```
-3. **systemd 路线**：不需要下载，直接把二进制放在项目目录即可 ✓
+| 现象 | 原因 | 解决 |
+| --- | --- | --- |
+| 创建环境后容器反复重启，日志报 `Cannot find module 'better-sqlite3'` | **Node 版本选了 25 / 20 之前**，原生模块没装上 | 删掉环境重建，**Node 选 22.x** |
+| 日志报 `gyp ERR! not ok` | 同上（没有预编译包 + 容器内无编译工具） | 换 **Node 22** |
+| 服务能起，但页面 502 | 环境变量没加 `DASHBOARD_HOST=0.0.0.0` | 补环境变量 → 重启 |
+| 日志报 `EADDRINUSE` | 9871 被其他容器/进程占了 | 换主机端口（如 19871），反代地址同步改 |
+| 登录后「状态监控」显示代理未运行 | `douyinLive-linux-amd64` 没有执行权限 / 不在项目目录 | 宿主机 `chmod +x`，确认文件在 `/opt/douyin-monitor/` 根下 |
+| 采不到数据 | `config.yaml` 的 cookie 没填 / 已失效 | 填好 cookie → 重启环境 |
+| 页面白屏 | `frontend/dist/index.html` 不存在 | 用发布包（自带 dist），或本地构建后把 dist 传上去 |
+| 反向代理 504 | 导出/报告耗时长 | 补 `proxy_read_timeout 300s` |
 
 ---
 
-## 六、更新
+## 七、和 Docker/Dockerfile 方式的区别（为什么推荐这条）
 
-**Docker**：覆盖新代码/新镜像 → 1Panel「容器 → 编排 → 重新构建」或 `docker compose up -d --build`
-**systemd**：覆盖新代码 → `npm install --omit=dev` → `sudo systemctl restart douyin-live`
-
-数据始终在 `db/douyin.db`，更新不会动它；升级前备份一份。
+| | 本教程（Node 运行环境） | 仓库里的 Dockerfile |
+| --- | --- | --- |
+| 需要构建镜像 | ❌ 不需要 | ✅ 需要，且要下代理二进制 |
+| 服务器能连 GitHub | ❌ 不需要 | ✅ 需要（否则构建卡死） |
+| 依赖安装 | 1Panel 自动 `npm install` | 构建阶段 `npm ci` |
+| 升级 | 覆盖文件 + 重启 | 重新 build 镜像 |
+| 适合 | **本场景** ✅ | 想固定镜像/多机分发 |
