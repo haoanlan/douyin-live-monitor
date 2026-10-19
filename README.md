@@ -25,6 +25,7 @@
   | 房间管理 | 增删改房间、暂停/恢复监控、按房间进详情 |
   | 场次历史 | 按直播间筛选的历史场次（时间、时长、礼物/钻石/弹幕数），进单场详情 |
   | 趋势分析 | 同一房间跨场次的钻石 / 弹幕 / 在线峰值走势（支持多房间叠加对比） |
+| 数据合并查看 | 多个场次合并成一份数据（按主播/按场次筛选），并支持按主播下载感谢榜单、下载合并总报告 |
   | 信息查询 | 按昵称模糊匹配用户，查看 TA 的弹幕、礼物与场次 |
   | 状态监控 | 守护进程 / Go 代理 / WebSocket 连接 / 录制中 的实时健康与动作 |
   | 场次详情 | 单场统计、礼物排行、团播主播排名、弹幕排行、弹幕词云、最新动态（弹幕+礼物时间线） |
@@ -210,6 +211,9 @@ npm run build           # vue-tsc --noEmit && vite build
 | 认证 | `POST /api/auth/login` |
 | 房间 | `GET /api/rooms` · `GET /api/rooms/lookup` · `POST /api/rooms/add\|remove\|pause\|resume` |
 | 场次 | `GET /api/sessions` · `GET /api/sessions/<id>/detail` · `GET /api/sessions/<id>/gift-details` · `GET /api/sessions/<id>/gifts\|danmaku\|online\|report` |
+| 多场合并 | `GET /api/sessions/combined?ids=1,2,3` · `GET /api/sessions/combined/anchor-people` · `GET /api/sessions/combined/report` |
+| 榜单图片 | `GET /api/rank-image/themes` · `GET /api/sessions/combined/rank-image` · `GET /api/sessions/<id>/rank-image?theme=&page=&to=&avatar=` |
+| 趋势（按房间） | `GET /api/hosts/trends?hostIds=..&range=30d` |
 | 总览 | `GET /api/overview` · `GET /api/summary` · `GET /api/trends` |
 | 礼物 | `GET /api/gifts/ranking` · `GET /api/gifts/by-type` |
 | 用户 | `GET /api/users/<sec_uid>` · `GET /api/users/search` · `GET /api/anonymous-lookup` |
@@ -225,7 +229,6 @@ node scripts/vite-module-check.js   # 前端模块编译（205+ 源文件）
 node scripts/import-check.js        # 所有 import 目标是否存在
 node scripts/ui-regression.js       # 桌面回归 10 项（含浅色模式 AA 对比度全量采样）
 node scripts/mobile-check.js        # 移动端巡检（溢出、挤压、触控目标）
-node scripts/anim-check.js          # 数字滚动动画：不超目标值、字号不跳档
 node scripts/transition-check.js    # 页面切换：无"白纱"、无两页交叠
 ```
 
@@ -233,7 +236,20 @@ node scripts/transition-check.js    # 页面切换：无"白纱"、无两页交�
 > 实测删掉一层 `<div>` 却留下 `</div>` 时，类型检查仍然 0 错误，而 Vite 直接编译失败
 > （页面被错误遮罩盖住）。类型检查通过 ≠ 页面能跑。
 
-`scripts/` 下另有 50 余个诊断/审计脚本（数据库体检、接口断言、页面截图对比等），按需取用。
+`scripts/` 下另有 20 余个诊断/审计脚本（数据库体检、接口断言、页面截图对比等），按需取用（当前共 27 个 `.js`）。
+
+## 文档导航
+
+| 文档 | 说明 |
+| --- | --- |
+| [README.md](./README.md) | 本文件：功能、架构、安装、启动、数据表、口径约定、API 速览、自检脚本 |
+| [docs/DATABASE.md](./docs/DATABASE.md) | 16 张表的字段与口径（分析时以它为准） |
+| [docs/websocket-fields-ref.md](./docs/websocket-fields-ref.md) | Go 代理推送的 WebSocket 字段参考 |
+| [docs/AUDIT-2026-10-18-selfcheck.md](./docs/AUDIT-2026-10-18-selfcheck.md) | **当前有效**的自查审计（更早的审计已归档） |
+| [deploy/DEPLOY-linux.md](./deploy/DEPLOY-linux.md) | Linux 部署（含字体 / Chromium 依赖） |
+| [PRODUCT.md](./PRODUCT.md) | 产品定位与范围 |
+| [docs/DESIGN-REVIEW.md](./docs/DESIGN-REVIEW.md) | 设计评审记录 |
+| [docs/archive/](./docs/archive/) | **历史归档**：早期审计、HANDOFF、一次性 spec/团队文档 —— 内容已脱节，仅供追溯 |
 
 ## 致谢
 
