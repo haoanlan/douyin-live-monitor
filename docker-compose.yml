@@ -18,6 +18,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
+        # 图片报告 / 榜单图片要用 Chromium 截图，默认装上（镜像约 +400MB）。
+        # 不需要截图时构建更小的镜像：WITH_PLAYWRIGHT=0 docker compose up -d --build
+        WITH_PLAYWRIGHT: "${WITH_PLAYWRIGHT:-1}"
         # github.com 不可达时覆盖成可达的镜像地址（tar.gz 或裸二进制均可）
         PROXY_BINARY_URL: "${PROXY_BINARY_URL:-https://github.com/jwwsjlm/douyinLive/releases/download/v2.3.1/douyinLive-v2.3.1-0e506f3cf935-linux-amd64.tar.gz}"
         # 默认校验官方 v2.3.1 linux-amd64 资产的 SHA256；换镜像/重打包时改成对应哈希。
