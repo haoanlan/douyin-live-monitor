@@ -1,207 +1,231 @@
-# 🎥 抖音直播监控 — 数据采集与可视化看板
+# 抖音直播监控
 
-> 抖音直播间多房间采集与可视化分析工具。一个进程内跑守护进程 + Web 看板：
-> 自动检测开播/下播，采集弹幕 / 礼物 / 进场 / 在线人数落地 SQLite，
-> 看板提供场次管理、礼物排行、用户画像、趋势分析、状态监控与图片报告推送。
->
-> **⚠️ 本项目仅供学习和研究使用，请勿用于任何商业或非法用途。使用者应遵守相关法律法规及平台规则。**
+多房间抖音直播采集 + 可视化看板。一个进程同时跑采集 worker 与 Web 看板：自动检测开播/下播，
+把弹幕、礼物、进场、在线人数写入 SQLite，并在看板里提供场次管理、榜单、画像、趋势、状态监控、
+图片报告与多场次合并分析。
 
-[![Node](https://img.shields.io/badge/node-%3E%3D20.19-brightgreen)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/platform-windows%20%7C%20linux%20%7C%20macos-blue)](#)
-[![Vue](https://img.shields.io/badge/vue-3-42b883)](#)
-[![SQLite](https://img.shields.io/badge/sqlite-better--sqlite3-003b57)](#)
-[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+> ⚠️ 仅供学习与研究。请遵守抖音平台规则与所在地法律法规，不要用于商业或非法用途。
 
 ---
 
-## 功能
+## 1. 这是什么
 
-- **多房间实时监控** — 一次配置多个直播间，通过 douyinLive 代理（Go 二进制，默认 1088 端口）监听弹幕 / 礼物 / 进场 / 在线人数
-- **自动录制与归档** — 检测到开播自动开始记录，确认下播后保存场次并算好聚合数据
-- **Web 看板**（Vue 3 + TS + Element Plus + Pinia + hash 路由）：
-  | 页面 | 说明 |
-  | --- | --- |
-  | 总览 | 累计数字卡 + 榜单（热门礼物 / 送礼榜 / 弹幕活跃 / 主播贡献等） |
-  | 房间管理 | 增删改房间、暂停/恢复监控、按房间进详情 |
-  | 场次历史 | 按直播间筛选的历史场次（时间、时长、礼物/钻石/弹幕数），进单场详情 |
-  | 趋势分析 | 同一房间跨场次的钻石 / 弹幕 / 在线峰值走势（支持多房间叠加对比） |
-| 数据合并查看 | 多个场次合并成一份数据（按主播/按场次筛选），并支持按主播下载感谢榜单、下载合并总报告 |
-  | 信息查询 | 按昵称模糊匹配用户，查看 TA 的弹幕、礼物与场次 |
-  | 状态监控 | 守护进程 / Go 代理 / WebSocket 连接 / 录制中 的实时健康与动作 |
-  | 场次详情 | 单场统计、礼物排行、团播主播排名、弹幕排行、弹幕词云、最新动态（弹幕+礼物时间线） |
-  | 用户画像 | 按 sec_uid 聚合送礼历史、活跃时段、常用昵称与场次 |
-  | 个人中心 | 当前账号信息与密码修改 |
-- **数据持久化** — SQLite（WAL + 索引），弹幕 / 礼物 / 进场 / 在线人数 / 场次完整记录
-- **预聚合** — 场次结束时算好各维度汇总（见下方"数据表"），总览页与各榜单读汇总而非每次扫明细
-- **图片报告** — Playwright 截图生成可视化直播报告，下播自动生成
-- **飞书推送** — 开播提醒 + 下播报告（tenant_access_token），可选
-- **账号与权限** — 用户名/密码登录（scrypt + 随机盐，兼容旧无盐 sha256 并在登录时自动升级）、
-  角色（超级管理员 / 管理员 / 普通用户）、登录失败限速（5 次 → 429 限 2 分钟）、
-  高风险接口按角色拦截
-- **导出** — `/api/export/*` 导出 CSV，单次上限 2 万行（超出会带 `X-Export-Truncated` 头并在文件尾注明）
-- **加载体验** — 各页首屏同形骨架（不白屏、不跳动）、登录后空闲预取路由分包、
-  页面切换"退场瞬时 + 进场只位移"
+- **一套自托管的采集 + 看板**：数据落在本地 SQLite（`db/douyin.db`），不依赖任何云服务。
+- **跟着主播开播自动记录**：检测到开播开始采集，确认下播后保存场次并算好各级汇总。
+- **看板是给人看的**：总览、房间、场次、趋势、合并、查询、画像、状态，共 10 个页面。
+- **能出图**：单场报告、多场合并报告、以及按主播生成的「感谢榜」图片（可挑模板）。
 
-## 架构
+## 2. 能做什么
 
-```
-抖音直播间 ←WebSocket→ douyinLive 代理（Go 二进制，默认 1088）
-                              ↓ ws://127.0.0.1:1088/ws/<room_id>
-                 进程内监控 worker（monitor.js，多房间）
-                 ├─ 消息解析 → 增量刷写 SQLite（lib/worker/*）
-                 │   ├─ streamers / sessions / danmaku / gifts / members / online_records
-                 │   └─ 场次结束时：算 agg_* + 预聚合表（session_*）
-                 ├─ 开播 / 下播 → feishu-send.js（可选）
-                 └─ 下播后 → report-image.js（Playwright 截图，可选）
+| 你想做的事 | 去哪儿 |
+| --- | --- |
+| 看今天/近期整体情况 | 总览 |
+| 加直播间、暂停监控 | 房间管理 |
+| 看某一场的完整数据 | 场次历史 → 点进某一场 |
+| 看某个主播几周内的走势 | 趋势分析 |
+| 把几场数据合成一份做对比 | 数据合并查看 |
+| 查某个观众送了什么、说了什么 | 信息查询（按昵称搜）→ 用户画像 |
+| 看采集是否正常、代理有没有断 | 状态监控 |
+| 导出一张报告图 / 感谢榜图片 | 场次详情、数据合并查看里的下载按钮 |
 
-                 web-dashboard.js（HTTP，默认 9871）
-                 ├─ 托管 frontend/dist（Vue 3 SPA）
-                 ├─ REST API /api/*（lib/routes/*，登录令牌 + gzip）
-                 └─ 同一个进程里启动上面的 worker（"嵌入仪表盘"模式）
-```
+## 3. 三分钟跑起来
 
-> `monitor.js` 支持两种运行模式：**独立进程** 或 **嵌入仪表盘**（默认，`node web-dashboard.js` 一把起）。
-> 代理二进制按平台自动选择：Windows 用 `douyinLive-win-amd64.exe`，Linux 用 `douyinLive-linux-amd64`（见 `lib/proxy-binary.js`）。
+### 3.1 需要什么
 
-## 快速开始
+| 依赖 | 是否必须 | 说明 |
+| --- | --- | --- |
+| **Node.js 20.19+** | 必须 | 推荐 22.x |
+| **Go 抓取代理**（douyinLive） | 必须 | 从 [douyinLive Releases](https://github.com/jwwsjlm/douyinLive/releases) 下载对应平台的二进制，放到项目根目录（Windows：`douyinLive-win-amd64.exe`；Linux：`douyinLive-linux-amd64`） |
+| **抖音 cookie** | 必须 | 浏览器登录抖音网页版 → F12 → Application → Cookies → 复制完整 cookie 串 |
+| **Chromium** | 可选 | 只有「图片报告 / 感谢榜图片」需要。可用 `npx playwright install chromium`，也会自动使用系统已装的 Chrome / Edge |
 
-### 前置条件
+### 3.2 方式 A：Windows 发布包（最简单）
 
-- **Node.js ≥ 20.19**（前端要求；根目录实测 22.x）
-- **Go 抓取代理二进制**：放到项目根目录，Windows 用 `douyinLive-win-amd64.exe`，Linux 用 `douyinLive-linux-amd64`
-- **Chromium**（仅"图片报告"需要，`npx playwright install chromium`）
+1. 解压 `douyin-live-<版本>-win.zip`（已内置 `node_modules` 与代理二进制，**不需要** `npm install`）。
+2. 把 `config.example.yaml` 复制为 `config.yaml`，填入 cookie。
+3. 双击 `start.bat`。
+4. 打开 <http://127.0.0.1:9871>，默认账号 **admin / 123456**（请立刻在「个人中心」改密）。
 
-### 安装
+### 3.3 方式 B：源码运行
 
 ```bash
-git clone https://github.com/haoanlan/new_douyinlive.git
-cd new_douyinlive
-
 # 后端依赖
 npm install
 
 # 前端依赖 + 构建（构建会先跑 vue-tsc 类型检查）
 cd frontend && npm install && npm run build && cd ..
 
-# 可选：图片报告用的浏览器
-npx playwright install chromium
+# 启动（worker 已内嵌在仪表盘进程里）
+node web-dashboard.js
+# → http://127.0.0.1:9871
 ```
 
-### 配置
+> 如果 `npm install` 在 `better-sqlite3` 处报 `gyp ERR`，说明当前 Node 版本没有预编译包。
+> 换 **Node 20 LTS** 或装好编译工具链（Windows：VS Build Tools；Linux：`python3 make g++`），
+> 或直接用 **Docker**（见下）。
 
-#### 1. 抖音 cookie
+### 3.4 方式 C：Docker（Linux 服务器推荐）
 
-复制 `config.example.yaml` 为 `config.yaml`，填入抖音 cookie：
+```bash
+cp config.example.yaml config.yaml      # 填 cookie
+mkdir -p db logs && sudo chown -R 1000:1000 db logs
+docker compose up -d --build
+# → http://<服务器IP>:9871
+```
+
+镜像里已经包含 Node、Go 代理、中文字体，**默认也包含 Chromium**（图片报告可用）。
+需要更小的镜像（不要截图能力）时：
+
+```bash
+WITH_PLAYWRIGHT=0 docker compose up -d --build
+```
+
+端口：**9871** 看板 / **1088** Go 抓取代理（代理只建议内网访问）。
+Linux 部署的细节与排错见 [deploy/DEPLOY-linux.md](./deploy/DEPLOY-linux.md)。
+
+### 3.5 配置
+
+`config.yaml`（不要提交到仓库，已在 `.gitignore` 里）：
 
 ```yaml
 cookie:
   douyin: "你的抖音登录cookie"
-port: "1088"
-monitor:
-  poll_interval: 15s
-  notify_interval: 30s
+port: "1088"              # Go 代理端口
 dashboard:
   port: "9871"
-  host: "127.0.0.1"       # 0.0.0.0 允许外部访问
+  host: "127.0.0.1"       # 需要局域网/公网访问时改 0.0.0.0
 ```
 
-> cookie 获取：浏览器登录抖音网页版 → F12 → Application → Cookies → 复制完整 cookie 字符串。
-> **注意**：Go 代理只支持监听 `0.0.0.0/::`，没有 `--host/--bind` 参数；需要限制访问请用防火墙规则。
+直播间列表：启动后直接在「房间管理」里增删（热生效），也可以改 `runtime-config.json`。
+飞书推送（可选）用环境变量：`FEISHU_APP_ID` / `FEISHU_APP_SECRET`。
 
-#### 2. 环境变量（可选，飞书推送用）
+## 4. 页面使用指南
 
-```
-FEISHU_APP_ID=cli_xxx
-FEISHU_APP_SECRET=xxx
-# 仪表盘也可用环境变量覆盖：DASHBOARD_TOKEN / DASHBOARD_HOST / DASHBOARD_PORT / DB_SQLITE_PATH
-```
+### 总览
 
-#### 3. 房间
+- 顶部是累计数字卡，中间是各种榜单（热门礼物、送礼榜、弹幕活跃、主播贡献、最近场次）。
+- 榜单行可以直接点进对应场次详情。
+- 首次加载会先显示同形骨架，不会白屏或跳高度。
 
-编辑 `runtime-config.json`，或直接在看板的「房间管理」里增删（支持热加载）：
+### 房间管理
 
-```json
-{
-  "rooms": [
-    { "id": "516466932480", "name": "主播名", "enabled": true }
-  ],
-  "check_interval_seconds": 30,
-  "reconnect_delay_seconds": 10,
-  "save_json": false,
-  "feishu": { "open_id": "ou_xxx" }
-}
-```
+- 添加直播间（填房间号或主页链接）、改名、暂停/恢复监控、删除。
+- 「进详情」跳到该房间最近一场的场次详情。
 
-### 启动
+### 场次历史
 
-```bash
-# 推荐：一个进程同时起 worker 与看板（worker 嵌入其中）
-node web-dashboard.js
-# → 打开 http://127.0.0.1:9871
-```
+- 按直播间筛选历史场次，列表里有时间、时长、礼物数、钻石数。
+- 点任意一场进「场次详情」。
 
-```bash
-# 也可以拆开跑：先起守护进程，再起看板（脚本仅 Linux）
-./start-all.sh          # 或 ./start.sh / ./status.sh
-node monitor.js         # 独立模式的监控进程
-```
+### 场次详情
 
-**默认账号**：`admin` / `123456`（首次启动自动创建，请尽快改掉）。
-忘记密码时在**运行仪表盘的那台机器**上执行：
+这是信息最密的一页：
 
-```bash
-node scripts/reset-dashboard-password.js 新密码
-```
+- **统计卡**：峰值在线、总钻石、点赞、弹幕、用户、时长。
+- **礼物排行 / 团播主播排名 / 弹幕排行**：各 Top 榜；点团播主播里的某个主播，会弹出「这个主播收到了谁的礼物」。
+- **弹幕词云**：高频词汇。
+- **最新动态**：弹幕 + 礼物时间线。
+- 右上角的下箭头图标 = **下载榜单图片**（可选模板，见 4.1）。
 
-> 登录令牌只在本次运行期间有效 —— **每次重启仪表盘后都需要重新登录**。
-> 登录后在「个人中心」可自行改密；其它账号由管理员在账号相关接口处理。
+#### 4.1 下载榜单图片
 
-### 前端开发
+在「送出礼物的人员榜单」弹窗里，点标题栏右侧的下载图标 → 内容区切换成模板网格 →
+选一套模板即按它生成并下载图片（模板清单来自渲染脚本，接口 `GET /api/rank-image/themes`）。
 
-```bash
-cd frontend
-npm run dev             # 5173，/api 代理到 9871
-npm run build           # vue-tsc --noEmit && vite build
-```
+### 趋势分析
 
-## 数据表（16 张）
+- 左侧选主播（可多选对比）+ 时间范围 + 口径（按天 / 按场次 / 按周 / 按月）。
+- **默认按天**。量类指标（钻石、弹幕、礼物）用柱状图，人数/比率类用折线。
+- 顶部有全局 KPI（钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比），能算环比的都带 ↑↓。
 
-| 类别 | 表 |
+### 数据合并查看
+
+- 选若干场次（可跨主播），点「查看合并」。
+- 合并弹窗里有：总数据报告下载、三张榜单（礼物 / 主播 / 弹幕）、以及**按主播下载感谢榜单**。
+- 点某个主播 → 该主播在这些场次里收到了谁的礼物（头像已尽量补全）。
+
+### 信息查询
+
+- 按昵称模糊搜人，看到 TA 的弹幕、礼物与出现过的场次，可进「用户画像」。
+
+### 用户画像
+
+- 按 sec_uid 聚合：送礼历史、活跃时段、常用昵称、参与过的场次。
+
+### 状态监控
+
+- 守护进程 / Go 代理 / WebSocket 连接 / 正在录制的房间，以及运行日志。
+- 采集异常（代理断了、cookie 失效）通常先在这里看出来。
+
+### 个人中心
+
+- 账号信息与改密。登录令牌只在本次运行期间有效，重启看板后需要重新登录。
+
+## 5. 数据与文件
+
+| 路径 | 内容 |
 | --- | --- |
-| 基础明细 | `streamers` `sessions` `danmaku` `gifts` `members` `online_records` |
-| 礼物图标库 | `gift_icons`（运行时积累 + `sync-gift-icons.js` 同步） |
-| 账号 | `dashboard_users` |
-| 场次预聚合（结束时写入） | `session_gift_ranking` `session_anchor_ranking` `session_danmaku_ranking` `session_gift_details` `session_timeline` |
-| 总览用全量汇总（不截断） | `session_user_gift_totals` `session_user_danmaku_totals` `session_gift_type_totals` |
+| `db/douyin.db` | SQLite 主库（WAL 模式），所有采集数据 |
+| `config.yaml` | 你的 cookie 与端口配置（**不要提交**） |
+| `runtime-config.json` | 直播间列表（看板里增删会写这里） |
+| `reports/` | 自动生成的报告图片 |
+| `logs/` | 运行日志 |
 
-## 给开发者
+表结构与字段口径见 **[docs/DATABASE.md](./docs/DATABASE.md)**。
 
-自检脚本、数据口径与容易踩的坑，见 **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**；
-数据库表结构与字段，见 **[docs/DATABASE.md](./docs/DATABASE.md)**。
+## 6. 常见问题
 
-## API 速览
+**看板打不开 / 端口被占**
+换端口：`DASHBOARD_PORT=9872 node web-dashboard.js`，或改 `config.yaml` 的 `dashboard.port`。
 
-所有 `/api/*` 接口需携带登录令牌（`Authorization: Bearer <token>`），返回 JSON 支持 gzip。
+**能打开但没有数据**
+先看「状态监控」：Go 代理是否连上、WebSocket 是否正常。代理二进制缺失时看板能起来但采不到数据。
 
-| 域 | 主要接口 |
+**cookie 失效**
+表现：状态页显示连接异常 / 采不到新数据。重新从浏览器复制 cookie，更新 `config.yaml` 后重启。
+
+**图片报告生成失败**
+多数是 Chromium 缺失或路径找不到。装一次 `npx playwright install chromium` 即可；
+或者确认系统里有 Chrome / Edge（程序会优先用系统浏览器）。Docker 镜像默认已包含。
+
+**Docker 里 `/app/config.yaml` 报"是目录"**
+宿主机缺少 `config.yaml` 时 Docker 会自动建一个同名目录。先在宿主机 `cp config.example.yaml config.yaml`。
+
+**Docker 里 db/logs 不可写**
+容器内以 uid 1000 运行：`sudo chown -R 1000:1000 db logs`，或用 `APP_UID=$(id -u) APP_GID=$(id -g)` 覆盖。
+
+**`npm install` 在 better-sqlite3 处失败**
+见 3.3 的说明：换 Node 20 LTS、装编译工具链，或改用 Docker。
+
+## 7. 从旧版本升级
+
+- 数据在 `db/douyin.db`，升级代码不会动它；升级前建议备份一份。
+- `frontend/dist` 是构建产物，拉取代码后需要重新 `npm install && npm run build`（或用发布包自带的 dist）。
+- 预聚合表在**场次结束时**写入，旧场次的历史数据不会被自动重算。
+
+## 8. 给开发者 / 对接方
+
+- 自检脚本、数据口径、容易踩的坑：**[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)**
+- 数据库表结构：**[docs/DATABASE.md](./docs/DATABASE.md)**
+- WebSocket 字段参考：**[docs/websocket-fields-ref.md](./docs/websocket-fields-ref.md)**
+- 所有 `/api/*` 需要登录令牌：`Authorization: Bearer <token>`，返回 JSON（gzip）。
+
+主要接口速览：
+
+| 域 | 接口 |
 | --- | --- |
 | 认证 | `POST /api/auth/login` |
-| 房间 | `GET /api/rooms` · `GET /api/rooms/lookup` · `POST /api/rooms/add\|remove\|pause\|resume` |
-| 场次 | `GET /api/sessions` · `GET /api/sessions/<id>/detail` · `GET /api/sessions/<id>/gift-details` · `GET /api/sessions/<id>/gifts\|danmaku\|online\|report` |
+| 房间 | `GET /api/rooms` · `POST /api/rooms/add\|remove\|pause\|resume` |
+| 场次 | `GET /api/sessions` · `GET /api/sessions/<id>/detail` · `GET /api/sessions/<id>/gift-details` |
 | 多场合并 | `GET /api/sessions/combined?ids=1,2,3` · `GET /api/sessions/combined/anchor-people` · `GET /api/sessions/combined/report` |
-| 榜单图片 | `GET /api/rank-image/themes` · `GET /api/sessions/combined/rank-image` · `GET /api/sessions/<id>/rank-image?theme=&page=&to=&avatar=` |
-| 趋势（按房间） | `GET /api/hosts/trends?hostIds=..&range=30d` |
-| 总览 | `GET /api/overview` · `GET /api/summary` · `GET /api/trends` |
-| 礼物 | `GET /api/gifts/ranking` · `GET /api/gifts/by-type` |
-| 用户 | `GET /api/users/<sec_uid>` · `GET /api/users/search` · `GET /api/anonymous-lookup` |
-| 状态 / 运维 | `GET /api/status` · `POST /api/service/action`（按角色）· `GET /api/export/*` |
+| 榜单图片 | `GET /api/rank-image/themes` · `GET /api/sessions/combined/rank-image` · `GET /api/sessions/<id>/rank-image` |
+| 趋势 | `GET /api/hosts/trends?hostIds=..&range=30d` |
+| 状态 / 运维 | `GET /api/status` · `POST /api/service/action` · `GET /api/export/*` |
 
-## 致谢
+## 9. 致谢与 License
 
-- [douyinLive](https://github.com/jwwsjlm/douyinLive) — WebSocket 抓取代理二进制
-- [DouYin_Spider](https://github.com/ReaJason/DouYin_Spider) — 抖音 API 查询灵感参考
-- 前端基于 [art-design-pro](https://github.com/Daymychen/art-design-pro) 二次开发（品牌与页面已按本项目重做）
+- [douyinLive](https://github.com/jwwsjlm/douyinLive) — WebSocket 抓取代理
+- [DouYin_Spider](https://github.com/ReaJason/DouYin_Spider) — 接口思路参考
+- 前端基于 [art-design-pro](https://github.com/Daymychen/art-design-pro) 二次开发（品牌与页面已重做）
 
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
+MIT License — 见 [LICENSE](./LICENSE)。
