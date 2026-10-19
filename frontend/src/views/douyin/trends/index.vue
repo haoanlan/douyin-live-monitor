@@ -123,6 +123,20 @@
     </div>
 
     <template v-else-if="hasData">
+      <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
+           每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
+      <div class="dy-kpi-row mb-5">
+        <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">
+          <div class="text-xs text-g-500">{{ k.label }}</div>
+          <div class="mt-1.5 flex items-baseline gap-2 flex-wrap">
+            <span class="text-xl font-bold text-g-900">{{ k.value }}</span>
+            <span v-if="k.delta !== null" class="text-xs font-medium" :class="k.delta >= 0 ? 'text-green-600' : 'text-red-500'"> {{ k.delta >= 0 ? '↑' : '↓' }}{{ Math.abs(k.delta).toFixed(1) }}% </span>
+            <span v-else class="text-xs text-g-400">环比 —</span>
+          </div>
+          <div v-if="k.hint" class="mt-1 text-[11px] text-g-400">{{ k.hint }}</div>
+        </div>
+      </div>
+
       <!--
         KPI：每个房间一张卡。
         用「平均每场」而不是「总和」—— 场次多的房间不该因为播得多就赢。
@@ -663,6 +677,38 @@
     const s = series.value.find((x) => x.hostId === detailHost.value)
     if (!s) return []
     return [...s.points].reverse()
+  })
+
+  /** 全局 KPI（聚合所有已选房间）+ 环比（后端 prevSummary） */
+  const kpiCards = computed(() => {
+    const ss = series.value
+    if (!ss.length) return []
+    const nf = (n: number) => new Intl.NumberFormat('zh-CN').format(Math.round(n))
+    const pts = ss.flatMap((s) => s.points.filter((p) => p.hasData))
+    const sum = (k: 'diamonds' | 'users' | 'danmaku' | 'durationMinutes') => pts.reduce((a, p) => a + (Number(p[k]) || 0), 0)
+    const diamonds = sum('diamonds'), users = sum('users'), danmaku = sum('danmaku'), minutes = sum('durationMinutes')
+    const hours = minutes / 60
+    const days = new Set(pts.map((p) => (p.startAt || '').slice(0, 10)).filter(Boolean)).size
+    const prevs = ss.map((s) => s.prevSummary).filter((x): x is NonNullable<typeof x> => !!x)
+    const prevAvg = (k: 'avgDiamonds' | 'avgDanmaku' | 'avgDurationMinutes') =>
+      prevs.length ? prevs.reduce((a, p) => a + (Number(p[k]) || 0), 0) / prevs.length : null
+    const prevSessions = prevs.reduce((a, p) => a + (p.sessions || 0), 0)
+    const prevTotal = (k: 'avgDiamonds' | 'avgDanmaku' | 'avgDurationMinutes') => {
+      const a = prevAvg(k)
+      return a != null && prevSessions ? a * prevSessions : null
+    }
+    const pct = (cur: number, prev: number | null) => (prev && prev > 0 ? ((cur - prev) / prev) * 100 : null)
+    const withTop10 = ss.filter((s) => typeof s.summary.top10Share === 'number')
+    const top10 = withTop10.length ? withTop10.reduce((a, s) => a + (s.summary.top10Share || 0), 0) / withTop10.length : null
+    const per = (v: number, n: number) => (n > 0 ? nf(v / n) : '—')
+    return [
+      { key: 'diamonds', label: '总钻石', value: nf(diamonds), delta: pct(diamonds, prevTotal('avgDiamonds')), hint: '场均 ' + per(diamonds, pts.length) },
+      { key: 'users', label: '送礼用户（人次）', value: nf(users), delta: null, hint: '场均 ' + per(users, pts.length) },
+      { key: 'danmaku', label: '弹幕数', value: nf(danmaku), delta: pct(danmaku, prevTotal('avgDanmaku')), hint: '场均 ' + per(danmaku, pts.length) },
+      { key: 'duration', label: '总时长', value: Math.round(hours) + ' 小时', delta: pct(minutes, prevTotal('avgDurationMinutes')), hint: '开播 ' + days + ' 天 · 场均 ' + per(minutes, pts.length) + ' 分钟' },
+      { key: 'dph', label: '钻 / 时', value: hours > 0 ? nf(diamonds / hours) : '—', delta: null, hint: '按总时长折算' },
+      { key: 'top10', label: 'Top10 占比', value: top10 == null ? '—' : top10.toFixed(1) + '%', delta: null, hint: '前 10 名用户贡献的钻石占比' }
+    ]
   })
 
   function goDetail(sessionId: number) {
