@@ -232,8 +232,6 @@ dashboard:
 | 文档 | 内容 |
 | --- | --- |
 | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | 构建/测试、数据口径、容易踩的坑 |
-| [docs/DATABASE.md](./docs/DATABASE.md) | 16 张表的字段与索引（由真实 schema 生成） |
-| [docs/websocket-fields-ref.md](./docs/websocket-fields-ref.md) | Go 代理推送的字段参考 |
 
 所有 `/api/*` 需要登录令牌：`Authorization: Bearer <token>`，返回 JSON（gzip）。
 
