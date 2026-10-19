@@ -571,12 +571,19 @@
           trigger: 'axis',
           valueFormatter: (v: number) => fmtNum(v)
         },
-        legend: { data: series.value.map((s) => s.name), type: 'scroll' },
-        grid: { left: 64, right: 24, top: 44, bottom: 56 },
+        legend: { data: series.value.map((s) => s.name), type: 'scroll', top: 0, left: 0, itemWidth: 10, itemHeight: 10, itemGap: 14 },
+        grid: { left: 64, right: 24, top: 44, bottom: 40 },
         xAxis: {
           type: 'category',
           data: labels,
-          axisLabel: { rotate: labels.length > 8 ? 35 : 0, fontSize: 11 }
+          axisLabel: {
+            fontSize: 11,
+            rotate: 0,
+            // 日期只留 MM-DD；标签多时自动抽稀，避免挤成一团
+            formatter: (v: string) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v),
+            interval: labels.length > 14 ? Math.ceil(labels.length / 12) - 1 : 0,
+            hideOverlap: true
+          }
         },
         yAxis: { type: 'value', axisLabel: { formatter: (v: number) => fmtNum(v) } },
         series: series.value.map((s) => {
