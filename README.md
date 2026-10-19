@@ -27,6 +27,8 @@
 - [三分钟跑起来](#-三分钟跑起来) · [Windows](#-方式一windows-发布包最简单) / [源码](#-方式二源码运行) / [Docker](#-方式三dockerlinux-推荐)
 - [配置](#-配置)
 - [页面使用指南](#-页面使用指南)
+- [项目架构](#-项目架构)
+- [Docker 镜像](#-docker-镜像构建--导出--验证)
 - [数据与文件](#-数据与文件)
 - [常见问题](#-常见问题)
 - [从旧版本升级](#-从旧版本升级)
@@ -157,6 +159,93 @@ dashboard:
 3. 选一套模板 → 自动按它渲染并下载图片（模板清单来自渲染脚本，接口 `GET /api/rank-image/themes`）
 
 </details>
+
+---
+
+---
+
+## 🏗 项目架构
+
+```text
+浏览器 ──HTTP(9871)──► web-dashboard.js  ── 同一进程 ──┐
+                        ├─ REST /api/*        (lib/routes/*)      │
+                        ├─ 静态前端            (frontend/dist)     │
+                        └─ 内嵌 worker         (monitor.js)        │
+                              │                                    │
+                              ├─ WebSocket ws://127.0.0.1:1088/ws/<room_id>
+                              │        └─ douyinLive 代理（Go 二进制，1088）
+                              │
+                              ├─ 写库 → SQLite db/douyin.db
+                              │        ├─ 明细：danmaku / gifts / members / online_records
+                              │        ├─ 场次：sessions
+                              │        └─ 场次结束时算好预聚合：session_*（榜单/汇总/时间线）
+                              │
+                              └─ 下播后 → 报告图片（Playwright 截图）· 飞书推送（可选）
+```
+
+**一个进程**承担看板与采集（worker 可独立运行）；**代理是独立 Go 进程**（1088）负责与抖音建连。
+前端只通过 `/api/*` 与后端通信，构建产物 `frontend/dist` 由后端进程直接托管。
+
+### 目录结构
+
+| 路径 | 职责 |
+| --- | --- |
+| `lib/routes/` | HTTP 接口：sessions / detail / trends / combined / users / status / export |
+| `lib/worker/` | 采集实现：消息解析、增量刷库、场次收尾与预聚合 |
+| `lib/*.js` | 配置解析（config-reader）、浏览器路径（browser-path）等基础件 |
+| `frontend/src/` | Vue 3 看板（views / components / api / store / router） |
+| `frontend/dist/` | 前端构建产物（gitignore，由 `npm run build` 生成） |
+| `thanks-rank.js` | 榜单图片渲染（14 套模板 → HTML → JPEG） |
+| `report-image.js` | 下播报告图片 |
+| `deploy/` | systemd 部署文件 + Linux 部署说明 |
+| `Dockerfile` `docker-compose.yml` | 容器化部署（多阶段构建） |
+| `assets/` | 榜单图片素材 |
+| `test/` | 单元测试（`node:test`） |
+
+---
+
+## 🐳 Docker 镜像：构建 / 导出 / 验证
+
+### 构建并启动
+
+```bash
+cp config.example.yaml config.yaml      # 填 cookie
+mkdir -p db logs && sudo chown -R 1000:1000 db logs
+docker compose up -d --build            # 首次：构建前端 + 编译 better-sqlite3 + 装 Chromium
+docker compose ps                      # 期望 Up (healthy)，健康检查 90s 后开始
+```
+
+### 验证清单（四条）
+
+```bash
+docker compose ps                                              # 1) Up (healthy)
+curl -sI  http://127.0.0.1:9871 | head -1                      # 2) HTTP/1.1 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9871/api/overview   # 3) 401
+docker exec douyinlive node -e "require('playwright').chromium.launch().then(b=>{console.log('chromium OK');return b.close()})"   # 4) chromium OK
+```
+
+### 导出镜像（给离线/另一台机器用）
+
+```bash
+# 构建机
+docker save douyinlive:v2.3.1 | gzip > douyin-live-image.tar.gz
+ls -lh douyin-live-image.tar.gz
+
+# 目标机（把这个 tar 和 docker-compose.yml、config.yaml 一起拷过去）
+docker load -i douyin-live-image.tar.gz
+docker compose up -d          # 已有镜像时不会再 build
+```
+
+### 镜像大小参考
+
+| 构建参数 | 约计 | 用途 |
+| --- | --- | --- |
+| 默认（`WITH_PLAYWRIGHT=1`） | ~1.2GB | 图片报告 / 榜单图片开箱可用 |
+| `WITH_PLAYWRIGHT=0` | ~800MB | 不需要截图能力时更小 |
+
+> 排错：`docker compose logs -f douyinlive`；若报 `/app/config.yaml 是目录`，说明宿主机没有 config.yaml，
+> 先 `cp config.example.yaml config.yaml` 再 `up`。
+
 
 ---
 
