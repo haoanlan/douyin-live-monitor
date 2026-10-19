@@ -238,7 +238,15 @@
             首屏骨架（UI-AUDIT P1-8）：原来数据没回来就先渲染 el-empty，
             回来后被整块替换 —— 既会被误读成「真没数据」，又让页面高度跳变（实测收缩 393px）。
           -->
-          <el-skeleton v-if="!overview && !overviewError" :rows="4" animated class="mt-4" />
+          <!-- 同形骨架：与真实 .dy-rank-row 一致（24 名次 + 32 头像 + 名字 + 数值），5 行 = Top 5 -->
+          <div v-if="!overview && !overviewError" class="flex flex-col gap-2.5 mt-4">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2">
+              <el-skeleton-item variant="text" style="width: 24px; height: 24px; border-radius: 6px" />
+              <el-skeleton-item variant="circle" style="width: 32px; height: 32px" />
+              <el-skeleton-item variant="text" style="flex: 1; height: 14px" />
+              <el-skeleton-item variant="text" style="width: 64px; height: 14px" />
+            </div>
+          </div>
           <TransitionGroup v-else name="dy-list" tag="div" class="flex flex-col gap-2.5 mt-4" appear>
             <div
               v-for="(u, i) in overview?.topUsers || []"
@@ -266,7 +274,15 @@
               <p>发言次数 Top 5</p>
             </div>
           </div>
-          <el-skeleton v-if="!overview && !overviewError" :rows="4" animated class="mt-4" />
+          <!-- 同形骨架：与真实 .dy-rank-row 一致（24 名次 + 32 头像 + 名字 + 数值），5 行 = Top 5 -->
+          <div v-if="!overview && !overviewError" class="flex flex-col gap-2.5 mt-4">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2">
+              <el-skeleton-item variant="text" style="width: 24px; height: 24px; border-radius: 6px" />
+              <el-skeleton-item variant="circle" style="width: 32px; height: 32px" />
+              <el-skeleton-item variant="text" style="flex: 1; height: 14px" />
+              <el-skeleton-item variant="text" style="width: 64px; height: 14px" />
+            </div>
+          </div>
           <TransitionGroup v-else name="dy-list" tag="div" class="flex flex-col gap-2.5 mt-4" appear>
             <div
               v-for="(d, i) in overview?.topDanmaku || []"
@@ -302,7 +318,20 @@
           <p>最新 8 场直播记录</p>
         </div>
       </div>
-      <el-skeleton v-if="!overview && !overviewError" :rows="6" animated class="mt-4" />
+      <!-- 同形骨架：真实是「最新 8 场」的两行布局，这里也画 8 行，加载完不跳高度 -->
+      <div v-if="!overview && !overviewError" class="flex flex-col gap-2.5 mt-4">
+        <div v-for="i in 8" :key="i" class="rounded-xl bg-g-100/50 px-3 py-2.5">
+          <div class="flex items-center gap-3">
+            <el-skeleton-item variant="text" style="width: 88px; height: 14px" />
+            <el-skeleton-item variant="text" style="flex: 1; height: 14px" />
+            <el-skeleton-item variant="text" style="width: 56px; height: 14px" />
+          </div>
+          <div class="mt-2 flex items-center gap-3">
+            <el-skeleton-item variant="text" style="width: 120px; height: 12px" />
+            <el-skeleton-item variant="text" style="width: 160px; height: 12px" />
+          </div>
+        </div>
+      </div>
       <TransitionGroup v-else name="dy-list" tag="div" class="flex flex-col gap-2.5 mt-4" appear>
         <div
           v-for="s in overview?.recentSessions || []"

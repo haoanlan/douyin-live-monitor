@@ -1,60 +1,6 @@
 <template>
   <div class="douyin-page dy-stagger p-4">
-    <!-- 失败：与「没有数据」区分开，并给重试入口（与其它抖音页一致） -->
-    <QueryErrorState
-      v-if="queryError && !loading"
-      class="mb-5"
-      :message="queryError"
-      :retrying="loading"
-      @retry="refresh"
-    />
-
-    <!--
-      首屏骨架：与真实列表**同形**（一条条卡片、同样的网格列数），数据到达时不跳高度。
-    -->
-    <div v-else-if="loading && !groups.length" class="combined-list-zone mb-5">
-      <div class="combined-list">
-        <div v-for="i in 9" :key="i" class="combined-item combined-item--ghost">
-          <el-skeleton-item variant="text" style="width: 14px; height: 14px" />
-          <div class="combined-item__body">
-            <div class="combined-item__head">
-              <el-skeleton-item variant="circle" style="width: 32px; height: 32px" />
-              <div class="combined-item__text">
-                <el-skeleton-item variant="text" style="width: 58%" />
-                <el-skeleton-item variant="text" style="width: 84%" />
-              </div>
-            </div>
-            <div class="combined-item__stats">
-              <el-skeleton-item variant="text" style="width: 124px" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 没有主播可合并 -->
-    <div v-else-if="!groups.length" class="art-card px-5 py-8 mb-5">
-      <div class="flex flex-col items-center text-center">
-        <div class="size-11 rounded-full flex-cc bg-theme/10 mb-3">
-          <ArtSvgIcon icon="ri:merge-cells-horizontal" class="text-xl text-theme" />
-        </div>
-        <div class="text-sm font-medium text-g-900">暂无可合并的主播</div>
-        <p class="mt-1.5 text-xs text-g-600">
-          监控列表里还没有主播，先到「房间管理」添加一个直播间。
-        </p>
-        <el-button class="mt-4" type="primary" plain @click="router.push('/douyin/rooms')">
-          <ArtSvgIcon icon="ri:arrow-left-line" class="mr-1" />
-          去房间管理
-        </el-button>
-      </div>
-    </div>
-
-    <template v-else>
-      <!--
-        筛选行：主播（多选下拉，可搜索）+ 时间（日期范围）。
-        主播不用平铺标签 —— 直播间会越来越多，标签铺不下；
-        下拉自带搜索与折叠，几十个直播间也只占一行。
-      -->
+    <!-- 顶栏（筛选行）：**始终渲染**，不放在数据分支里 —— 否则加载中它不存在、数据回来才整块出现（"闪现"）。 -->
       <div class="art-card combined-filters mb-5">
         <div class="combined-filter-row">
           <div class="combined-filter-item combined-filter-item--select">
@@ -152,6 +98,62 @@
           </div>
         </div>
       </div>
+    <!-- 失败：与「没有数据」区分开，并给重试入口（与其它抖音页一致） -->
+    <QueryErrorState
+      v-if="queryError && !loading"
+      class="mb-5"
+      :message="queryError"
+      :retrying="loading"
+      @retry="refresh"
+    />
+
+    <!--
+      首屏骨架：与真实列表**同形**（一条条卡片、同样的网格列数），数据到达时不跳高度。
+    -->
+    <div v-else-if="loading && !groups.length" class="combined-list-zone mb-5">
+      <div class="combined-list">
+        <div v-for="i in 20" :key="i" class="combined-item combined-item--ghost">
+          <el-skeleton-item variant="text" style="width: 14px; height: 14px" />
+          <div class="combined-item__body">
+            <div class="combined-item__head">
+              <el-skeleton-item variant="circle" style="width: 32px; height: 32px" />
+              <div class="combined-item__text">
+                <el-skeleton-item variant="text" style="width: 58%" />
+                <el-skeleton-item variant="text" style="width: 84%" />
+              </div>
+            </div>
+            <div class="combined-item__stats">
+              <el-skeleton-item variant="text" style="width: 124px" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 没有主播可合并 -->
+    <div v-else-if="!groups.length" class="art-card px-5 py-8 mb-5">
+      <div class="flex flex-col items-center text-center">
+        <div class="size-11 rounded-full flex-cc bg-theme/10 mb-3">
+          <ArtSvgIcon icon="ri:merge-cells-horizontal" class="text-xl text-theme" />
+        </div>
+        <div class="text-sm font-medium text-g-900">暂无可合并的主播</div>
+        <p class="mt-1.5 text-xs text-g-600">
+          监控列表里还没有主播，先到「房间管理」添加一个直播间。
+        </p>
+        <el-button class="mt-4" type="primary" plain @click="router.push('/douyin/rooms')">
+          <ArtSvgIcon icon="ri:arrow-left-line" class="mr-1" />
+          去房间管理
+        </el-button>
+      </div>
+    </div>
+
+    <template v-else>
+      <!--
+        筛选行：主播（多选下拉，可搜索）+ 时间（日期范围）。
+        主播不用平铺标签 —— 直播间会越来越多，标签铺不下；
+        下拉自带搜索与折叠，几十个直播间也只占一行。
+      -->
+
 
       <!--
         场次列表：不要卡片外壳，也不要排序行 —— 永远按开始时间倒序（最近的播在最上面）。
