@@ -125,7 +125,7 @@
     <template v-else-if="hasData">
       <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
-      <div class="dy-kpi-row mb-5">
+      <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">
           <div class="text-xs text-g-500">{{ k.label }}</div>
           <div class="mt-1.5 flex items-baseline gap-2 flex-wrap">
