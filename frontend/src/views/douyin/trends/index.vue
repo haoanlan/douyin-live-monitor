@@ -359,7 +359,7 @@
   const series = ref<HostTrendSeries[]>([])
   const range = ref('30d')
   /** X 轴粒度：场次（默认）/ 日 / 周 / 月 */
-  const xMode = ref<'session' | 'day' | 'week' | 'month'>('session')
+  const xMode = ref<'session' | 'day' | 'week' | 'month'>('day')
   /** 明细表当前显示哪个房间 */
   /**
    * 明细表当前选中的主播。
@@ -543,6 +543,9 @@
     return el.clientWidth > 0 && el.clientHeight > 0
   }
 
+  /** 用柱状图呈现的"量类"指标；人数/比率/时长仍用折线 */
+  const BAR_METRICS = ['diamonds', 'danmaku', 'gifts']
+
   /** 渲染/重绘所有指标图 */
   async function redraw() {
     await nextTick()
@@ -580,10 +583,14 @@
           const ax = toAxis(s, [m.key])
           return {
             name: s.name,
-            type: 'line',
+            // 量类指标用柱（一眼看量级），比率/人数类用折线
+            type: BAR_METRICS.includes(m.key) ? 'bar' : 'line',
             smooth: true,
             symbolSize: 6,
             connectNulls: true,
+            ...(BAR_METRICS.includes(m.key)
+              ? { barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0], opacity: 0.85 } }
+              : {}),
             data: ax.values[0],
             areaStyle: series.value.length === 1 ? { opacity: 0.12 } : undefined
           }
