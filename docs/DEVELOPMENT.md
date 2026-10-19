@@ -58,9 +58,7 @@ node scripts/transition-check.js    # 页面切换：无"白纱"、无两页交�
 | [README.md](./README.md) | 本文件：功能、架构、安装、启动、数据表、口径约定、API 速览、自检脚本 |
 | [docs/DATABASE.md](./docs/DATABASE.md) | 16 张表的字段与口径（分析时以它为准） |
 | [docs/websocket-fields-ref.md](./docs/websocket-fields-ref.md) | Go 代理推送的 WebSocket 字段参考 |
-| [docs/AUDIT-2026-10-18-selfcheck.md](./docs/AUDIT-2026-10-18-selfcheck.md) | **当前有效**的自查审计（更早的审计已归档） |
 | [deploy/DEPLOY-linux.md](./deploy/DEPLOY-linux.md) | Linux 部署（含字体 / Chromium 依赖） |
 | [PRODUCT.md](./PRODUCT.md) | 产品定位与范围 |
-| [docs/DESIGN-REVIEW.md](./docs/DESIGN-REVIEW.md) | 设计评审记录 |
 | [docs/archive/](./docs/archive/) | **历史归档**：早期审计、HANDOFF、一次性 spec/团队文档 —— 内容已脱节，仅供追溯 |
 

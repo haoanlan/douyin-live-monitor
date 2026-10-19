@@ -47,7 +47,7 @@
 | 类别 | 例子 | 说明 |
 | --- | --- | --- |
 | **构建/检查（开发必用）** | `sfc-check.js`、`vite-module-check.js`、`import-check.js`、`build-release.js` | 改完代码跑；`build-release.js` 打 win/linux 发布包 |
-| **运行时体检（开发可选）** | `mobile-check.js`、`ui-regression.js`、`transition-check.js`、`ui-audit-dark.js`、`ui-audit-layout.js`、`ui-audit-probe.js`、`kbd-regression.js` | **只用于开发期检查 UI**（对比度 / 布局 / 动效 / 跳转 / 键盘），运行时不依赖 |
+| **运行时体检（开发可选）** | `mobile-check.js`、`ui-regression.js`、`transition-check.js`、`kbd-regression.js` | **只用于开发期检查 UI**（对比度 / 布局 / 动效 / 跳转 / 键盘），运行时不依赖 |
 | **运维/诊断** | `db-checkpoint.js`、`db-verify.js`、`db-recover.js`、`db-diagnose.js`、`db-overview.js`、`reset-dashboard-password.js`、`fetch-proxy-binary.js`、`fetch-proxy-win.js`、`service-status.js`、`check-room-status.js`、`ws-debug.js`、`audit-auth.js`、`icon-offline-check.js` | 排障/运维用，保留 |
 
 ## `docs/` 的现状
@@ -59,7 +59,6 @@
 | `DATABASE.md` | 改代码的人 | 16 张表的字段/索引（由真实 schema 生成） |
 | `RELEASE-CHECKLIST.md` | 发版的人 | 发布前逐条验证清单 |
 | `websocket-fields-ref.md` | 对接方 | Go 代理推送的字段参考 |
-| `AUDIT-2026-10-18-selfcheck.md` | 维护者 | 一次完整自查记录（当前有效） |
 | `archive/` | — | 早期审计、HANDOFF、一次性 spec（**已脱节，仅追溯**） |
 
 ## 两条部署路线（别混淆）
