@@ -28,7 +28,7 @@ const FILES = [
   'streamers.example.json',
   'README.md'
 ];
-const DIRS = ['lib', 'assets', 'frontend/dist'];
+const DIRS = ['lib', 'assets', 'frontend/dist', 'deploy'];
 const SCRIPTS = [
   'reset-dashboard-password.js',
   'fetch-proxy-binary.js',
