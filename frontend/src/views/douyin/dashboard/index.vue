@@ -440,11 +440,13 @@
 
   /**
    * 卡片里的数字是否已经不是最新的。
-   * 失败、或超过 90 秒没成功刷新，都算陈旧（状态轮询是 10 秒一次，
-   * 90 秒 ≈ 连丢 9 次，已经可以确定不是偶发抖动）。
+   * 失败、或超过 **5 分钟**没成功刷新，都算陈旧。
+   * 原阈值 90 秒是按"状态轮询 10 秒一次"推的，但总览是**顺带**刷的、周期更长，
+   * 90 秒里丢一次就报 —— 用户反馈"1 分钟就提醒"（90s 被格式化成"1 分钟前"）。
+   * 改成 300 秒：真的停更 5 分钟才提示，偶发抖动不打扰。
    */
   const overviewStale = computed(
-    () => Boolean(overviewError.value) || (overviewStaleSeconds.value > 90 && lastOverviewAt.value !== null)
+    () => Boolean(overviewError.value) || (overviewStaleSeconds.value > 300 && lastOverviewAt.value !== null)
   )
 
   /**
