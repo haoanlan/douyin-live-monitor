@@ -1,58 +1,89 @@
 #!/usr/bin/env bash
 # =============================================================================
-# 1Panel「Node 运行环境」容器用的启动入口
+# 1Panel「Node 运行环境」—— 一键入口（安装 + 启动，全部包办）
 #
-#   1Panel → 运行环境 → 启动命令改为：
+#   1Panel → 运行环境 → 启动命令只填这一行：
 #     bash /opt/douyin-monitor/deploy/container-entry.sh
 #
-# 作用：
-#   · 起一个虚拟屏 Xvfb :99（扫码登录的有头浏览器需要）
-#   · 把 node 提升为容器主进程（exec），这样 1Panel 的日志/停止/重启才正常
+# 首次启动会自动做（后续启动会跳过，秒过）：
+#   · apt 安装 xvfb（虚拟屏，扫码登录的有头浏览器需要）
+#   · 把 chromium 下到项目目录 .pw-browsers（挂载出来的，重建容器也不丢）
+#   · 起 Xvfb :99 并 export DISPLAY
+#   · exec node web-dashboard.js（node 成为容器主进程）
 #
-# 前置（在容器里装一次，重启容器不会丢）：
-#   apt-get update && apt-get install -y xvfb
-#   cd /opt/douyin-monitor && npx playwright install --with-deps chromium
+# 不需要你手动进容器装任何东西。
 # =============================================================================
 set -euo pipefail
 
-cd "$(dirname "$0")/.."     # 项目根目录
+cd "$(dirname "$0")/.."
 echo "[entry] 工作目录: $(pwd)"
 
-DISPLAY_NUM="${XVFB_DISPLAY:-99}"
+warn() { printf '\033[1;33m[entry] 警告: %s\033[0m\n' "$*" >&2; }
+info() { printf '\033[1;36m[entry] %s\033[0m\n' "$*"; }
 
-if command -v Xvfb >/dev/null 2>&1; then
-  # 已有同号显示就不再起（重启脚本时不会叠一堆）
-  if [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ]; then
-    echo "[entry] 虚拟屏 :${DISPLAY_NUM} 已存在，复用"
+# ---------------------------------------------------------------------------
+# 1) Xvfb（系统包，只能 apt —— 这里只在缺失时装一次）
+# ---------------------------------------------------------------------------
+if ! command -v Xvfb >/dev/null 2>&1; then
+  info "首次启动：安装 xvfb（约 10 秒）..."
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq >/dev/null 2>&1 || true
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xvfb >/dev/null 2>&1 \
+      || warn "xvfb 安装失败（扫码登录会不可用，其余功能正常）"
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache xvfb >/dev/null 2>&1 || warn "xvfb 安装失败"
   else
-    echo "[entry] 启动 Xvfb :${DISPLAY_NUM}"
+    warn "没有 apt/apk，无法安装 xvfb"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 2) Chromium（下到项目目录，持久化；Playwright 的库已在 package.json 里）
+# ---------------------------------------------------------------------------
+export PLAYWRIGHT_BROWSERS_PATH="$(pwd)/.pw-browsers"
+if [ ! -d "$PLAYWRIGHT_BROWSERS_PATH/chromium-"* ] 2>/dev/null; then
+  if ! ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1; then
+    info "首次启动：下载 chromium 到 .pw-browsers（约 150MB，3-5 分钟）..."
+    npx playwright install --with-deps chromium \
+      || warn "chromium 下载失败（图片报告/扫码登录会不可用）"
+  fi
+fi
+info "PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH"
+
+# ---------------------------------------------------------------------------
+# 3) 起虚拟屏
+# ---------------------------------------------------------------------------
+DISPLAY_NUM="${XVFB_DISPLAY:-99}"
+if command -v Xvfb >/dev/null 2>&1; then
+  if [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ]; then
+    info "虚拟屏 :${DISPLAY_NUM} 已存在，复用"
+  else
+    info "启动 Xvfb :${DISPLAY_NUM}"
     Xvfb ":${DISPLAY_NUM}" -screen 0 1280x900x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
-    for _ in $(seq 1 20); do
+    for _ in $(seq 1 25); do
       [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ] && break
       sleep 0.2
     done
   fi
   export DISPLAY=":${DISPLAY_NUM}"
-  echo "[entry] DISPLAY=${DISPLAY}"
+  info "DISPLAY=${DISPLAY}"
 else
-  echo "[entry] 警告：容器内没有 Xvfb —— 扫码登录会报「找不到可用的浏览器」" >&2
-  echo "[entry]       安装：apt-get update && apt-get install -y xvfb" >&2
+  warn "没有 Xvfb —— 扫码登录会报「找不到可用的浏览器」"
 fi
 
-# 浏览器位置（install 时装进项目目录，容器重建也不丢）
-if [ -d "$(pwd)/.pw-browsers" ]; then
-  export PLAYWRIGHT_BROWSERS_PATH="$(pwd)/.pw-browsers"
-  echo "[entry] PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH"
-fi
-
-# 显式指定浏览器（找到哪个用哪个）
+# ---------------------------------------------------------------------------
+# 4) 告诉应用用哪个浏览器
+# ---------------------------------------------------------------------------
 for c in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/google-chrome-stable; do
   if [ -x "$c" ]; then
     export DOUYIN_LOGIN_BROWSER="$c"
-    echo "[entry] DOUYIN_LOGIN_BROWSER=$c"
+    info "DOUYIN_LOGIN_BROWSER=$c"
     break
   fi
 done
 
-echo "[entry] 启动 node web-dashboard.js"
+# ---------------------------------------------------------------------------
+# 5) 启动（exec 让 node 成为容器主进程）
+# ---------------------------------------------------------------------------
+info "启动 node web-dashboard.js"
 exec node web-dashboard.js
