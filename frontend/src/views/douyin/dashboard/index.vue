@@ -361,14 +361,14 @@
             class="flex items-center gap-4 mt-2 pt-2 border-t border-g-100/80 text-xs text-g-600 flex-wrap"
           >
             <span class="flex items-center gap-1" :title="fmtTitle(s.diamonds)">
-              <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ fmtNum(s.diamonds) }}
+              <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.diamonds) }}
             </span>
             <span class="flex items-center gap-1" :title="fmtTitle(s.danmaku)">
-              <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ fmtNum(s.danmaku) }}
+              <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.danmaku) }}
               条
             </span>
             <span class="flex items-center gap-1" :title="fmtTitle(s.users)">
-              <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ fmtNum(s.users) }}
+              <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.users) }}
               人
             </span>
             <span class="ml-auto flex items-center gap-1 shrink-0" :title="fmtTitle(s.online_peak)">
@@ -393,6 +393,10 @@
 </template>
 
 <script setup lang="ts">
+
+  /** 「最近场次」这条是否还没结算（直播中 / 三项全 0）→ 显示 — 而不是 0 */
+  const sessionEmpty = (s: any) =>
+    !!s?.is_live || (!s?.diamonds && !s?.danmaku && !s?.users)
   import { computed, h, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useTransition } from '@vueuse/core'
