@@ -361,7 +361,7 @@
             class="flex items-center gap-4 mt-2 pt-2 border-t border-g-100/80 text-xs text-g-600 flex-wrap"
           >
             <span class="flex items-center gap-1" :title="fmtTitle(s.diamonds)">
-              <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.diamonds) }}
+              <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ fmtNum(s.diamonds) }}
             </span>
             <span class="flex items-center gap-1" :title="fmtTitle(s.danmaku)">
               <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.danmaku) }}

@@ -195,7 +195,7 @@
                 }}
               </span>
               <span class="flex items-center gap-1">
-                <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ row.is_live ? '—' : fmtNum(row.user_count) }}
+                <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ fmtNum(row.user_count) }}
               </span>
               <!--
                 操作按钮放在**统计行内**（ml-auto 靠右），不再挂在标题行或用绝对定位。
