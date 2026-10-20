@@ -12,7 +12,7 @@ const os = require('os');
 const https = require('https');
 const { execFileSync } = require('child_process');
 
-const TAG = process.env.PROXY_TAG || 'v2.2.1';
+const TAG = process.env.PROXY_TAG || 'v2.3.1';
 const COMMIT = process.env.PROXY_COMMIT || '60823bae3f14';
 const ROOT = path.join(__dirname, '..');
 const MIRROR = process.env.GH_MIRROR || 'https://ghproxy.cc/';
