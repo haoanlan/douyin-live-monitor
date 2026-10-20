@@ -623,4 +623,35 @@
       display: inline;
     }
   }
+
+/* MOBILE-STATS-NOWRAP -------------------------------------------------------
+ * 手机端（<=640px）把「三项指标 + 两个操作按钮」压在同一行。
+ * 原来在 370px 宽度下：指标区 + 两个 32px 按钮放不下 → flex-wrap 把按钮挤到第二行
+ * （截图：2026/10/01 那张卡片）。这里用 :has() 选中"含操作按钮的那一行"，
+ * 禁止换行 + 缩字号/间距 + 按钮压到 28px，保证单行放下。
+ */
+@media (max-width: 640px) {
+  div:has(> .session-row__actions) {
+    flex-wrap: nowrap;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  div:has(> .session-row__actions) > span {
+    white-space: nowrap;
+    min-width: 0;
+  }
+  div:has(> .session-row__actions) > span .ArtSvgIcon,
+  div:has(> .session-row__actions) > span svg {
+    flex-shrink: 0;
+  }
+  .session-row__actions {
+    gap: 4px;
+    margin-left: auto;
+  }
+  .session-row__actions > button {
+    width: 28px;
+    height: 28px;
+  }
+}
 </style>
