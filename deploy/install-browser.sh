@@ -44,18 +44,21 @@ done
 ok "浏览器: $CHROME"
 ok "Xvfb:   $(command -v Xvfb)"
 
-say "2/4 验证浏览器能启动（无头模式）"
-"$CHROME" --headless=new --no-sandbox --disable-gpu --dump-dom about:blank >/dev/null 2>&1 \
-  && ok "无头启动 OK" || warn "无头启动失败（可能缺库，继续看第 4 步测试）"
+say "2/4 浏览器基本信息"
+"$CHROME" --version 2>/dev/null | sed 's/^/  /' || warn "chromium --version 失败"
 
-say "3/4 验证 Xvfb（有头模式需要的虚拟屏幕）"
+say "3/4 验证有头模式（Xvfb 虚拟屏；扫码登录就靠这个）"
+# 注意：--dump-dom / --screenshot 会隐含启用无头模式，测不出有头是否可用，
+# 所以这里用「起窗口 + 看日志里有没有显示器报错」的方式验证。
 Xvfb :99 -screen 0 1280x800x24 >/tmp/xvfb.log 2>&1 &
 XPID=$!
 sleep 2
-if DISPLAY=:99 "$CHROME" --no-sandbox --disable-gpu --dump-dom about:blank >/dev/null 2>&1; then
-  ok "有头模式（DISPLAY=:99）启动 OK"
+DISPLAY=:99 timeout 8 "$CHROME" --no-sandbox --disable-gpu \
+  --user-data-dir=/tmp/cr-headed-test about:blank >/tmp/cr-headed.log 2>&1 || true
+if grep -qiE "missing x server|cannot open display|no display" /tmp/cr-headed.log; then
+  warn "有头模式失败（缺显示器）—— 见 /tmp/cr-headed.log"
 else
-  warn "有头模式启动失败，见 /tmp/xvfb.log 与下面的测试"
+  ok "有头模式启动成功（DISPLAY=:99，没有显示器报错）"
 fi
 kill $XPID 2>/dev/null || true
 
