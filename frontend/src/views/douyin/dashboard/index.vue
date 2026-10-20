@@ -364,11 +364,11 @@
               <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />{{ fmtNum(s.diamonds) }}
             </span>
             <span class="flex items-center gap-1" :title="fmtTitle(s.danmaku)">
-              <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.danmaku) }}
+              <ArtSvgIcon icon="ri:chat-3-line" class="text-g-400" />{{ fmtNum(s.danmaku) }}
               条
             </span>
             <span class="flex items-center gap-1" :title="fmtTitle(s.users)">
-              <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ sessionEmpty(s) ? '—' : fmtNum(s.users) }}
+              <ArtSvgIcon icon="ri:user-3-line" class="text-g-400" />{{ fmtNum(s.users) }}
               人
             </span>
             <span class="ml-auto flex items-center gap-1 shrink-0" :title="fmtTitle(s.online_peak)">
