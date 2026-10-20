@@ -1146,6 +1146,8 @@
     if (detail.value?.danmakuWords?.length) {
       nextTick(() => {
         renderWordCloud(detail.value!.danmakuWords || [])
+        // 画完再挂观察：此时真实容器（不是骨架）已经替换进 DOM。
+        observeCloudBox()
       })
     }
   }
@@ -1156,13 +1158,21 @@
    * 为什么必须有：canvas 的绘制依赖容器实际尺寸，而首次绘制时布局往往还没稳定
    * （网格行高、flex 分配都要等一帧）。实测首次绘制只拿到 224px 高，
    * 于是词云被压扁、着色覆盖率只有 18%。
-   * 有了 ResizeObserver，容器最终尺寸一确定就按正确尺寸重绘。
+   *
+   * ⚠️ 还要处理「容器被替换」：模板里骨架和真实容器**用同一个 class**，
+   * 首屏 observe 到的是骨架；数据到达后骨架被 v-else-if 换掉，
+   * 旧元素脱离 DOM → 观察失效 → 移动端词云再也不重绘（canvas 停在默认 300×150 ✗）。
+   * 所以每次渲染后都重新 observe 当前那个 `.dy-cloud-box`。
    */
   let cloudObserver: ResizeObserver | undefined
+  let observedEl: Element | null = null
   function observeCloudBox() {
-    if (cloudObserver || typeof ResizeObserver === 'undefined') return
+    if (typeof ResizeObserver === 'undefined') return
     const el = document.querySelector('.dy-cloud-box')
     if (!el) return
+    if (cloudObserver && observedEl === el) return // 同一个元素，已观察
+    cloudObserver?.disconnect()
+    observedEl = el
     let last = ''
     cloudObserver = new ResizeObserver(() => {
       const r = el.getBoundingClientRect()
