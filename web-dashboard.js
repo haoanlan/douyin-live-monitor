@@ -13,7 +13,7 @@ const db = require('./db-sqlite.js');
 const reportImg = require('./report-image.js');
 const { comboDedupGifts } = require('./lib/gift-utils.js');
 const { getAvatarBySecUid, getAvatarByNickname } = require('./lib/avatar-utils');
-const { getCookie, getDashboardToken, getDashboardHost, getDashboardPort, getDashboardUsername, getDashboardPassword } = require('./lib/config-reader');
+const { getCookie, getDashboardHost, getDashboardPort, getDashboardUsername, getDashboardPassword } = require('./lib/config-reader');
 // 监控 worker：嵌入本进程运行（房间增删改查 = 同进程函数调用，不再需要 monitor.sock）
 const monitor = require('./monitor.js');
 
@@ -42,7 +42,6 @@ const DATA_DIR = __dirname;
 const EMBED_WORKER = process.env.DASHBOARD_EMBED_WORKER !== '0';
 
 // ====== 仪表盘认证 Token（使用共享模块 lib/config-reader.js）======
-const AUTH_TOKEN = getDashboardToken();
 const AUTH_USERNAME = getDashboardUsername();
 const AUTH_PASSWORD = getDashboardPassword();
 
@@ -356,12 +355,6 @@ async function start() {
 
   server.listen(PORT, HOST, () => {
     console.log(`[dashboard] 仪表板已启动: http://${HOST}:${PORT}`);
-    if (!AUTH_TOKEN) {
-      console.warn('[dashboard] ⚠️ 警告: 未设置 DASHBOARD_TOKEN，仪表盘无认证保护！');
-      console.warn('[dashboard] ⚠️ 请在 config.yaml 中设置 dashboard.token 或设置环境变量 DASHBOARD_TOKEN');
-    } else {
-      console.log('[dashboard] 已启用 Token 认证');
-    }
     if (HOST === '0.0.0.0') {
       console.warn('[dashboard] ⚠️ 警告: 绑定 0.0.0.0，仪表盘可被外部网络访问');
     }

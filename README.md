@@ -132,7 +132,7 @@ dashboard:
 
 - 直播间列表：启动后在 **房间管理** 里增删（热生效），也可改 `runtime-config.json`
 - 飞书推送（可选）：环境变量 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`
-- 仪表盘也可用环境变量覆盖：`DASHBOARD_TOKEN` / `DASHBOARD_HOST` / `DASHBOARD_PORT` / `DB_SQLITE_PATH`
+- 仪表盘也可用环境变量覆盖：`DASHBOARD_HOST` / `DASHBOARD_PORT` / `DB_SQLITE_PATH`
 
 ---
 
