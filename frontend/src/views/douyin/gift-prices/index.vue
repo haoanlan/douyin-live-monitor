@@ -50,6 +50,16 @@
           刷新
         </el-button>
 
+        <el-tooltip
+          content="历史上只改了总价、没改单价字段的行，这里按总价把单价回填。不改任何金额。"
+          placement="bottom"
+        >
+          <el-button :loading="syncing" @click="syncUnitFields">
+            <ArtSvgIcon icon="ri:price-tag-3-line" class="mr-1" />
+            同步单价字段
+          </el-button>
+        </el-tooltip>
+
         <span class="text-xs text-g-500">
           共 {{ rows.length }} 个礼物
           <span v-if="overriddenCount" class="ml-2">· 已设价 {{ overriddenCount }}</span>
@@ -164,7 +174,9 @@ import {
   deleteGiftPrice,
   fetchGiftPrices,
   previewGiftPriceRepair,
+  previewGiftPriceUnitSync,
   repairGiftPrice,
+  syncGiftPriceUnitFields,
   saveGiftPrice,
   type GiftPriceItem
 } from '@/api/douyin'
@@ -182,6 +194,8 @@ const keyword = ref('')
 const only = ref<'' | 'override' | 'anomaly' | 'zero'>('')
 /** 正在保存/重算的礼物名（按行显示禁用态） */
 const saving = ref('')
+/** 「同步单价字段」进行中 */
+const syncing = ref(false)
 
 /** 分页（前端切片，不用后端分页：689 个礼物名字一次取完更快） */
 const page = ref(1)
@@ -374,6 +388,50 @@ async function repair(row: Row) {
     ElMessage.error(apiErrorMessage(e, '重算失败'))
   } finally {
     saving.value = ''
+  }
+}
+
+/**
+ * 同步单价字段：把 diamond_count 按 total_diamonds/repeat_count 回填。
+ * 只影响"报告图片 / CSV 里显示的单价"，不动任何金额、不触发重算。
+ */
+async function syncUnitFields() {
+  let preview
+  try {
+    preview = await previewGiftPriceUnitSync()
+  } catch (e) {
+    ElMessage.error(apiErrorMessage(e, '读取待同步数量失败'))
+    return
+  }
+  if (!preview || preview.total_rows === 0) {
+    ElMessage.success('没有需要同步的行，单价字段已经和总价一致')
+    return
+  }
+  const sample = (preview.items || [])
+    .slice(0, 5)
+    .map((it) => `· ${it.gift_name}：${it.rows} 行，${it.from_min}${it.from_min === it.from_max ? '' : '~' + it.from_max} → ${it.to_unit}`)
+    .join('\n')
+  try {
+    await ElMessageBox.confirm(
+      `有 ${preview.total_rows} 行（${preview.gifts} 个礼物）的单价字段和总价不一致。\n\n` +
+        sample +
+        (preview.items.length > 5 ? '\n· …' : '') +
+        `\n\n会把这些行的 diamond_count 按「总价 ÷ 个数」回填；金额一分不改，也不触发重算。`,
+      '同步单价字段',
+      { type: 'info', confirmButtonText: '开始同步', cancelButtonText: '取消', customClass: 'repair-confirm' }
+    )
+  } catch {
+    return
+  }
+  syncing.value = true
+  try {
+    const r = await syncGiftPriceUnitFields()
+    ElMessage.success(`已同步 ${r.updated_rows} 行的单价字段（金额未变）`)
+    await load()
+  } catch (e) {
+    ElMessage.error(apiErrorMessage(e, '同步失败'))
+  } finally {
+    syncing.value = false
   }
 }
 

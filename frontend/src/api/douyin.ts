@@ -1206,3 +1206,25 @@ export function repairGiftPrice(data: { giftName: string; diamondPerUnit: number
     showErrorMessage: false
   })
 }
+
+
+// ===== 单价字段同步（只改 gifts.diamond_count，不动任何金额）=====
+
+/** 预览：有多少行 diamond_count 与 total_diamonds/repeat_count 不一致 */
+export function previewGiftPriceUnitSync() {
+  return request.get<{
+    total_rows: number
+    gifts: number
+    items: { gift_name: string; rows: number; from_min: number; from_max: number; to_unit: number }[]
+  }>({ url: '/api/gift-prices/unit-sync/preview', showErrorMessage: false })
+}
+
+/** 执行同步：把 diamond_count 回填成 total_diamonds / repeat_count（金额不变） */
+export function syncGiftPriceUnitFields() {
+  return request.post<{ ok: boolean; updated_rows: number; elapsed_ms: number }>({
+    url: '/api/gift-prices/unit-sync',
+    data: {},
+    timeout: 300000,
+    showErrorMessage: false
+  })
+}
