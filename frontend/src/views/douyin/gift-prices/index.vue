@@ -1,6 +1,9 @@
 <!--
   礼物价格管理。
 
+  版式对齐 Art Design Pro（同 views/system/user-manage）：
+    douyin-page → article.art-card → 标题/说明 → 工具条 → dy-table-scroll → el-table
+
   为什么需要这个页面：
     抖音礼物消息里的 diamondCount 有时不准（同一礼物在不同消息里价格不同），
     而价格原来硬编码在 lib/worker/message-handler.js 的 GIFT_PRICE_MAP 里 ——
@@ -17,140 +20,147 @@
 -->
 <template>
   <div class="douyin-page dy-stagger p-4">
-    <!-- 头部 -->
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="text-[20px] font-semibold tracking-tight text-g-900 m-0">礼物价格</h1>
-        <p class="mt-1 mb-0 text-[13px] leading-relaxed text-g-500">
-          修正"原始数据钻石单价不对"的礼物。改完立刻用于之后的采集；勾选重算会把历史记录也改过来。
-        </p>
+    <article class="art-card p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h3 class="text-lg font-semibold text-g-900 m-0">礼物价格</h3>
+          <p class="mt-1 text-sm leading-6 text-g-600">
+            修正「原始数据钻石单价不对」的礼物。改完立刻用于之后的采集；勾选重算会把历史记录也改过来。
+          </p>
+        </div>
+        <el-button type="primary" @click="load">
+          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" :class="loading ? 'dy-spin' : ''" />
+          刷新
+        </el-button>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
+
+      <!-- 工具条 -->
+      <div class="mt-4 flex flex-wrap items-center gap-3">
         <el-input
           v-model="keyword"
-          placeholder="搜索礼物名"
+          placeholder="按礼物名搜索"
           clearable
-          style="width: 200px"
+          class="!w-[240px]"
           @keyup.enter="load"
           @clear="load"
-        />
-        <el-select v-model="only" style="width: 150px" @change="load">
+        >
+          <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
+        </el-input>
+
+        <el-select v-model="only" placeholder="全部礼物" class="!w-[160px]" @change="load">
           <el-option label="全部礼物" value="" />
           <el-option label="仅看已覆盖" value="override" />
           <el-option label="单价不一致" value="anomaly" />
           <el-option label="钻石为 0" value="zero" />
         </el-select>
-        <el-button :loading="loading" @click="load">
-          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
-        </el-button>
+
+        <span class="text-xs text-g-500">
+          共 {{ rows.length }} 个礼物
+          <span v-if="overriddenCount" class="ml-2">· 已覆盖 {{ overriddenCount }}</span>
+          <span v-if="inconsistentCount" class="ml-2">· 单价不一致 {{ inconsistentCount }}</span>
+          <span v-if="zeroCount" class="ml-2">· 钻石为 0 {{ zeroCount }}</span>
+        </span>
       </div>
-    </div>
 
-    <!-- 概览 -->
-    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div v-for="c in summaryCards" :key="c.label" class="rounded-xl border border-g-200/70 bg-white px-4 py-3">
-        <div class="text-[12px] text-g-500">{{ c.label }}</div>
-        <div class="mt-1 text-[20px] font-semibold tabular-nums" :class="c.danger ? 'text-red-500' : 'text-g-900'">
-          {{ c.value }}
-        </div>
-      </div>
-    </div>
-
-    <!-- 错误态：不能静默 -->
-    <el-alert
-      v-if="loadError"
-      class="mt-4"
-      type="error"
-      :title="loadError"
-      show-icon
-      :closable="false"
-    >
-      <template #default>
-        <el-button size="small" class="mt-2" @click="load">重试</el-button>
-      </template>
-    </el-alert>
-
-    <!-- 列表 -->
-    <div class="mt-4 overflow-hidden rounded-xl border border-g-200/70 bg-white">
-      <el-table
-        v-loading="loading"
-        :data="rows"
-        row-key="gift_name"
-        height="calc(100vh - 420px)"
-        :min-height="320"
-        stripe
-        empty-text="没有匹配的礼物"
+      <!-- 错误态：不能静默 -->
+      <el-alert
+        v-if="loadError"
+        class="mt-4"
+        type="error"
+        :title="loadError"
+        show-icon
+        :closable="false"
       >
-        <el-table-column prop="gift_name" label="礼物名" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span class="font-medium text-g-900">{{ row.gift_name }}</span>
-            <el-tag v-if="row.override_price !== null" size="small" type="success" class="ml-2">已覆盖</el-tag>
-          </template>
-        </el-table-column>
+        <template #default>
+          <el-button size="small" class="mt-2" @click="load">重试</el-button>
+        </template>
+      </el-alert>
 
-        <el-table-column label="库内单价" width="130" align="right">
-          <template #default="{ row }">
-            <span v-if="row.min_unit === null" class="text-g-400">—</span>
-            <span v-else-if="row.min_unit === row.max_unit" class="tabular-nums">{{ fmtNum(row.min_unit) }}</span>
-            <span v-else class="tabular-nums text-red-500" :title="'历史数据里同时存在 ' + row.min_unit + ' 和 ' + row.max_unit">
-              {{ fmtNum(row.min_unit) }} ~ {{ fmtNum(row.max_unit) }}
-            </span>
-          </template>
-        </el-table-column>
+      <!--
+        窄屏套横滚容器（同 user-manage）：不套时 el-table 表头与表体宽度会分叉，
+        右侧「改价 / 清除覆盖」在手机上点不到。
+      -->
+      <div class="dy-table-scroll dy-table-scroll--wide">
+        <el-table
+          v-loading="loading"
+          :data="rows"
+          class="mt-4"
+          row-key="gift_name"
+          max-height="calc(100vh - 320px)"
+          stripe
+          empty-text="没有匹配的礼物"
+        >
+          <el-table-column prop="gift_name" label="礼物名" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="font-medium text-g-900">{{ row.gift_name }}</span>
+              <el-tag v-if="row.override_price !== null" size="small" type="success" effect="plain" class="ml-2">
+                已覆盖
+              </el-tag>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="生效单价" width="120" align="right">
-          <template #default="{ row }">
-            <span v-if="row.override_price !== null" class="font-semibold tabular-nums text-emerald-600">
-              {{ fmtNum(row.override_price) }}
-            </span>
-            <span v-else-if="row.builtin_price !== null" class="tabular-nums text-g-700">
-              {{ fmtNum(row.builtin_price) }}
-              <span class="text-[11px] text-g-400">内置</span>
-            </span>
-            <span v-else class="text-g-400">消息价</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="库内单价" width="140" align="right">
+            <template #default="{ row }">
+              <span v-if="row.min_unit === null" class="text-g-400">—</span>
+              <span v-else-if="row.min_unit === row.max_unit" class="tabular-nums">{{ fmtNum(row.min_unit) }}</span>
+              <span
+                v-else
+                class="tabular-nums text-red-500"
+                :title="'历史数据里同时存在 ' + row.min_unit + ' 和 ' + row.max_unit"
+              >
+                {{ fmtNum(row.min_unit) }} ~ {{ fmtNum(row.max_unit) }}
+              </span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="出现" width="90" align="right">
-          <template #default="{ row }">
-            <span class="tabular-nums">{{ fmtNum(row.rows) }}</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="生效单价" width="130" align="right">
+            <template #default="{ row }">
+              <span v-if="row.override_price !== null" class="font-semibold tabular-nums text-emerald-600">
+                {{ fmtNum(row.override_price) }}
+              </span>
+              <span v-else-if="row.builtin_price !== null" class="tabular-nums text-g-700">
+                {{ fmtNum(row.builtin_price) }}
+                <span class="text-[11px] text-g-400">内置</span>
+              </span>
+              <span v-else class="text-g-400">消息价</span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="礼物个数" width="100" align="right">
-          <template #default="{ row }">
-            <span class="tabular-nums">{{ fmtNum(row.gift_count) }}</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="出现" width="90" align="right">
+            <template #default="{ row }"><span class="tabular-nums">{{ fmtNum(row.rows) }}</span></template>
+          </el-table-column>
 
-        <el-table-column label="钻石总额" width="130" align="right">
-          <template #default="{ row }">
-            <span class="tabular-nums font-medium">{{ fmtNum(row.diamonds) }}</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="礼物个数" width="100" align="right">
+            <template #default="{ row }"><span class="tabular-nums">{{ fmtNum(row.gift_count) }}</span></template>
+          </el-table-column>
 
-        <el-table-column label="场次" width="80" align="right">
-          <template #default="{ row }">
-            <span class="tabular-nums">{{ row.sessions }}</span>
-          </template>
-        </el-table-column>
+          <el-table-column label="钻石总额" width="140" align="right">
+            <template #default="{ row }">
+              <span class="tabular-nums font-medium">{{ fmtNum(row.diamonds) }}</span>
+            </template>
+          </el-table-column>
 
-        <el-table-column label="操作" width="170" align="right" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">改价</el-button>
-            <el-button
-              v-if="row.override_price !== null"
-              link
-              type="danger"
-              size="small"
-              @click="clearOverride(row)"
-            >
-              清除覆盖
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+          <el-table-column label="场次" width="80" align="right">
+            <template #default="{ row }"><span class="tabular-nums">{{ row.sessions }}</span></template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="170" align="right" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openEdit(row)">改价</el-button>
+              <el-button
+                v-if="row.override_price !== null"
+                link
+                type="danger"
+                size="small"
+                @click="clearOverride(row)"
+              >
+                清除覆盖
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </article>
 
     <!-- 改价弹窗 -->
     <el-dialog
@@ -169,7 +179,14 @@
 
         <div class="flex items-center gap-3">
           <label class="shrink-0 whitespace-nowrap text-[13px] text-g-600">新单价（钻石）</label>
-          <el-input-number v-model="newPrice" :min="0" :step="1" :precision="0" controls-position="right" style="width: 200px" />
+          <el-input-number
+            v-model="newPrice"
+            :min="0"
+            :step="1"
+            :precision="0"
+            controls-position="right"
+            style="width: 200px"
+          />
         </div>
 
         <div class="flex items-center gap-3">
@@ -254,20 +271,12 @@ const preview = ref<{
 const previewLoading = ref(false)
 const previewError = ref('')
 
-/** 概览数字只统计"当前筛选结果"，避免和表格对不上 */
-const summaryCards = computed(() => {
-  const overridden = rows.value.filter((r) => r.override_price !== null).length
-  const inconsistent = rows.value.filter(
-    (r) => r.min_unit !== null && r.max_unit !== null && r.min_unit !== r.max_unit
-  ).length
-  const zero = rows.value.filter((r) => r.rows > 0 && r.diamonds === 0).length
-  return [
-    { label: '当前列表礼物数', value: rows.value.length, danger: false },
-    { label: '已覆盖价格', value: overridden, danger: false },
-    { label: '历史单价不一致', value: inconsistent, danger: inconsistent > 0 },
-    { label: '钻石为 0', value: zero, danger: zero > 0 }
-  ]
-})
+/** 工具条上的统计只算"当前筛选结果"，避免和表格对不上 */
+const overriddenCount = computed(() => rows.value.filter((r) => r.override_price !== null).length)
+const inconsistentCount = computed(
+  () => rows.value.filter((r) => r.min_unit !== null && r.max_unit !== null && r.min_unit !== r.max_unit).length
+)
+const zeroCount = computed(() => rows.value.filter((r) => r.rows > 0 && r.diamonds === 0).length)
 
 function fmtNum(n: number | null | undefined) {
   const v = Number(n ?? 0)
@@ -344,9 +353,7 @@ async function submit() {
       })
       const failed = r?.failed?.length || 0
       if (failed > 0) {
-        ElMessage.warning(
-          `已更新 ${r.updated_rows} 条，但 ${failed} 个场次重建失败（见控制台日志 / 后端日志）`
-        )
+        ElMessage.warning(`已更新 ${r.updated_rows} 条，但 ${failed} 个场次重建失败（见后端日志）`)
       } else {
         ElMessage.success(
           `已更新 ${r.updated_rows} 条记录，重建 ${r.rebuilt_sessions} 个场次，用时 ${Math.round((r.elapsed_ms || 0) / 1000)} 秒`
