@@ -99,6 +99,18 @@ async function init() {
       diamond_count INTEGER DEFAULT 0
     )`,
 
+    /*
+     * gift_price_overrides：礼物单价覆盖表（页面 /douyin/gift-prices 维护）。
+     * 采集时优先级最高，用来修正"原始消息 diamondCount 不准"或内置表没收录的礼物。
+     * 写入模块见 lib/gift-price-overrides.js（那边也会 CREATE IF NOT EXISTS 兜底）。
+     */
+    `CREATE TABLE IF NOT EXISTS gift_price_overrides (
+      gift_name TEXT PRIMARY KEY,
+      diamond_per_unit INTEGER NOT NULL,
+      note TEXT,
+      updated_at TEXT
+    )`,
+
     `CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       streamer_id INTEGER NOT NULL,
@@ -293,6 +305,15 @@ async function init() {
    * 与 agg_* 一起在这里补齐，让"新建库"和"现网库"结构一致。
    */
   try { d.exec(`ALTER TABLE sessions ADD COLUMN online_peak INTEGER DEFAULT 0`); } catch (e) { /* 已存在 */ }
+
+  /*
+   * 旧库补列：gifts.icon（礼物图标 URL）。
+   * 原来这条 ALTER 只写在 insertGifts() 里，要等到"第一条礼物写入"才补上；
+   * 在那之前任何 `SELECT icon FROM gifts`（总览页的礼物图标、session-gift-details 的图标兜底）
+   * 都会 500（no such column: icon）。空库/刚重建的库尤其明显。
+   * 挪到 init() 里，保证建库后结构就是完整的。
+   */
+  try { d.exec('ALTER TABLE gifts ADD COLUMN icon TEXT'); } catch (e) { /* 已存在 */ }
 
   /*
    * 启动自检：把"缺表/缺列"从静默失败升级为显式告警。

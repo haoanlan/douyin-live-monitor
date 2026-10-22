@@ -1114,3 +1114,91 @@ export function fetchServiceStatus() {
 export function performServiceAction(action: ServiceAction) {
   return request.post<ServiceActionResult>({ url: '/api/service/action', data: { action } })
 }
+
+// ===== 礼物价格管理（/douyin/gift-prices）=====
+
+/** 一个礼物名在库里的实际统计 + 内置价 + 页面覆盖价 */
+export interface GiftPriceItem {
+  gift_name: string
+  rows: number
+  gift_count: number
+  diamonds: number
+  /** 历史行里出现过的最小/最大单价；不相等说明数据里价格不统一 */
+  min_unit: number | null
+  max_unit: number | null
+  sessions: number
+  last_time: string | null
+  /** 代码里的内置价（lib/gift-price-builtin.js），没有则 null */
+  builtin_price: number | null
+  /** gift_icons 里记录的价格，仅作参考 */
+  icon_price: number | null
+  /** 页面配置的覆盖价，没配置则 null */
+  override_price: number | null
+  note: string | null
+  updated_at: string | null
+}
+
+export function fetchGiftPrices(params: { q?: string; only?: '' | 'override' | 'anomaly' | 'zero' } = {}) {
+  const q = new URLSearchParams()
+  if (params.q) q.set('q', params.q)
+  if (params.only) q.set('only', params.only)
+  return request.get<{ total: number; items: GiftPriceItem[] }>({
+    url: `/api/gift-prices?${q.toString()}`,
+    showErrorMessage: false
+  })
+}
+
+/** 只保存覆盖价：影响之后的采集，不动历史 */
+export function saveGiftPrice(data: { giftName: string; diamondPerUnit: number; note?: string }) {
+  return request.post<{ ok: boolean; gift_name: string; diamond_per_unit: number; message?: string }>({
+    url: '/api/gift-prices',
+    data
+  })
+}
+
+/** 删除覆盖价，回退到内置价/消息价 */
+export function deleteGiftPrice(name: string) {
+  return request.delete<{ ok: boolean; removed: number }>({
+    url: `/api/gift-prices?name=${encodeURIComponent(name)}`
+  })
+}
+
+/** 预览"改成这个价会影响多少数据"（不动库） */
+export function previewGiftPriceRepair(gift: string, price: number) {
+  return request.get<{
+    gift_name: string
+    price: number
+    rows: number
+    gift_count: number
+    old_diamonds: number
+    new_diamonds: number
+    diff: number
+    sessions: number
+    affected: { session_id: number; rows: number; old_diamonds: number }[]
+  }>({
+    url: `/api/gift-prices/preview?gift=${encodeURIComponent(gift)}&price=${price}`,
+    showErrorMessage: false
+  })
+}
+
+/**
+ * 重算历史：把该礼物的历史行改成新价，并重建受影响场次的全部预聚合。
+ * 耗时和受影响场次数成正比（单礼物一般 10~60 秒），前端要放长超时并显示进度提示。
+ */
+export function repairGiftPrice(data: { giftName: string; diamondPerUnit: number; note?: string; saveOverride?: boolean }) {
+  return request.post<{
+    ok: boolean
+    gift_name: string
+    price: number
+    updated_rows: number
+    rebuilt_sessions: number
+    failed: { sessionId: number; error: string }[]
+    elapsed_ms: number
+  }>({
+    url: '/api/gift-prices/repair',
+    data,
+    // 重算要逐场重建预聚合，几十场可能要 1 分钟以上，不能用默认超时
+    timeout: 600000,
+    showErrorMessage: false
+  })
+}

@@ -71,6 +71,23 @@ export const douyinRoutes: AppRouteRecord = {
       }
     },
     {
+      /*
+       * 礼物价格：修正"原始数据钻石单价不对"的礼物。
+       *
+       * 放在 combined 之后而不是账号管理里，因为它是**数据修正**工具，
+       * 和「数据合并查看」属于同一类操作。
+       */
+      path: 'gift-prices',
+      name: 'DouyinGiftPrices',
+      component: '/douyin/gift-prices',
+      meta: {
+        title: 'menus.douyin.giftPrices',
+        icon: 'ri:price-tag-3-line',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_GUEST']
+      }
+    },
+    {
       path: 'search',
       name: 'DouyinSearch',
       component: '/douyin/search',
