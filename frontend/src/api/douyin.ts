@@ -1126,6 +1126,10 @@ export interface GiftPriceItem {
   /** 历史行里出现过的最小/最大单价；不相等说明数据里价格不统一 */
   min_unit: number | null
   max_unit: number | null
+  /** 历史里出现过几种单价：>1 表示前后不一致 */
+  price_kinds?: number
+  /** 建议单价 = 最近一次采集到的单价（页面「单价」列的初始值） */
+  latest_price?: number | null
   sessions: number
   last_time: string | null
   /** 代码里的内置价（lib/gift-price-builtin.js），没有则 null */
