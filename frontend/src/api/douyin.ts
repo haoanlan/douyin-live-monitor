@@ -1142,11 +1142,11 @@ export interface GiftPriceItem {
   updated_at: string | null
 }
 
-export function fetchGiftPrices(params: { q?: string; only?: '' | 'override' | 'anomaly' | 'zero' } = {}) {
+export function fetchGiftPrices(params: { q?: string; only?: '' | 'mapped' | 'override' | 'anomaly' | 'zero' } = {}) {
   const q = new URLSearchParams()
   if (params.q) q.set('q', params.q)
   if (params.only) q.set('only', params.only)
-  return request.get<{ total: number; all_total: number; override_total: number; items: GiftPriceItem[] }>({
+  return request.get<{ total: number; all_total: number; mapped_total: number; items: GiftPriceItem[] }>({
     url: `/api/gift-prices?${q.toString()}`,
     showErrorMessage: false
   })

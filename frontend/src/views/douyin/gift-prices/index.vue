@@ -43,8 +43,8 @@
         </el-tab-pane>
         <el-tab-pane name="override">
           <template #label>
-            <span>已改价</span>
-            <span class="ml-1 text-xs text-g-500">{{ overriddenCount }}</span>
+            <span>已设价</span>
+            <span class="ml-1 text-xs text-g-500">{{ mappedCount }}</span>
           </template>
         </el-tab-pane>
       </el-tabs>
@@ -127,15 +127,18 @@
 
         <!-- 单价：可编辑 -->
         <template #price="{ row }">
-          <el-input-number
-            v-model="row.price"
-            :min="0"
-            :step="1"
-            :precision="0"
-            :controls="false"
-            size="small"
-            class="price-input !w-[120px]"
-          />
+          <div class="flex items-center justify-end gap-2">
+            <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
+            <el-input-number
+              v-model="row.price"
+              :min="0"
+              :step="1"
+              :precision="0"
+              :controls="false"
+              size="small"
+              class="price-input !w-[110px]"
+            />
+          </div>
         </template>
 
         <template #gift_count="{ row }">
@@ -215,7 +218,7 @@ const columns: ColumnOption[] = [
 
 /* 两个标签的计数来自后端（过滤前算好的），不能用 rows.length —— 那是当前筛选结果 */
 const allCount = ref(0)
-const overriddenCount = ref(0)
+const mappedCount = ref(0)
 const inconsistentCount = computed(() => rows.value.filter((r) => (r.price_kinds || 1) > 1).length)
 const zeroCount = computed(() => rows.value.filter((r) => r.rows > 0 && r.diamonds === 0).length)
 
@@ -234,23 +237,31 @@ function fmtBig(n: number | null | undefined) {
 /** 单价：映射价优先，否则用最近一条消息里的价；都没有再退回内置价 */
 function initialPrice(it: GiftPriceItem): number {
   if (it.override_price !== null && it.override_price !== undefined) return it.override_price
-  if (typeof it.latest_price === 'number' && it.latest_price !== null) return it.latest_price
+  // 内置表（lib/gift-price-builtin.js）也是"映射价"，优先于消息价
   if (it.builtin_price !== null && it.builtin_price !== undefined) return it.builtin_price
+  if (typeof it.latest_price === 'number' && it.latest_price !== null) return it.latest_price
   return 0
+}
+
+/** 单价来源标签：已改（覆盖）/ 内置（代码表）/ 消息 */
+function sourceLabel(row: Row) {
+  if (row.override_price !== null) return '已改'
+  if (row.builtin_price !== null && row.builtin_price !== undefined) return '内置'
+  return '消息'
 }
 
 function isDirty(row: Row) {
   return Number(row.price) !== Number(row.savedPrice)
 }
 
-async function load(onlyOverride?: '' | 'override') {
+async function load(onlyOverride?: '' | 'mapped') {
   loading.value = true
   loadError.value = ''
   try {
-    const only = onlyOverride !== undefined ? onlyOverride : tab.value === 'override' ? 'override' : ''
-    const r = await fetchGiftPrices({ q: keyword.value.trim(), only })
+    const only = onlyOverride !== undefined ? onlyOverride : tab.value === 'override' ? 'mapped' : ''
+    const r = await fetchGiftPrices({ q: keyword.value.trim(), only: only as '' | 'override' })
     allCount.value = r?.all_total ?? (r?.items || []).length
-    overriddenCount.value = r?.override_total ?? 0
+    mappedCount.value = r?.mapped_total ?? 0
     rows.value = (r?.items || []).map((it) => {
       const p = initialPrice(it)
       return { ...it, price: p, savedPrice: p }
@@ -278,7 +289,7 @@ function reload() {
 function onTabChange(name: string | number) {
   page.value = 1
   tab.value = name === 'override' ? 'override' : 'all'
-  load(tab.value === 'override' ? 'override' : '')
+  load(tab.value === 'override' ? 'mapped' : '')
 }
 
 function onPageChange(p: number) {
@@ -313,6 +324,8 @@ async function save(row: Row) {
   const svc = ElLoading.service({ lock: true, text: `正在保存并重算「${row.gift_name}」的历史…`, background: 'rgba(0,0,0,.35)' })
   try {
     await saveGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
+    row.override_price = price
+    row.price_source = 'override'
     const r = await repairGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
     const failed = r?.failed?.length || 0
     if (failed > 0) {
