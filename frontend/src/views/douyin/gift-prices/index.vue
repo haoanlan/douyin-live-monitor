@@ -92,8 +92,15 @@
           <el-tag v-if="row.override_price !== null" size="small" type="success" effect="plain" class="ml-2">
             已设价
           </el-tag>
-          <el-tag v-else-if="row.price_kinds > 1" size="small" type="warning" effect="plain" class="ml-2">
-            历史 {{ row.max_unit }} / {{ row.min_unit }}
+          <el-tag
+            v-else-if="row.price_kinds > 1"
+            size="small"
+            type="warning"
+            effect="plain"
+            class="ml-2"
+            :title="'历史数据里实际按 ' + row.eff_min_unit + ' 和 ' + row.eff_max_unit + ' 两种单价记过账'"
+          >
+            历史价 {{ row.eff_max_unit }} / {{ row.eff_min_unit }}
           </el-tag>
         </template>
 
