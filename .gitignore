@@ -87,3 +87,6 @@ frontend/dist/
 
 dist-release/
 
+
+# 代理用的设备验证 id（运行时生成，每台机器不同）
+.s_v_web_id
