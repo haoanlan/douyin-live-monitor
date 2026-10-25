@@ -1,27 +1,79 @@
 /**
- * 下载 douyinLive Go 代理的官方预编译产物并解压到项目根目录。
+ * 下载 Go 抓取代理二进制（Windows / Linux 各一份）到项目根目录。
  *
- * 用法: node scripts/fetch-proxy-binary.js [win|linux|both]
- * 说明: 直连 GitHub 不可用时走 ghproxy.cc 镜像；解压后按项目约定重命名：
- *   linux -> douyinLive-linux-amd64
- *   win   -> douyinLive-win-amd64.exe
+ *   node scripts/fetch-proxy-binary.js          # 两个平台
+ *   node scripts/fetch-proxy-binary.js linux    # 只要 linux
+ *   node scripts/fetch-proxy-binary.js win      # 只要 windows
+ *
+ * 版本策略：默认取上游**最新 release**（tag / commit 从资产名里解析），
+ * 避免像以前那样把 tag 写死成 v2.3.1 —— 上游一升版就 404。
+ * 要固定版本时：PROXY_TAG=v2.3.2 PROXY_COMMIT=3b0c44876c2a node scripts/fetch-proxy-binary.js
+ *
+ * 下载走直连 → ghproxy 镜像两步回退（镜像证书可能过期，放宽校验）。
  */
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
+const path = require('path');
 const https = require('https');
 const { execFileSync } = require('child_process');
 
-const TAG = process.env.PROXY_TAG || 'v2.3.1';
-const COMMIT = process.env.PROXY_COMMIT || '60823bae3f14';
 const ROOT = path.join(__dirname, '..');
 const MIRROR = process.env.GH_MIRROR || 'https://ghproxy.cc/';
-const API = `https://api.github.com/repos/jwwsjlm/douyinLive/releases/tags/${TAG}`;
+const REPO = 'jwwsjlm/douyinLive';
+const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
+const FIXED_TAG = process.env.PROXY_TAG || '';
+const FIXED_COMMIT = process.env.PROXY_COMMIT || '';
 
-const TARGETS = {
-  linux: { asset: `douyinLive-${TAG}-${COMMIT}-linux-amd64.tar.gz`, out: 'douyinLive-linux-amd64', kind: 'tar' },
-  win: { asset: `douyinLive-${TAG}-${COMMIT}-windows-amd64.zip`, out: 'douyinLive-win-amd64.exe', kind: 'zip' }
-};
+let TAG = FIXED_TAG;
+let COMMIT = FIXED_COMMIT;
+
+function httpJSON(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 30000, headers: { 'User-Agent': 'dyl-release-script' } }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (e) {
+          reject(new Error('返回不是 JSON：' + body.slice(0, 120)));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('请求超时')));
+  });
+}
+
+/** 从最新 release 里解析 tag 与 commit（资产名形如 douyinLive-v2.3.2-3b0c44876c2a-linux-amd64.tar.gz） */
+async function resolveLatest() {
+  if (TAG && COMMIT) return { tag: TAG, commit: COMMIT };
+  const rel = await httpJSON(LATEST_API);
+  TAG = TAG || rel.tag_name;
+  if (!COMMIT) {
+    for (const a of rel.assets || []) {
+      const m = String(a.name).match(/^douyinLive-(v[\d.]+)-([0-9a-f]{8,})-/);
+      if (m) {
+        COMMIT = m[2];
+        break;
+      }
+    }
+  }
+  if (!TAG || !COMMIT) throw new Error('无法从最新 release 解析出版本号');
+  return { tag: TAG, commit: COMMIT };
+}
+
+function targets() {
+  return {
+    linux: { asset: `douyinLive-${TAG}-${COMMIT}-linux-amd64.tar.gz`, out: 'douyinLive-linux-amd64', kind: 'tar' },
+    win: { asset: `douyinLive-${TAG}-${COMMIT}-windows-amd64.zip`, out: 'douyinLive-win-amd64.exe', kind: 'zip' }
+  };
+}
 
 function download(url, dest, { insecure = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -51,13 +103,15 @@ function download(url, dest, { insecure = false } = {}) {
       });
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(new Error('下载超时')); });
+    req.on('timeout', () => {
+      req.destroy(new Error('下载超时'));
+    });
   });
 }
 
-/** 带镜像回退的下载：先直连，失败换 ghproxy（镜像证书可能过期，故放宽校验） */
+/** 带镜像回退的下载：先直连，失败换 ghproxy */
 async function downloadWithFallback(assetName, dest) {
-  const direct = `https://github.com/jwwsjlm/douyinLive/releases/download/${TAG}/${assetName}`;
+  const direct = `https://github.com/${REPO}/releases/download/${TAG}/${assetName}`;
   const mirrored = `${MIRROR}${direct}`;
   const attempts = [
     ['直连', direct, false],
@@ -102,18 +156,28 @@ function extract(archive, kind, outDir, outName) {
   if (!found.length) throw new Error(`压缩包里没找到 douyinLive 可执行文件 (${outDir})`);
   const target = path.join(ROOT, outName);
   fs.copyFileSync(found[0], target);
-  try { fs.chmodSync(target, 0o755); } catch { /* Windows 无意义 */ }
+  try {
+    fs.chmodSync(target, 0o755);
+  } catch {
+    /* Windows 无意义 */
+  }
   return target;
 }
 
 async function main() {
   const which = (process.argv[2] || 'both').toLowerCase();
+  const { tag, commit } = await resolveLatest();
+  console.log(`[binary] 使用版本 ${tag} (${commit})`);
+  const all = targets();
   const want = which === 'both' ? ['linux', 'win'] : [which];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dyl-proxy-'));
 
   for (const key of want) {
-    const t = TARGETS[key];
-    if (!t) { console.log(`未知目标: ${key}`); continue; }
+    const t = all[key];
+    if (!t) {
+      console.log(`未知目标: ${key}`);
+      continue;
+    }
     const archive = path.join(tmp, t.asset);
     const { label, size } = await downloadWithFallback(t.asset, archive);
     console.log(`[binary] 下载完成 ${(size / 1048576).toFixed(1)} MB (${label})`);
@@ -123,4 +187,7 @@ async function main() {
   console.log('\n完成。');
 }
 
-main().catch((e) => { console.error('失败:', e.message); process.exitCode = 1; });
+main().catch((e) => {
+  console.error('失败:', e.message);
+  process.exitCode = 1;
+});
