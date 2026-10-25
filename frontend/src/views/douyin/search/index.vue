@@ -407,7 +407,7 @@
                     </div>
                     <div class="min-w-0">
                       <div
-                        class="text-xl font-medium leading-none truncate"
+                        class="text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate md:text-xl max-md:text-lg"
                         :class="hasSessions(u) ? 'text-g-900' : 'text-g-400'"
                         :title="hasSessions(u) ? String(participatedSessions(u)) : ''"
                       >
@@ -422,7 +422,7 @@
                     </div>
                     <div class="min-w-0">
                       <div
-                        class="text-xl font-medium leading-none truncate"
+                        class="text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate md:text-xl max-md:text-lg"
                         :class="u.total_diamonds ? 'text-theme' : 'text-g-400'"
                         :title="u.total_diamonds ? fmtTitle(u.total_diamonds) : ''"
                       >
@@ -437,7 +437,7 @@
                     </div>
                     <div class="min-w-0">
                       <div
-                        class="text-xl font-medium leading-none truncate"
+                        class="text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate md:text-xl max-md:text-lg"
                         :class="u.danmaku_count ? 'text-g-900' : 'text-g-400'"
                         :title="u.danmaku_count ? fmtTitle(u.danmaku_count) : ''"
                       >

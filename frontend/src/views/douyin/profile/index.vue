@@ -75,11 +75,19 @@
             <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
               <ArtSvgIcon :icon="s.icon" class="text-base text-theme" />
             </div>
-            <div class="min-w-0">
-              <div class="text-xl font-medium leading-none" :title="s.title">
+            <div class="min-w-0 flex-1">
+              <!--
+                数字一律单行：窄屏 2 列时「390.29万」原来会折成两行，把这张 tile 撑高、
+                同一行的另一张却矮一截（用户反馈"数据太大把模块大小改变了"）。
+                nowrap + truncate 保证任何位数都不改高度，超长用省略号，悬停看完整值。
+              -->
+              <div
+                class="text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
+                :title="s.title || s.value"
+              >
                 {{ s.value }}
               </div>
-              <div class="text-xs text-g-500 mt-1.5">{{ s.label }}</div>
+              <div class="text-xs text-g-500 mt-1.5 whitespace-nowrap">{{ s.label }}</div>
             </div>
           </div>
         </div>
