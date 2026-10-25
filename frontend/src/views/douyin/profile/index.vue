@@ -67,27 +67,26 @@
         <!-- 关键指标：官方 tile 语言（图标块 + 数字 + 标签）；数字口径 P1-7 -->
         <!-- 窄屏 2 列时 5 个模块排成 2+2+1：最后一块（礼物流水）占满整行，见下面的 class -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-g-100">
+          <!--
+            版式跟总览页的统计卡一致：**标签在上、数字在下、图标在右上角**。
+            数字一律单行（nowrap + truncate）：窄屏 2 列时「390.29万」原来会折成两行，
+            把这张卡撑高、同一行的另一张矮一截（用户反馈"数据太大把模块大小改变了"）。
+          -->
           <div
             v-for="s in stats"
             :key="s.label"
-            class="flex items-center gap-3 px-4 py-3 border border-g-300/85 rounded-xl max-md:last:col-span-2"
+            class="relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:last:col-span-2"
           >
-            <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
-              <ArtSvgIcon :icon="s.icon" class="text-base text-theme" />
+            <!-- pr-10 只留给标签行：图标占的是这一行的高度，数字行拿满宽度 -->
+            <div class="pr-10 text-xs text-g-500 whitespace-nowrap truncate">{{ s.label }}</div>
+            <div
+              class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
+              :title="s.title || s.value"
+            >
+              {{ s.value }}
             </div>
-            <div class="min-w-0 flex-1">
-              <!--
-                数字一律单行：窄屏 2 列时「390.29万」原来会折成两行，把这张 tile 撑高、
-                同一行的另一张却矮一截（用户反馈"数据太大把模块大小改变了"）。
-                nowrap + truncate 保证任何位数都不改高度，超长用省略号，悬停看完整值。
-              -->
-              <div
-                class="text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
-                :title="s.title || s.value"
-              >
-                {{ s.value }}
-              </div>
-              <div class="text-xs text-g-500 mt-1.5 whitespace-nowrap">{{ s.label }}</div>
+            <div class="absolute right-3 top-3 size-7 rounded-md flex-cc bg-theme/10">
+              <ArtSvgIcon :icon="s.icon" class="text-xs text-theme" />
             </div>
           </div>
         </div>

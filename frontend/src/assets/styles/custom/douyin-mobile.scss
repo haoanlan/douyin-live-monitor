@@ -132,20 +132,12 @@
 
   /*
    * 统计格（.dy-stat-tile，信息查询结果卡里的三格）：
-   * 原来是"图标 36px + gap 12 + px-4 32"的横向布局，在 3 列网格里（每格约 106px）
-   * 留给文字的只剩 ~26px —— "参与场次"只能一个字一行（用户截图里的竖排单字）。
-   * 窄屏改成"图标在上、文字在下"，文字拿到整格宽度，标签不再换行。
+   * 版式已改成"标签上 / 数字下 / 图标右上角"，跟总览页一致 ——
+   * 图标不再参与横向布局，3 列窄格子里的文字有整格宽度，标签不会竖排。
+   * 这里只保留窄屏的内边距和字号收敛。
    */
   .douyin-page .dy-stat-tile {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
     padding: 10px !important;
-  }
-
-  .douyin-page .dy-stat-tile > .size-9 {
-    width: 28px !important;
-    height: 28px !important;
   }
 
   .douyin-page .dy-stat-tile .text-xs {
