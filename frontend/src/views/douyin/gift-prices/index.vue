@@ -30,24 +30,8 @@
         </div>
       </div>
 
-      <!-- 标签页：未映射 / 已映射 -->
-      <el-tabs v-model="tab" class="mt-2" @tab-change="onTabChange">
-        <el-tab-pane name="unmapped">
-          <template #label>
-            <span>未映射</span>
-            <span class="ml-1 text-xs text-g-500">{{ unmappedCount }}</span>
-          </template>
-        </el-tab-pane>
-        <el-tab-pane name="mapped">
-          <template #label>
-            <span>已映射</span>
-            <span class="ml-1 text-xs text-g-500">{{ mappedCount }}</span>
-          </template>
-        </el-tab-pane>
-      </el-tabs>
-
       <!-- 工具条 -->
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="mt-4 flex flex-wrap items-center gap-3">
         <el-input
           v-model="keyword"
           placeholder="按礼物名搜索"
@@ -58,6 +42,13 @@
         >
           <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
         </el-input>
+
+        <!-- 标签筛选（只是工具条上的过滤，不是顶栏 tab） -->
+        <el-select v-model="filter" class="!w-[150px]" @change="reload">
+          <el-option label="全部标签" value="all" />
+          <el-option label="未映射" value="unmapped" />
+          <el-option label="已映射" value="mapped" />
+        </el-select>
 
         <el-button :loading="loading" @click="reload">
           <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
@@ -75,7 +66,7 @@
         </el-tooltip>
 
         <span class="text-xs text-g-500">
-          当前列表 {{ rows.length }} 个礼物
+          共 {{ allCount }} 个礼物 · 未映射 {{ unmappedCount }} / 已映射 {{ mappedCount }}
           <span v-if="inconsistentCount" class="ml-2">· 历史单价不一致 {{ inconsistentCount }}</span>
           <span v-if="zeroCount" class="ml-2">· 钻石为 0 {{ zeroCount }}</span>
         </span>
@@ -107,7 +98,7 @@
         @pagination:current-change="onPageChange"
         @sort-change="onSortChange"
       >
-        <!-- 礼物名：图标 + 名字 + 价格来源 -->
+        <!-- 礼物名：图标 + 名字（手机端把标签收进名字下面，省一列宽度） -->
         <template #gift_name="{ row }">
           <div class="flex min-w-0 items-center gap-2">
             <img
@@ -121,10 +112,25 @@
             <span v-else class="gift-icon gift-icon--empty">
               <ArtSvgIcon icon="ri:gift-line" />
             </span>
-            <span class="truncate font-medium text-g-900">{{ row.gift_name }}</span>
-            <el-tag size="small" :type="sourceTagType(row)" effect="light" class="shrink-0">
-              {{ sourceLabel(row) }}
+            <div class="min-w-0">
+              <div class="truncate font-medium text-g-900">{{ row.gift_name }}</div>
+              <div v-if="isMobile" class="mt-0.5 flex items-center gap-1">
+                <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
+                  {{ isMapped(row) ? '已映射' : '未映射' }}
+                </el-tag>
+                <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
+        <template #tag="{ row }">
+          <div class="flex items-center gap-1.5">
+            <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
+              {{ isMapped(row) ? '已映射' : '未映射' }}
             </el-tag>
+            <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
           </div>
         </template>
 
@@ -147,14 +153,6 @@
              历史 {{ fmtPrice((row.unit_variants || [])[0]) }}
             </span>
           </div>
-        </template>
-
-        <template #gift_count="{ row }">
-          <span class="tabular-nums text-g-700">{{ fmtNum(row.gift_count) }}</span>
-        </template>
-
-        <template #diamonds="{ row }">
-          <span class="tabular-nums font-medium text-g-900" :title="fmtNum(row.diamonds)">{{ fmtBig(row.diamonds) }}</span>
         </template>
 
         <!-- 操作：修改（弹窗）/ 恢复默认 -->
@@ -194,7 +192,7 @@
             <div class="truncate text-base font-semibold text-g-900">{{ editing.gift_name }}</div>
             <div class="mt-0.5 text-xs text-g-500">
               {{ sourceLabel(editing) }} · 历史 {{ fmtNum(editing.rows) }} 行 / {{ fmtNum(editing.gift_count) }} 个 /
-              {{ fmtNum(editing.diamonds) }} 钻石
+              {{ fmtNum(editing.diamonds) }} 钻石 / {{ fmtNum(editing.sessions) }} 个场次
             </div>
           </div>
         </div>
@@ -288,6 +286,7 @@ import {
   type GiftPriceItem
 } from '@/api/douyin'
 import { apiErrorMessage } from '@/utils/douyin-error'
+import { useIsMobile } from '@/hooks/core/useIsMobile'
 
 defineOptions({ name: 'DouyinGiftPrices' })
 
@@ -295,12 +294,13 @@ const rows = ref<GiftPriceItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const keyword = ref('')
-const tab = ref('unmapped')
+const filter = ref<'all' | 'unmapped' | 'mapped'>('all')
 const syncing = ref(false)
 
 const page = ref(1)
 const pageSize = ref(20)
 
+const allCount = ref(0)
 const unmappedCount = ref(0)
 const mappedCount = ref(0)
 
@@ -313,22 +313,25 @@ const pagedRows = computed(() => {
   return rows.value.slice(start, start + pageSize.value)
 })
 
-const columns: ColumnOption[] = [
-  { prop: 'gift_name', label: '礼物', minWidth: 260, useSlot: true, slotName: 'gift_name' },
-  { prop: 'price', label: '单价（钻石）', width: 170, align: 'right', useSlot: true, slotName: 'price' },
-  {
-    prop: 'gift_count',
-    label: '礼物个数',
-    width: 110,
-    align: 'right',
-    sortable: 'custom',
-    useSlot: true,
-    slotName: 'gift_count'
-  },
-  { prop: 'diamonds', label: '钻石总额', width: 150, align: 'right', sortable: 'custom', useSlot: true, slotName: 'diamonds' },
-  { prop: 'sessions', label: '场次', width: 90, align: 'right', sortable: 'custom' },
-  { prop: 'actions', label: '操作', width: 150, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
-]
+/*
+ * 桌面：礼物 / 标签 / 单价 / 操作（礼物个数、钻石总额、场次在「修改」弹窗里看）
+ * 手机：标签收进礼物名下面，只留 礼物 / 单价 / 操作 三列，避免横向滚动看不到关键列
+ */
+const { isMobile } = useIsMobile()
+const columns = computed<ColumnOption[]>(() =>
+  isMobile.value
+    ? [
+        { prop: 'gift_name', label: '礼物', minWidth: 130, useSlot: true, slotName: 'gift_name' },
+        { prop: 'price', label: '单价', width: 100, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
+      ]
+    : [
+        { prop: 'gift_name', label: '礼物', minWidth: 300, useSlot: true, slotName: 'gift_name' },
+        { prop: 'tag', label: '标签', width: 160, useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', width: 180, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '操作', width: 150, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
+      ]
+)
 
 const inconsistentCount = computed(() => rows.value.filter((r) => (r.price_kinds || 0) > 1).length)
 const zeroCount = computed(() => rows.value.filter((r) => r.rows > 0 && r.diamonds === 0).length)
@@ -337,13 +340,6 @@ function fmtNum(n: number | null | undefined) {
   return Number(n ?? 0).toLocaleString('zh-CN')
 }
 
-/** 大数字缩写：3.16亿 / 53.7万 —— 悬停看精确值 */
-function fmtBig(n: number | null | undefined) {
-  const v = Number(n ?? 0)
-  if (v >= 1_0000_0000) return (v / 1_0000_0000).toFixed(2) + ' 亿'
-  if (v >= 1_0000) return (v / 1_0000).toFixed(1) + ' 万'
-  return v.toLocaleString('zh-CN')
-}
 
 function fmtPrice(n: number | null | undefined) {
   if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—'
@@ -375,10 +371,9 @@ function sourceLabel(row: GiftPriceItem) {
   return '消息价'
 }
 
-function sourceTagType(row: GiftPriceItem): 'success' | 'primary' | 'warning' {
-  if (row.override_price !== null) return 'success'
-  if (row.builtin_price !== null) return 'primary'
-  return 'warning'
+/** 已映射 = 页面映射价 或 代码内置价（采集端已经有明确价格） */
+function isMapped(row: GiftPriceItem) {
+  return row.override_price !== null || row.builtin_price !== null
 }
 
 async function load() {
@@ -387,8 +382,9 @@ async function load() {
   try {
     const r = await fetchGiftPrices({
       q: keyword.value.trim(),
-      only: tab.value === 'mapped' ? 'mapped' : 'unmapped'
+      only: filter.value === 'all' ? '' : filter.value
     })
+    allCount.value = r?.all_total ?? 0
     unmappedCount.value = r?.unmapped_total ?? 0
     mappedCount.value = r?.mapped_total ?? 0
     rows.value = r?.items || []
@@ -407,12 +403,7 @@ function reload() {
   load()
 }
 
-/** 切标签 = 换 only 参数；用事件参数，别读 tab.value（tab-change 可能早于 v-model 更新） */
-function onTabChange(name: string | number) {
-  page.value = 1
-  tab.value = name === 'mapped' ? 'mapped' : 'unmapped'
-  load()
-}
+
 
 function onPageChange(p: number) {
   page.value = p
@@ -619,6 +610,14 @@ onMounted(load)
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--art-gray-100);
+}
+
+/* 窄屏单元格内边距收一点，避免「修改」按钮把 cell 撑出省略号小点 */
+@media (max-width: 767px) {
+  :deep(.el-table .cell) {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
 
 /* 确认框里的换行要生效（ElMessageBox 默认把 \n 压成空格） */
