@@ -18,7 +18,7 @@
   历史数据不会自己变，要靠弹窗里的「同时重算历史数据」。
 -->
 <template>
-  <div class="douyin-page dy-stagger p-4">
+  <div class="douyin-page dy-stagger p-4 gift-page">
     <article class="art-card p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
@@ -143,6 +143,9 @@
             </div>
           </div>
         </template>
+
+        <!-- 占位列：不放任何东西，只用来吃掉宽屏的剩余空间 -->
+        <template #filler />
 
         <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
         <template #tag="{ row }">
@@ -341,7 +344,12 @@ const columns = computed<ColumnOption[]>(() =>
     : [
         { prop: 'gift_name', label: '礼物', width: 340, useSlot: true, slotName: 'gift_name' },
         { prop: 'tag', label: '标签', width: 120, useSlot: true, slotName: 'tag' },
-        { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'price', label: '单价（钻石）', width: 200, align: 'right', useSlot: true, slotName: 'price' },
+        /*
+         * 弹性占位列：宽屏多出来的空间全给它，不要让「单价」或「礼物」被拉长。
+         * 空列紧挨着「操作」，视觉上就是操作按钮右对齐、前面的留白，比中间空一大片自然。
+         */
+        { prop: '_filler', label: '', minWidth: 40, useSlot: true, slotName: 'filler' },
         { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
@@ -584,6 +592,17 @@ onMounted(load)
 </script>
 
 <style scoped>
+/*
+ * 超宽屏（≥1600）限制内容宽度并居中：4 列的表格铺满 1900px 时，
+ * 中间/右侧会空出一大片（用户实测"间距太难崩"）。限宽后列宽保持设计比例。
+ */
+@media (min-width: 1600px) {
+  .gift-page {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
 /* 概览卡：电脑端把顶部填满，四个数字一眼看完 */
 .gift-stats {
   display: grid;
