@@ -407,7 +407,7 @@
                 -->
                 <div class="grid grid-cols-3 max-md:grid-cols-2 gap-3 mt-5">
                   <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
-                    <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center justify-between gap-2">
                       <span class="min-w-0 truncate text-xs text-g-500">参与场次</span>
                       <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
                         <ArtSvgIcon icon="ri:live-line" class="text-xs text-theme" />
@@ -422,7 +422,7 @@
                     </div>
                   </div>
                   <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
-                    <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center justify-between gap-2">
                       <span class="min-w-0 truncate text-xs text-g-500">累计钻石</span>
                       <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
                         <ArtSvgIcon icon="ri:diamond-line" class="text-xs text-theme" />
@@ -437,7 +437,7 @@
                     </div>
                   </div>
                   <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:col-span-2">
-                    <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center justify-between gap-2">
                       <span class="min-w-0 truncate text-xs text-g-500">弹幕数</span>
                       <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
                         <ArtSvgIcon icon="ri:chat-3-line" class="text-xs text-theme" />

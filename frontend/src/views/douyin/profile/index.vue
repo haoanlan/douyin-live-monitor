@@ -78,7 +78,7 @@
             class="relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:last:col-span-2"
           >
             <!-- 标签和图标同一行（flex）：图标不再绝对定位压字，标签不会和图标重叠 -->
-            <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center justify-between gap-2">
               <span class="min-w-0 truncate text-xs text-g-500">{{ s.label }}</span>
               <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
                 <ArtSvgIcon :icon="s.icon" class="text-xs text-theme" />
