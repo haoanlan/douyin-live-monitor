@@ -30,6 +30,26 @@
         </div>
       </div>
 
+      <!-- 概览：四个数字，电脑端把顶部填满，也方便一眼看总体 -->
+      <div class="gift-stats">
+        <div class="gift-stat">
+          <span class="gift-stat__label">礼物总数</span>
+          <span class="gift-stat__value">{{ allCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">未映射</span>
+          <span class="gift-stat__value gift-stat__value--warn">{{ unmappedCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">已映射</span>
+          <span class="gift-stat__value gift-stat__value--ok">{{ mappedCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">历史单价不一致</span>
+          <span class="gift-stat__value">{{ inconsistentCount }}</span>
+        </div>
+      </div>
+
       <!-- 工具条 -->
       <div class="mt-4 flex flex-wrap items-center gap-3">
         <el-input
@@ -66,9 +86,7 @@
         </el-tooltip>
 
         <span class="text-xs text-g-500">
-          共 {{ allCount }} 个礼物 · 未映射 {{ unmappedCount }} / 已映射 {{ mappedCount }}
-          <span v-if="inconsistentCount" class="ml-2">· 历史单价不一致 {{ inconsistentCount }}</span>
-          <span v-if="zeroCount" class="ml-2">· 钻石为 0 {{ zeroCount }}</span>
+          <span v-if="zeroCount">钻石为 0 的礼物 {{ zeroCount }} 个</span>
         </span>
       </div>
 
@@ -93,7 +111,7 @@
         :show-table-header="false"
         row-key="gift_name"
         empty-text="没有匹配的礼物"
-        class="mt-2"
+        class="mt-2 gift-table"
         @pagination:size-change="onSizeChange"
         @pagination:current-change="onPageChange"
         @sort-change="onSortChange"
@@ -106,14 +124,17 @@
               :src="row.icon_url"
               class="gift-icon"
               alt=""
-              loading="lazy"
               @error="iconFailed.add(row.gift_name)"
             />
             <span v-else class="gift-icon gift-icon--empty">
               <ArtSvgIcon icon="ri:gift-line" />
             </span>
             <div class="min-w-0">
-              <div class="truncate font-medium text-g-900">{{ row.gift_name }}</div>
+              <div class="truncate font-medium text-g-900 gift-name">{{ row.gift_name }}</div>
+              <!-- 电脑端：一行小字把个数/总额/场次带上，行不空、也不用单开三列 -->
+              <div v-if="!isMobile && row.rows > 0" class="gift-meta">
+                {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} 钻石 · {{ fmtNum(row.sessions) }} 场
+              </div>
               <div v-if="isMobile" class="mt-0.5">
                 <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
                   {{ isMapped(row) ? '已映射' : '未映射' }}
@@ -133,7 +154,7 @@
         <!-- 单价：当前采用的价 + 历史出现过的价（最多两种） -->
         <template #price="{ row }">
           <div class="flex flex-col items-end leading-tight">
-            <span class="tabular-nums font-semibold text-g-900">{{ fmtPrice(currentPrice(row)) }}</span>
+            <span class="tabular-nums font-semibold text-g-900 price-main">{{ fmtPrice(currentPrice(row)) }}</span>
             <span
               v-if="(row.unit_variants?.length || 0) > 1"
               class="mt-0.5 text-[11px] tabular-nums text-warning"
@@ -151,15 +172,12 @@
           </div>
         </template>
 
-        <!-- 操作：修改（弹窗）/ 恢复默认 -->
+        <!-- 操作：只有「修改」（改错了再改一次就行，不需要撤销/恢复默认） -->
         <template #actions="{ row }">
-          <el-button size="small" text type="primary" @click="openEdit(row)">
+          <el-button size="small" class="edit-btn" @click="openEdit(row)">
             <ArtSvgIcon icon="ri:edit-line" class="mr-1" />
             修改
           </el-button>
-          <el-tooltip v-if="row.override_price !== null" content="恢复默认价（不影响历史）" placement="top">
-            <ArtButtonTable type="delete" icon="ri:arrow-go-back-line" @click="resetOne(row)" />
-          </el-tooltip>
         </template>
       </ArtTable>
     </article>
@@ -272,7 +290,6 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import type { ColumnOption } from '@/types'
 import {
-  deleteGiftPrice,
   fetchGiftPrices,
   previewGiftPriceRepair,
   previewGiftPriceUnitSync,
@@ -322,10 +339,10 @@ const columns = computed<ColumnOption[]>(() =>
         { prop: 'actions', label: '', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
       ]
     : [
-        { prop: 'gift_name', label: '礼物', minWidth: 300, useSlot: true, slotName: 'gift_name' },
-        { prop: 'tag', label: '标签', width: 110, useSlot: true, slotName: 'tag' },
-        { prop: 'price', label: '单价（钻石）', width: 180, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '操作', width: 150, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
+        { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
+        { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
 
@@ -341,6 +358,14 @@ function fmtPrice(n: number | null | undefined) {
   if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—'
   return Number(n).toLocaleString('zh-CN')
 }
+/** 大数字缩写：3.16亿 / 53.7万 —— 悬停看精确值 */
+function fmtBig(n: number | null | undefined) {
+  const v = Number(n ?? 0)
+  if (v >= 1_0000_0000) return (v / 1_0000_0000).toFixed(2) + ' 亿'
+  if (v >= 1_0000) return (v / 1_0000).toFixed(1) + ' 万'
+  return v.toLocaleString('zh-CN')
+}
+
 /** 历史出现过的单价（最多两个），用 " / " 连起来，带千分位 */
 function fmtPriceList(list: number[] | undefined) {
   const arr = (list || []).filter((v) => Number.isFinite(Number(v)))
@@ -513,25 +538,6 @@ async function saveEdit() {
   }
 }
 
-/** 恢复默认：删掉映射价 —— 只影响之后的采集，历史不动 */
-async function resetOne(row: GiftPriceItem) {
-  try {
-    await ElMessageBox.confirm(
-      `恢复「${row.gift_name}」的默认价？之后采集会回到「内置价 / 消息里的价」。历史数据不受影响。`,
-      '恢复默认价',
-      { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-  try {
-    await deleteGiftPrice(row.gift_name)
-    ElMessage.success('已恢复默认')
-    await load()
-  } catch (e) {
-    ElMessage.error(apiErrorMessage(e, '恢复失败'))
-  }
-}
 
 /** 同步单价字段：只回填 diamond_count，金额一分不改，也不触发重算 */
 async function syncUnitFields() {
@@ -578,6 +584,64 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* 概览卡：电脑端把顶部填满，四个数字一眼看完 */
+.gift-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.gift-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--art-gray-100);
+}
+.gift-stat__label {
+  font-size: 12px;
+  color: var(--art-gray-500);
+}
+.gift-stat__value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--art-gray-900);
+  font-variant-numeric: tabular-nums;
+}
+.gift-stat__value--warn {
+  color: var(--el-color-warning);
+}
+.gift-stat__value--ok {
+  color: var(--el-color-success);
+}
+
+@media (max-width: 767px) {
+  .gift-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gift-stat__value {
+    font-size: 18px;
+  }
+}
+
+/* 「修改」按钮：浅主题底 + 圆角，比纯文字按钮更像一个可点的操作 */
+.el-button.edit-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
+  color: var(--theme-color);
+  font-weight: 500;
+}
+.el-button.edit-btn:hover {
+  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
+  color: var(--theme-color);
+}
+
+
 /* 礼物图标：28px 圆角小图，缺图时用淡底 + 通用礼物图标兜底 */
 .gift-icon {
   width: 28px;
@@ -619,5 +683,34 @@ onMounted(load)
 /* 确认框里的换行要生效（ElMessageBox 默认把 \n 压成空格） */
 :global(.repair-confirm .el-message-box__message) {
   white-space: pre-line;
+}
+/* 礼物名下面那行统计小字 */
+.gift-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--art-gray-500);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 电脑端：行高、图标、字号放大一点，页面不至于空 */
+@media (min-width: 768px) {
+  .gift-table :deep(.el-table td .cell) {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .gift-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+  .gift-name {
+    font-size: 15px;
+  }
+  .price-main {
+    font-size: 16px;
+  }
 }
 </style>
