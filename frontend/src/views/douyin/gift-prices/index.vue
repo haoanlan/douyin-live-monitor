@@ -144,9 +144,6 @@
           </div>
         </template>
 
-        <!-- 占位列：不放任何东西，只用来吃掉宽屏的剩余空间 -->
-        <template #filler />
-
         <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
         <template #tag="{ row }">
           <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
@@ -343,13 +340,12 @@ const columns = computed<ColumnOption[]>(() =>
       ]
     : [
         { prop: 'gift_name', label: '礼物', width: 340, useSlot: true, slotName: 'gift_name' },
-        { prop: 'tag', label: '标签', width: 120, useSlot: true, slotName: 'tag' },
-        { prop: 'price', label: '单价（钻石）', width: 200, align: 'right', useSlot: true, slotName: 'price' },
         /*
-         * 弹性占位列：宽屏多出来的空间全给它，不要让「单价」或「礼物」被拉长。
-         * 空列紧挨着「操作」，视觉上就是操作按钮右对齐、前面的留白，比中间空一大片自然。
+         * 标签列吃弹性：宽屏多出来的宽度平摊到标签两侧（标签居中），
+         * 而不是全堆在「礼物」或「标签↔单价」之间的一处。
          */
-        { prop: '_filler', label: '', minWidth: 40, useSlot: true, slotName: 'filler' },
+        { prop: 'tag', label: '标签', minWidth: 160, align: 'center', useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', width: 200, align: 'right', useSlot: true, slotName: 'price' },
         { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
