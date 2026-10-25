@@ -114,11 +114,10 @@
             </span>
             <div class="min-w-0">
               <div class="truncate font-medium text-g-900">{{ row.gift_name }}</div>
-              <div v-if="isMobile" class="mt-0.5 flex items-center gap-1">
+              <div v-if="isMobile" class="mt-0.5">
                 <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
                   {{ isMapped(row) ? '已映射' : '未映射' }}
                 </el-tag>
-                <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
               </div>
             </div>
           </div>
@@ -126,12 +125,9 @@
 
         <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
         <template #tag="{ row }">
-          <div class="flex items-center gap-1.5">
-            <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
-              {{ isMapped(row) ? '已映射' : '未映射' }}
-            </el-tag>
-            <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
-          </div>
+          <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
+            {{ isMapped(row) ? '已映射' : '未映射' }}
+          </el-tag>
         </template>
 
         <!-- 单价：当前采用的价 + 历史出现过的价（最多两种） -->
@@ -191,7 +187,7 @@
           <div class="min-w-0">
             <div class="truncate text-base font-semibold text-g-900">{{ editing.gift_name }}</div>
             <div class="mt-0.5 text-xs text-g-500">
-              {{ sourceLabel(editing) }} · 历史 {{ fmtNum(editing.rows) }} 行 / {{ fmtNum(editing.gift_count) }} 个 /
+              当前价 {{ fmtPrice(currentPrice(editing)) }}（{{ sourceLabel(editing) }}） · 历史 {{ fmtNum(editing.rows) }} 行 / {{ fmtNum(editing.gift_count) }} 个 /
               {{ fmtNum(editing.diamonds) }} 钻石 / {{ fmtNum(editing.sessions) }} 个场次
             </div>
           </div>
@@ -327,7 +323,7 @@ const columns = computed<ColumnOption[]>(() =>
       ]
     : [
         { prop: 'gift_name', label: '礼物', minWidth: 300, useSlot: true, slotName: 'gift_name' },
-        { prop: 'tag', label: '标签', width: 160, useSlot: true, slotName: 'tag' },
+        { prop: 'tag', label: '标签', width: 110, useSlot: true, slotName: 'tag' },
         { prop: 'price', label: '单价（钻石）', width: 180, align: 'right', useSlot: true, slotName: 'price' },
         { prop: 'actions', label: '操作', width: 150, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
