@@ -77,16 +77,18 @@
             :key="s.label"
             class="relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:last:col-span-2"
           >
-            <!-- pr-10 只留给标签行：图标占的是这一行的高度，数字行拿满宽度 -->
-            <div class="pr-10 text-xs text-g-500 whitespace-nowrap truncate">{{ s.label }}</div>
+            <!-- 标签和图标同一行（flex）：图标不再绝对定位压字，标签不会和图标重叠 -->
+            <div class="flex items-start justify-between gap-2">
+              <span class="min-w-0 truncate text-xs text-g-500">{{ s.label }}</span>
+              <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
+                <ArtSvgIcon :icon="s.icon" class="text-xs text-theme" />
+              </span>
+            </div>
             <div
               class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
               :title="s.title || s.value"
             >
               {{ s.value }}
-            </div>
-            <div class="absolute right-3 top-3 size-7 rounded-md flex-cc bg-theme/10">
-              <ArtSvgIcon :icon="s.icon" class="text-xs text-theme" />
             </div>
           </div>
         </div>
