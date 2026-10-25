@@ -131,10 +131,7 @@
             </span>
             <div class="min-w-0">
               <div class="truncate font-medium text-g-900 gift-name">{{ row.gift_name }}</div>
-              <!-- 电脑端：一行小字把个数/总额/场次带上，行不空、也不用单开三列 -->
-              <div v-if="!isMobile && row.rows > 0" class="gift-meta">
-                {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} · {{ fmtNum(row.sessions) }} 场
-              </div>
+
               <div v-if="isMobile" class="mt-0.5">
                 <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
                   {{ isMapped(row) ? '已映射' : '未映射' }}
@@ -344,8 +341,8 @@ const columns = computed<ColumnOption[]>(() =>
          * 标签列吃弹性：宽屏多出来的宽度平摊到标签两侧（标签居中），
          * 而不是全堆在「礼物」或「标签↔单价」之间的一处。
          */
-        { prop: 'tag', label: '标签', minWidth: 160, align: 'center', useSlot: true, slotName: 'tag' },
-        { prop: 'price', label: '单价（钻石）', width: 200, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'tag', label: '标签', width: 120, useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', width: 300, align: 'right', useSlot: true, slotName: 'price' },
         { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
@@ -361,13 +358,6 @@ function fmtNum(n: number | null | undefined) {
 function fmtPrice(n: number | null | undefined) {
   if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—'
   return Number(n).toLocaleString('zh-CN')
-}
-/** 大数字缩写：3.16亿 / 53.7万 —— 悬停看精确值 */
-function fmtBig(n: number | null | undefined) {
-  const v = Number(n ?? 0)
-  if (v >= 1_0000_0000) return (v / 1_0000_0000).toFixed(2) + ' 亿'
-  if (v >= 1_0000) return (v / 1_0000).toFixed(1) + ' 万'
-  return v.toLocaleString('zh-CN')
 }
 
 /** 历史出现过的单价（最多两个），用 " / " 连起来，带千分位 */
@@ -594,7 +584,7 @@ onMounted(load)
  */
 @media (min-width: 1600px) {
   .gift-page {
-    max-width: 1280px;
+    max-width: 1100px;
     margin-left: auto;
     margin-right: auto;
   }
@@ -699,22 +689,22 @@ onMounted(load)
 :global(.repair-confirm .el-message-box__message) {
   white-space: pre-line;
 }
-/* 礼物名下面那行统计小字 */
-.gift-meta {
-  margin-top: 2px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--art-gray-500);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/*
+ * 表格整体限宽居中：四列加起来 900px，宽屏再多也不会有列内空白。
+ * （之前试过让某一列吃弹性 / 插空列，都会在中间或右侧留一大片，实测更难看。）
+ */
+@media (min-width: 768px) {
+  .gift-table {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 /* 电脑端：行高、图标、字号放大一点，页面不至于空 */
 @media (min-width: 768px) {
   .gift-table :deep(.el-table td .cell) {
-    padding-top: 8px;
-    padding-bottom: 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
   .gift-icon {
     width: 32px;
