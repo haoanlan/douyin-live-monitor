@@ -400,7 +400,12 @@
 
               <template v-else>
                 <!-- 统计格：跟总览页一致（标签在上、数字在下、图标右上角） -->
-                <div class="grid grid-cols-3 gap-3 mt-5">
+                <!--
+                  窄屏(≤767)改 2 列：3 列时每格只有 ~100px，右上角图标会压住标签、
+                  金额也会被截成「1252.26...」（用户截图）。2 列后每格 ~150px，
+                  第三格（弹幕数）跨两列，和画像页 5 格的排法一致。
+                -->
+                <div class="grid grid-cols-3 max-md:grid-cols-2 gap-3 mt-5">
                   <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
                     <div class="pr-10 text-xs text-g-500 whitespace-nowrap truncate">参与场次</div>
                     <div
@@ -427,7 +432,7 @@
                       <ArtSvgIcon icon="ri:diamond-line" class="text-xs text-theme" />
                     </div>
                   </div>
-                  <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
+                  <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:col-span-2">
                     <div class="pr-10 text-xs text-g-500 whitespace-nowrap truncate">弹幕数</div>
                     <div
                       class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
