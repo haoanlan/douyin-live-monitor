@@ -70,8 +70,12 @@ function writeLauncher(dir, plat, proxy, hasProxy) {
     'douyin-live ' + VER + ' (' + plat + ')\n\n' +
       '1) Node.js 20.19+（Windows 包已内置 node_modules，无需 npm install）\n' +
       '2) 把 config.example.yaml 复制为 config.yaml，填入抖音 cookie\n' +
-      '3) Windows: 双击 start.bat；Linux: ./start.sh\n' +
-      '4) 打开 http://127.0.0.1:9871，默认账号 admin / 123456（请立刻改密）\n\n' +
+      '3) 解压：Linux 用 tar -xzf xxx.tar.gz（或 unzip xxx.zip）\n' +
+      '4) 启动：Windows 双击 start.bat；Linux bash start.sh\n' +
+      '5) 打开 http://127.0.0.1:9871，默认账号 admin / 123456（请立刻改密）\n\n' +
+      '扫码登录（代理配置抽屉里的「扫码登录」）：需要本机有 Chrome/Chromium；\n' +
+      '  · Linux 服务器没有桌面时要先起虚拟屏：bash deploy/setup-xvfb.sh（或 export DISPLAY=:99）\n' +
+      '  · 也可以用 CHROME_PATH 指定浏览器路径\n' +
       '代理二进制：' + proxy + (hasProxy ? '（已随包提供）' : '（需另外获取）') + '\n' +
       '图片报告需要 Chromium：npx playwright install chromium，或使用系统 Chrome/Edge。\n',
     'utf8'
@@ -108,12 +112,22 @@ for (const plat of ['win', 'linux']) {
 
   writeLauncher(dir, plat, proxy, hasProxy);
 
+  /*
+   * 打包用 bsdtar（Windows 10+ 自带 C:\Windows\System32\tar.exe）：
+   *   · .NET Framework 的 ZipFile.CreateFromDirectory 会写出**反斜杠**条目
+   *     （frontend\dist\index.html），Linux 上 unzip 会解出一个文件名带反斜杠的怪东西；
+   *   · bsdtar 写标准 zip（正斜杠 + 目录条目），Linux/macOS 解压正常。
+   * Linux 包额外给一份 .tar.gz：服务器上更常用，权限位也更可靠。
+   */
   const zip = path.join(OUT, name + '.zip');
   fs.rmSync(zip, { force: true });
-  // 用 .NET ZipFile：PS5 的 Compress-Archive 会写出反斜杠条目（非标准 zip），
-  // 导致 Expand-Archive / 第三方解压器解出 0 个文件 ✗
-  execFileSync('powershell', ['-NoProfile', '-Command',
-    'Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::CreateFromDirectory("' + dir + '", "' + zip + '", [IO.Compression.CompressionLevel]::Optimal, $false)'
-  ], { stdio: 'inherit' });
+  execFileSync('tar', ['-a', '-cf', zip, name], { cwd: OUT, stdio: 'inherit' });
   console.log('OK ' + path.basename(zip) + '  ' + (fs.statSync(zip).size / 1024 / 1024).toFixed(1) + ' MB');
+
+  if (plat === 'linux') {
+    const tgz = path.join(OUT, name + '.tar.gz');
+    fs.rmSync(tgz, { force: true });
+    execFileSync('tar', ['-czf', tgz, name], { cwd: OUT, stdio: 'inherit' });
+    console.log('OK ' + path.basename(tgz) + '  ' + (fs.statSync(tgz).size / 1024 / 1024).toFixed(1) + ' MB');
+  }
 }
