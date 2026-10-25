@@ -133,7 +133,7 @@
               <div class="truncate font-medium text-g-900 gift-name">{{ row.gift_name }}</div>
               <!-- 电脑端：一行小字把个数/总额/场次带上，行不空、也不用单开三列 -->
               <div v-if="!isMobile && row.rows > 0" class="gift-meta">
-                {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} 钻石 · {{ fmtNum(row.sessions) }} 场
+                {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} · {{ fmtNum(row.sessions) }} 场
               </div>
               <div v-if="isMobile" class="mt-0.5">
                 <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
@@ -339,8 +339,8 @@ const columns = computed<ColumnOption[]>(() =>
         { prop: 'actions', label: '', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
       ]
     : [
-        { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
-        { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
+        { prop: 'gift_name', label: '礼物', width: 340, useSlot: true, slotName: 'gift_name' },
+        { prop: 'tag', label: '标签', width: 120, useSlot: true, slotName: 'tag' },
         { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
         { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
       ]
