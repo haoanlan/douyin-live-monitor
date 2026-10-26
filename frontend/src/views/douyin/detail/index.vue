@@ -922,43 +922,21 @@
     await ensureRankThemes()
     const theme = rankTheme.value || rankDefaultTheme.value
     rankDownloading.value = true
-    let pages = 1
-    let ok = 0
     try {
-      for (let p = 1; p <= pages; p++) {
-        await downloadWithAuth(
-          getRankImageUrl(sid, {
-            theme,
-            page: p,
-            to: peopleAnchorName.value,
-            avatar: peopleAnchorAvatar.value
-          }),
-          `榜单_${sid}_${theme}_第${p}页.jpg`,
-          (headers) => {
-            const t = Number((headers['x-total-pages'] as string) || 1)
-            if (Number.isFinite(t) && t > 0) pages = Math.min(Math.floor(t), 20)
-          }
-        )
-        ok++
-      }
       /*
-       * 多页时再补一个 zip：
-       * 手机浏览器（iOS Safari / Android Chrome）只允许**第一次**程序化下载，
-       * 逐页下载只能下到第 1 张。zip 是单次请求单个文件，手机能完整存下来。
+       * 只下 zip：服务端把分页的每一页打进一个文件。
+       * 不再逐页下载 —— 手机浏览器（iOS Safari / Android Chrome）只允许**第一次**
+       * 程序化下载，逐页时只能存到第 1 张（用户反馈"只能下一张 / 下不全"）。
        */
-      if (pages > 1) {
-        await downloadWithAuth(
-          getRankImageZipUrl(sid, {
-            theme,
-            to: peopleAnchorName.value,
-            avatar: peopleAnchorAvatar.value
-          }),
-          `榜单_${sid}_共${pages}页.zip`
-        )
-        ElMessage.success(`共 ${pages} 页，已打包成 zip 下载（手机也能完整保存）`)
-      } else {
-        ElMessage.success('榜单图片已下载')
-      }
+      await downloadWithAuth(
+        getRankImageZipUrl(sid, {
+          theme,
+          to: peopleAnchorName.value,
+          avatar: peopleAnchorAvatar.value
+        }),
+        `榜单_${sid}.zip`
+      )
+      ElMessage.success('榜单已打包成 zip 下载（内含全部分页）')
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '榜单图片下载失败'))
     } finally {
