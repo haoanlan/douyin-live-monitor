@@ -971,7 +971,7 @@ function htmlWrap(theme, bodyContent) {
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700;800;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Noto Sans SC','Noto Sans CJK SC','Source Han Sans SC',-apple-system,BlinkMacSystemFont,'Hanazono Mincho',sans-serif;
     background: ${theme.bg};
     min-height: 100vh;
     display: flex;
