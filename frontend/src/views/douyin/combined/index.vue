@@ -545,6 +545,7 @@
     fetchSessions,
     fetchStreamers,
     getCombinedRankImageUrl,
+    getCombinedRankImageZipUrl,
     getCombinedReportUrl,
     type CombinedAnchorItem,
     type CombinedAnchorPerson,
@@ -797,7 +798,23 @@
         )
         ok++
       }
-      ElMessage.success(ok > 1 ? `已下载 ${ok} 张感谢榜单` : '感谢榜单已下载')
+      /*
+       * 多页时补一个 zip：手机上浏览器只允许第一次程序化下载，逐页只能存到第 1 张。
+       * zip 是单次请求单个文件，iOS/Android 都能完整保存。
+       */
+      if (pages > 1) {
+        await downloadWithAuth(
+          getCombinedRankImageZipUrl(ids, {
+            theme,
+            to: peopleAnchorName.value,
+            avatar: peopleAnchorAvatar.value
+          }),
+          `合并感谢榜单_共${pages}页.zip`
+        )
+        ElMessage.success(`共 ${pages} 页，已打包成 zip 下载（手机也能完整保存）`)
+      } else {
+        ElMessage.success('感谢榜单已下载')
+      }
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '感谢榜单下载失败'))
     } finally {

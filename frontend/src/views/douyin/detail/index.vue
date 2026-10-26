@@ -684,6 +684,7 @@
     fetchDanmaku,
     fetchRankThemes,
     getRankImageUrl,
+    getRankImageZipUrl,
     type SessionDetail,
     type GiftRankItem,
     type AnchorRankItem
@@ -940,7 +941,24 @@
         )
         ok++
       }
-      ElMessage.success(ok > 1 ? `已下载 ${ok} 张榜单图片` : '榜单图片已下载')
+      /*
+       * 多页时再补一个 zip：
+       * 手机浏览器（iOS Safari / Android Chrome）只允许**第一次**程序化下载，
+       * 逐页下载只能下到第 1 张。zip 是单次请求单个文件，手机能完整存下来。
+       */
+      if (pages > 1) {
+        await downloadWithAuth(
+          getRankImageZipUrl(sid, {
+            theme,
+            to: peopleAnchorName.value,
+            avatar: peopleAnchorAvatar.value
+          }),
+          `榜单_${sid}_共${pages}页.zip`
+        )
+        ElMessage.success(`共 ${pages} 页，已打包成 zip 下载（手机也能完整保存）`)
+      } else {
+        ElMessage.success('榜单图片已下载')
+      }
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '榜单图片下载失败'))
     } finally {

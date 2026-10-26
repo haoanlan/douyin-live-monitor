@@ -1228,3 +1228,27 @@ export function syncGiftPriceUnitFields() {
     showErrorMessage: false
   })
 }
+
+
+// ===== 榜单图片打包下载（多页 → 一个 zip，手机才能存下来）=====
+
+/** 单场次榜单 zip 地址：服务端把分好的每一页打进一个 zip */
+export function getRankImageZipUrl(
+  sessionId: string,
+  opts: { theme: string; to?: string; avatar?: string }
+): string {
+  const q = new URLSearchParams({ theme: opts.theme })
+  if (opts.to) q.set('to', opts.to)
+  if (opts.avatar) q.set('avatar', opts.avatar)
+  return `/api/sessions/${sessionId}/rank-image.zip?${q.toString()}`
+}
+
+/** 合并场次榜单 zip 地址 */
+export function getCombinedRankImageZipUrl(
+  ids: number[],
+  opts: { theme: string; to: string; avatar?: string }
+): string {
+  const q = new URLSearchParams({ ids: ids.join(','), theme: opts.theme, to: opts.to })
+  if (opts.avatar) q.set('avatar', opts.avatar)
+  return `/api/sessions/combined/rank-image.zip?${q.toString()}`
+}
