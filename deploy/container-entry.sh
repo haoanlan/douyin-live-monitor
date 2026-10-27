@@ -92,6 +92,33 @@ if [ -n "$CH_BIN" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 2.6) 中日韩字体（榜单/报告图片里的中文与**生僻字**）
+#
+# 容器里默认往往只有很基础的字库：普通汉字能显示，但 CJK 扩展 B 区的生僻字
+# （例如 𠈌 𤫊 𣲙，U+2020C / U+24ACA / U+23C99）会渲染成方块 ——
+# 用户下载的榜单图片里就是"口口口"。
+#   fonts-noto-cjk  覆盖日常中文
+#   fonts-hanazono  覆盖 CJK 扩展 A/B/C/D，是这类生僻字的关键
+# ---------------------------------------------------------------------------
+FONT_DIR_NOTO="/usr/share/fonts/opentype/noto"
+FONT_DIR_HANA="/usr/share/fonts/truetype/hanazono"
+NEED_FONT=0
+ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || NEED_FONT=1
+ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || NEED_FONT=1
+if [ "$NEED_FONT" = "1" ]; then
+  info "安装中日韩字体（含生僻字，约 1-2 分钟，只需一次）..."
+  if command -v apt-get >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk fonts-hanazono >>/tmp/pw-deps.log 2>&1 \
+      || warn "字体安装失败，见 /tmp/pw-deps.log（榜单图片里的生僻字可能显示成方块）"
+    if command -v fc-cache >/dev/null 2>&1; then fc-cache -f >/dev/null 2>&1 || true; fi
+  else
+    warn "没有 apt-get，无法安装字体（生僻字可能显示成方块）"
+  fi
+else
+  info "中日韩字体已就绪 ✓"
+fi
+
+# ---------------------------------------------------------------------------
 # 3) 起虚拟屏
 # ---------------------------------------------------------------------------
 DISPLAY_NUM="${XVFB_DISPLAY:-99}"
