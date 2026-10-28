@@ -1,6 +1,6 @@
 {
   "name": "douyin-live-frontend",
-  "version": "1.2.25",
+  "version": "1.2.26",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
