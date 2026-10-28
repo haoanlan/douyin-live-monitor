@@ -798,7 +798,12 @@ export interface OverviewData {
     total_gifts: number
     total_diamonds: number
     offline_count: number
+    live_sessions?: number
+    last_gift_at?: number
+    last_danmaku_at?: number
   }
+  generated_at?: number
+  cache_age_ms?: number
   streamers: {
     id: number
     name: string
@@ -838,8 +843,12 @@ export interface OverviewData {
   }[]
 }
 
-export function fetchOverview() {
-  return request.get<OverviewData>({ url: '/api/overview', showErrorMessage: false })
+export function fetchOverview(fresh = false) {
+  return request.get<OverviewData>({
+    url: fresh ? '/api/overview?fresh=1' : '/api/overview',
+    timeout: fresh ? 60000 : undefined,
+    showErrorMessage: false
+  })
 }
 
 /** 守护进程/房间实时状态。每 10 秒轮询，失败由页面统一展示（P0-3/P0-4）。 */

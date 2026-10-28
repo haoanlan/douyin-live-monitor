@@ -588,9 +588,32 @@
                 ? `历史总览停留在 ${fmtAgo(v)}（${fmtTime(v)}），下面卡片里的数字不是最新的`
                 : '历史总览尚未成功加载过，下面卡片里的数字可能为空或过时'
             ),
+            /*
+             * 采集新鲜度：用户看到"数据过期"时最容易误判成"前端坏了"，
+             * 实际常见原因是**采集停了**（所以刷新当然没变化）。
+             * 这里直接给出"最后一条礼物/弹幕写入时间"，一眼区分：
+             *   · 刚才 → 采集在跑，是前端刷新问题
+             *   · 很久以前 → 采集停了，要去状态监控/代理日志查
+             */
+            h(
+              'div',
+              { class: 'text-xs leading-relaxed' },
+              (() => {
+                /*
+                 * 关键：用 generated_at（这份数据算出来的时刻）做基准，不要用 Date.now()。
+                 * 否则拿到的是旧缓存时，"多少分钟前"会被算大一圈，看起来像采集停了。
+                 */
+                const g = Number(overview.value?.generated_at || 0)
+                const t = Number(overview.value?.summary?.last_gift_at || 0)
+                if (!t) return '采集状态未知（库里没有礼物记录）'
+                const mins = g ? Math.floor((g - t) / 60000) : Math.floor((Date.now() - t) / 60000)
+                if (mins <= 10) return `采集正常：最后一条礼物写入于 ${fmtAgo(t)}`
+                return `⚠ 采集可能已停：最后一条礼物写入于 ${fmtAgo(t)} —— 数字不变是因为没有新数据进来，不是前端没刷新`
+              })()
+            ),
             h(
               ElButton,
-              { size: 'small', type: 'primary', plain: true, onClick: () => refreshOverview() },
+              { size: 'small', type: 'primary', plain: true, onClick: () => refreshOverview(true) },
               () => '立即刷新'
             )
           ])
@@ -715,9 +738,10 @@
    */
   let overviewLoadedAt = 0
 
-  async function refreshOverview() {
+  async function refreshOverview(fresh = false) {
     try {
-      const ov = await fetchOverview()
+      // fresh=true：跳过服务端 5 分钟缓存，强制重算（「立即刷新」按钮用）
+      const ov = await fetchOverview(fresh)
       overview.value = ov
       overviewError.value = ''
       overviewLoadedAt = Date.now()

@@ -88,13 +88,18 @@ async function sendJSON(res, data, status = 200) {
       res.writeHead(status, {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Encoding': 'gzip',
+        'Cache-Control': 'no-store',
         'Access-Control-Allow-Origin': '*'
       });
     }
     res.end(compressed);
   } else {
     if (!res.headersSent) {
-      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(status, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*'
+      });
     }
     res.end(json);
   }
