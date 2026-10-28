@@ -13,7 +13,7 @@
         加载完直接替换，视觉上几乎无跳变。
       -->
       <div v-if="loading" class="art-card p-5 mb-4">
-        <div class="flex items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-3 md:gap-4 flex-wrap">
           <el-skeleton-item variant="circle" style="width: 56px; height: 56px" />
           <div class="flex-1 min-w-0">
             <el-skeleton-item variant="h3" style="width: 30%" />
@@ -35,7 +35,7 @@
       </div>
 
       <!-- 头部 -->
-      <div v-else class="art-card p-5 mb-4 relative">
+      <div v-else class="art-card p-4 md:p-5 mb-4 relative">
         <!-- 返回信息查询：绝对定位在卡片右上角，不占行、不撑高头部 -->
         <button
           type="button"
@@ -45,20 +45,22 @@
           @click="goBackToSearch"
         >
           <ArtSvgIcon icon="ri:arrow-left-line" class="text-xs" />
-          <span>返回查询</span>
+          <span class="hidden md:inline">返回查询</span>
         </button>
         <div class="flex items-center gap-4 flex-wrap">
           <div class="relative shrink-0 flex">
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-lg font-bold text-g-900 truncate pr-[86px]">{{ profile?.nickname || '-' }}</div>
-            <div class="text-sm text-g-500 mt-0.5">
+            <div class="text-lg font-bold text-g-900 leading-snug line-clamp-2 pr-10 md:truncate md:pr-[86px]">{{ profile?.nickname || '-' }}</div>
+            <div class="text-xs md:text-sm text-g-500 mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
               <span v-if="profile?.giftStyle">{{ profile.giftStyle }}</span>
-              <span v-if="profile?.danmakuStyle"> · 弹幕 {{ profile.danmakuStyle }}</span>
+              <span v-if="profile?.danmakuStyle" class="text-g-400">弹幕 · {{ profile.danmakuStyle }}</span>
             </div>
-            <div class="text-xs text-g-400 mt-1">
-              首次活跃 {{ fmtTime(profile?.firstSeen) }} · 最近活跃 {{ fmtTime(profile?.lastSeen) }}
+            <div class="text-xs text-g-400 mt-1 flex flex-wrap items-center gap-x-1.5">
+              <span>首次活跃 {{ fmtTime(profile?.firstSeen) }}</span>
+              <span class="hidden md:inline text-g-300">·</span>
+              <span>最近活跃 {{ fmtTime(profile?.lastSeen) }}</span>
             </div>
             <!-- 顶部原来在这里展示"库内名字"，用户要求去掉（需要看名字历史可去信息查询页的别名入口） -->
           </div>
