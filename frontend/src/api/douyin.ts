@@ -486,6 +486,8 @@ export interface HostTrendSummary {
   avgDurationMinutes: number
   avgDiamondsPerHour: number
   avgUsers: number
+  /** 礼物收入前 10 名占比（%，后端 sessions.js 计算；计算失败时为 null） */
+  top10Share?: number | null
 }
 
 export interface HostTrendSeries {
@@ -1120,6 +1122,8 @@ export function performServiceAction(action: ServiceAction) {
 /** 一个礼物名在库里的实际统计 + 内置价 + 页面覆盖价 */
 export interface GiftPriceItem {
   gift_name: string
+  /** 礼物图标（gifts.icon 优先，gift_icons 兜底），没有则 null */
+  icon_url?: string | null
   rows: number
   gift_count: number
   diamonds: number
@@ -1128,6 +1132,8 @@ export interface GiftPriceItem {
   max_unit: number | null
   /** 历史里出现过几种单价：>1 表示前后不一致 */
   price_kinds?: number
+  /** 历史出现过的单价（最多两个，页面单价列只展示这些） */
+  unit_variants?: number[]
   /** 建议单价 = 最近一次采集到的单价（页面「单价」列的初始值） */
   latest_price?: number | null
   sessions: number
@@ -1142,11 +1148,19 @@ export interface GiftPriceItem {
   updated_at: string | null
 }
 
-export function fetchGiftPrices(params: { q?: string; only?: '' | 'mapped' | 'override' | 'anomaly' | 'zero' } = {}) {
+export function fetchGiftPrices(
+  params: { q?: string; only?: '' | 'mapped' | 'unmapped' | 'override' | 'anomaly' | 'zero' } = {}
+) {
   const q = new URLSearchParams()
   if (params.q) q.set('q', params.q)
   if (params.only) q.set('only', params.only)
-  return request.get<{ total: number; all_total: number; mapped_total: number; items: GiftPriceItem[] }>({
+  return request.get<{
+    total: number
+    all_total: number
+    mapped_total: number
+    unmapped_total: number
+    items: GiftPriceItem[]
+  }>({
     url: `/api/gift-prices?${q.toString()}`,
     showErrorMessage: false
   })
@@ -1162,7 +1176,8 @@ export function saveGiftPrice(data: { giftName: string; diamondPerUnit: number; 
 
 /** 删除覆盖价，回退到内置价/消息价 */
 export function deleteGiftPrice(name: string) {
-  return request.delete<{ ok: boolean; removed: number }>({
+  // 注意：http 封装里的方法名是 del（不是 delete），写成 request.delete 会在运行时直接抛错
+  return request.del<{ ok: boolean; removed: number }>({
     url: `/api/gift-prices?name=${encodeURIComponent(name)}`
   })
 }

@@ -1,25 +1,21 @@
 <!--
-  礼物价格管理。
+  礼物价格管理（/douyin/gift-prices）。
 
-  ## 逻辑（用户定的，越简单越好）
+  ## 这一版按用户要求改的三件事
 
-  单价就是单价，**不是算出来的**：
+  1. 礼物名前面带 **icon**（gifts.icon 优先，gift_icons 兜底，没有就用通用礼物图标）
+  2. 标签栏只分 **未映射 / 已映射**
+       · 已映射 = 采集端已有明确价格的：代码内置表（lib/gift-price-builtin.js）或页面映射表
+       · 未映射 = 两者都没有，采集时只能信消息里的 diamondCount（最可能不准）
+  3. 单价列最多显示 **两种** 历史单价；改价走「操作 → 修改」的弹窗，弹窗里可以勾
+     **同时重算历史数据**
 
-    单价 = 映射表里的价（有映射 → 这就是"已改价"）
-         ?? 最近一条礼物消息里的价（diamond_count，没有映射时就用它）
+  ## 映射为什么能保证"下次抓到就对"
 
-  改单价 = 保存映射 + **立即重算**该礼物所有历史记录与总价
-  （把 gifts 里这些行的 diamond_count / total_diamonds 改成新价，
-    再逐场重建汇总、礼物排行、主播排行、时间线）
-  —— 所以不再有单独的「重算历史」按钮。
-
-  页面用标签页区分：**全部礼物** / **已改价**（就是有映射的那些），
-  不再用行内 tag 表示"已设价"。
-
-  采集时的价格优先级（lib/worker/message-handler.js）：
-    消息里的 diamondCount < 工坊宝箱融合计价 < 内置表 < **本页面的映射价**
-
-  版式用项目自带的 ArtDesignPro 组件（全局注册，不用 import）。
+  采集链路（lib/worker/message-handler.js）的价格优先级从低到高：
+    消息里的 diamondCount  <  工坊宝箱融合计价  <  内置表  <  **页面映射表（gift_price_overrides）**
+  弹窗保存就是写映射表，采集端有 10 秒 TTL 缓存，所以最迟 10 秒后新抓到的礼物就按新价算。
+  历史数据不会自己变，要靠弹窗里的「同时重算历史数据」。
 -->
 <template>
   <div class="douyin-page dy-stagger p-4">
@@ -28,29 +24,34 @@
         <div class="min-w-0">
           <h3 class="text-lg font-semibold text-g-900 m-0">礼物价格</h3>
           <p class="mt-1 mb-0 text-sm leading-6 text-g-600">
-            有映射价的礼物会按映射价采集；改了单价会立即重算该礼物的全部历史记录与总价。
+            改价会写入映射表，<b class="font-medium text-g-800">之后采集到的该礼物按新价计算</b>（约 10 秒内生效）；
+            勾选「同时重算历史数据」还会把已有的历史记录和总价一起改掉。
           </p>
         </div>
       </div>
 
-      <!-- 标签页：全部 / 已改价 -->
-      <el-tabs v-model="tab" class="mt-2" @tab-change="onTabChange">
-        <el-tab-pane name="all">
-          <template #label>
-            <span>全部礼物</span>
-            <span class="ml-1 text-xs text-g-500">{{ allCount }}</span>
-          </template>
-        </el-tab-pane>
-        <el-tab-pane name="override">
-          <template #label>
-            <span>已设价</span>
-            <span class="ml-1 text-xs text-g-500">{{ mappedCount }}</span>
-          </template>
-        </el-tab-pane>
-      </el-tabs>
+      <!-- 概览：四个数字，电脑端把顶部填满，也方便一眼看总体 -->
+      <div class="gift-stats">
+        <div class="gift-stat">
+          <span class="gift-stat__label">礼物总数</span>
+          <span class="gift-stat__value">{{ allCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">未映射</span>
+          <span class="gift-stat__value gift-stat__value--warn">{{ unmappedCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">已映射</span>
+          <span class="gift-stat__value gift-stat__value--ok">{{ mappedCount }}</span>
+        </div>
+        <div class="gift-stat">
+          <span class="gift-stat__label">历史单价不一致</span>
+          <span class="gift-stat__value">{{ inconsistentCount }}</span>
+        </div>
+      </div>
 
       <!-- 工具条 -->
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="mt-4 flex flex-wrap items-center gap-3">
         <el-input
           v-model="keyword"
           placeholder="按礼物名搜索"
@@ -61,6 +62,13 @@
         >
           <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
         </el-input>
+
+        <!-- 标签筛选（只是工具条上的过滤，不是顶栏 tab） -->
+        <el-select v-model="filter" class="!w-[150px]" @change="reload">
+          <el-option label="全部标签" value="all" />
+          <el-option label="未映射" value="unmapped" />
+          <el-option label="已映射" value="mapped" />
+        </el-select>
 
         <el-button :loading="loading" @click="reload">
           <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
@@ -78,13 +86,10 @@
         </el-tooltip>
 
         <span class="text-xs text-g-500">
-          共 {{ rows.length }} 个礼物
-          <span v-if="inconsistentCount" class="ml-2">· 历史单价不一致 {{ inconsistentCount }}</span>
-          <span v-if="zeroCount" class="ml-2">· 钻石为 0 {{ zeroCount }}</span>
+          <span v-if="zeroCount">钻石为 0 的礼物 {{ zeroCount }} 个</span>
         </span>
       </div>
 
-      <!-- 错误态：不能静默 -->
       <el-alert
         v-if="loadError"
         class="mt-4"
@@ -106,75 +111,187 @@
         :show-table-header="false"
         row-key="gift_name"
         empty-text="没有匹配的礼物"
-        class="mt-2"
+        class="mt-2 gift-table"
         @pagination:size-change="onSizeChange"
         @pagination:current-change="onPageChange"
         @sort-change="onSortChange"
       >
-        <!-- 礼物名 + 少量提示（"已改价" 本身用标签页表达，这里不再重复标签） -->
+        <!-- 礼物名：图标 + 名字（手机端把标签收进名字下面，省一列宽度） -->
         <template #gift_name="{ row }">
-          <div class="flex items-center gap-2">
-            <span class="font-medium text-g-900">{{ row.gift_name }}</span>
-            <el-tooltip
-              v-if="row.price_kinds > 1"
-              :content="`历史数据里实际按 ${row.eff_min_unit} 和 ${row.eff_max_unit} 两种单价记过账`"
-              placement="top"
-            >
-              <ArtSvgIcon icon="ri:error-warning-line" class="text-warning" />
-            </el-tooltip>
+          <div class="flex min-w-0 items-center gap-2">
+            <img
+              v-if="row.icon_url && !iconFailed.has(row.gift_name)"
+              :src="row.icon_url"
+              class="gift-icon"
+              alt=""
+              @error="iconFailed.add(row.gift_name)"
+            />
+            <span v-else class="gift-icon gift-icon--empty">
+              <ArtSvgIcon icon="ri:gift-line" />
+            </span>
+            <div class="min-w-0">
+              <div class="truncate font-medium text-g-900 gift-name">{{ row.gift_name }}</div>
+              <!-- 电脑端：一行小字把个数/总额/场次带上，行不空、也不用单开三列 -->
+              <div v-if="!isMobile && row.rows > 0" class="gift-meta">
+                {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} 钻石 · {{ fmtNum(row.sessions) }} 场
+              </div>
+              <div v-if="isMobile" class="mt-0.5">
+                <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
+                  {{ isMapped(row) ? '已映射' : '未映射' }}
+                </el-tag>
+              </div>
+            </div>
           </div>
         </template>
 
-        <!-- 单价：可编辑 -->
+        <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
+        <template #tag="{ row }">
+          <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
+            {{ isMapped(row) ? '已映射' : '未映射' }}
+          </el-tag>
+        </template>
+
+        <!-- 单价：当前采用的价 + 历史出现过的价（最多两种） -->
         <template #price="{ row }">
-          <div class="flex items-center justify-end gap-2">
-            <span class="text-[11px] text-g-400">{{ sourceLabel(row) }}</span>
-            <el-input-number
-              v-model="row.price"
-              :min="0"
-              :step="1"
-              :precision="0"
-              :controls="false"
-              size="small"
-              class="price-input !w-[110px]"
-            />
+          <div class="flex flex-col items-end leading-tight">
+            <span class="tabular-nums font-semibold text-g-900 price-main">{{ fmtPrice(currentPrice(row)) }}</span>
+            <span
+              v-if="(row.unit_variants?.length || 0) > 1"
+              class="mt-0.5 text-[11px] tabular-nums text-warning"
+              :title="`历史数据里按 ${fmtVariants(row)} 两种单价记过账`"
+            >
+              历史 {{ fmtVariants(row) }}
+            </span>
+            <span v-else-if="row.rows === 0" class="mt-0.5 text-[11px] text-g-400">暂无历史</span>
+            <span
+              v-else-if="row.unit_variants?.length === 1 && row.unit_variants[0] !== currentPrice(row)"
+              class="mt-0.5 text-[11px] tabular-nums text-g-400"
+            >
+             历史 {{ fmtPrice((row.unit_variants || [])[0]) }}
+            </span>
           </div>
         </template>
 
-        <template #gift_count="{ row }">
-          <span class="tabular-nums text-g-700">{{ fmtNum(row.gift_count) }}</span>
-        </template>
-
-        <template #diamonds="{ row }">
-          <span class="tabular-nums font-medium text-g-900" :title="fmtNum(row.diamonds)">{{ fmtBig(row.diamonds) }}</span>
-        </template>
-
-        <!-- 操作：保存（保存即重算）、恢复默认 -->
+        <!-- 操作：只有「修改」（改错了再改一次就行，不需要撤销/恢复默认） -->
         <template #actions="{ row }">
-          <el-tooltip content="保存单价，并重算该礼物的全部历史" placement="top">
-            <ArtButtonTable
-              icon="ri:save-3-line"
-              icon-class="bg-theme/12 text-theme"
-              :class="!isDirty(row) || saving === row.gift_name ? 'opacity-40 pointer-events-none' : ''"
-              @click="save(row)"
-            />
-          </el-tooltip>
-          <el-tooltip v-if="row.override_price !== null" content="恢复默认价（不影响历史）" placement="top">
-            <ArtButtonTable type="delete" icon="ri:arrow-go-back-line" @click="resetOne(row)" />
-          </el-tooltip>
+          <el-button size="small" class="edit-btn" @click="openEdit(row)">
+            <ArtSvgIcon icon="ri:edit-line" class="mr-1" />
+            修改
+          </el-button>
         </template>
       </ArtTable>
     </article>
+
+    <!-- 设定单价弹窗 -->
+    <el-dialog
+      v-model="editOpen"
+      :title="`设定单价 · ${editing?.gift_name || ''}`"
+      width="540px"
+      append-to-body
+      destroy-on-close
+    >
+      <div v-if="editing" class="edit-body">
+        <div class="flex items-center gap-3">
+          <img
+            v-if="editing.icon_url && !iconFailed.has(editing.gift_name)"
+            :src="editing.icon_url"
+            class="gift-icon gift-icon--lg"
+            alt=""
+            @error="iconFailed.add(editing.gift_name)"
+          />
+          <span v-else class="gift-icon gift-icon--lg gift-icon--empty">
+            <ArtSvgIcon icon="ri:gift-line" />
+          </span>
+          <div class="min-w-0">
+            <div class="truncate text-base font-semibold text-g-900">{{ editing.gift_name }}</div>
+            <div class="mt-0.5 text-xs text-g-500">
+              当前价 {{ fmtPrice(currentPrice(editing)) }}（{{ sourceLabel(editing) }}） · 历史 {{ fmtNum(editing.rows) }} 行 / {{ fmtNum(editing.gift_count) }} 个 /
+              {{ fmtNum(editing.diamonds) }} 钻石 / {{ fmtNum(editing.sessions) }} 个场次
+            </div>
+          </div>
+        </div>
+
+        <!-- 历史出现过的单价（最多两种） -->
+        <el-alert
+          v-if="(editing.unit_variants?.length || 0) > 0"
+          class="mt-4"
+          :type="(editing.unit_variants?.length || 0) > 1 ? 'warning' : 'info'"
+          :closable="false"
+          show-icon
+        >
+          <template #title>
+            历史出现过的单价：
+            <b>{{ fmtPriceList(editing.unit_variants) }}</b>
+            <template v-if="(editing.unit_variants || []).length > 1">
+              （同一礼物记过两种价，说明历史数据确实对不上）
+            </template>
+          </template>
+        </el-alert>
+
+        <div class="mt-4 flex items-center gap-3">
+          <span class="text-sm text-g-700">新单价</span>
+          <el-input-number
+            v-model="editPrice"
+            :min="0"
+            :step="1"
+            :precision="0"
+            size="large"
+            class="!w-[180px]"
+            @change="refreshPreview"
+          />
+          <span class="text-sm text-g-500">钻石 / 个</span>
+        </div>
+
+        <!-- 影响面预览 -->
+        <div v-if="preview" class="preview-box">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-g-600">
+            <span>影响行数 <b class="tabular-nums text-g-900">{{ fmtNum(preview.rows) }}</b></span>
+            <span>涉及场次 <b class="tabular-nums text-g-900">{{ fmtNum(preview.sessions) }}</b></span>
+            <span>
+              总钻石
+              <b class="tabular-nums text-g-900">{{ fmtNum(preview.old_diamonds) }}</b>
+              →
+              <b class="tabular-nums text-g-900">{{ fmtNum(preview.new_diamonds) }}</b>
+              <span :class="preview.diff >= 0 ? 'text-success' : 'text-danger'">
+                （{{ preview.diff >= 0 ? '+' : '' }}{{ fmtNum(preview.diff) }}）
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <el-checkbox v-model="recompute" :disabled="!hasHistory">
+            同时重算历史数据
+          </el-checkbox>
+          <p class="mt-1 mb-0 text-xs leading-5 text-g-500">
+            <template v-if="hasHistory">
+              会把上面这些历史行的单价/总钻石改成新价，并重建受影响场次的汇总、礼物排行、主播排行与时间线（可能要几十秒）。
+            </template>
+            <template v-else> 这个礼物还没有历史记录，保存后只影响之后采集到的数据。 </template>
+          </p>
+        </div>
+
+        <p class="mt-3 mb-0 text-xs leading-5 text-g-500">
+          无论是否重算历史，新单价都会写入映射表；采集端（message-handler）按「内置表 &lt; 映射表」的优先级取值，
+          最迟 10 秒后新抓到的礼物就按新价计算。
+        </p>
+      </div>
+
+      <template #footer>
+        <el-button @click="editOpen = false">取消</el-button>
+        <el-button type="primary" :loading="savingEdit" @click="saveEdit">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import type { ColumnOption } from '@/types'
 import {
-  deleteGiftPrice,
   fetchGiftPrices,
+  previewGiftPriceRepair,
   previewGiftPriceUnitSync,
   repairGiftPrice,
   saveGiftPrice,
@@ -182,24 +299,26 @@ import {
   type GiftPriceItem
 } from '@/api/douyin'
 import { apiErrorMessage } from '@/utils/douyin-error'
+import { useIsMobile } from '@/hooks/core/useIsMobile'
 
 defineOptions({ name: 'DouyinGiftPrices' })
 
-/** 行数据 + 页面态字段：price 输入框的值，savedPrice 上次保存后的值（判断脏） */
-type Row = GiftPriceItem & { price: number; savedPrice: number }
-
-const rows = ref<Row[]>([])
+const rows = ref<GiftPriceItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const keyword = ref('')
-/** 标签页：全部 / 已改价（= 有映射价） */
-const tab = ref<'all' | 'override'>('all')
-/** 正在保存/重算的礼物名 */
-const saving = ref('')
+const filter = ref<'all' | 'unmapped' | 'mapped'>('all')
 const syncing = ref(false)
 
 const page = ref(1)
 const pageSize = ref(20)
+
+const allCount = ref(0)
+const unmappedCount = ref(0)
+const mappedCount = ref(0)
+
+/** 已经加载失败的图标（避免 img 一直重试、也避免显示破图） */
+const iconFailed = reactive(new Set<string>())
 
 const pagination = computed(() => ({ current: page.value, size: pageSize.value, total: rows.value.length }))
 const pagedRows = computed(() => {
@@ -207,25 +326,38 @@ const pagedRows = computed(() => {
   return rows.value.slice(start, start + pageSize.value)
 })
 
-const columns: ColumnOption[] = [
-  { prop: 'gift_name', label: '礼物名', minWidth: 220, useSlot: true, slotName: 'gift_name' },
-  { prop: 'price', label: '单价（钻石）', width: 170, align: 'right', useSlot: true, slotName: 'price' },
-  { prop: 'gift_count', label: '礼物个数', width: 110, align: 'right', sortable: 'custom', useSlot: true, slotName: 'gift_count' },
-  { prop: 'diamonds', label: '钻石总额', width: 150, align: 'right', sortable: 'custom', useSlot: true, slotName: 'diamonds' },
-  { prop: 'sessions', label: '场次', width: 90, align: 'right', sortable: 'custom' },
-  { prop: 'actions', label: '操作', width: 130, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
-]
+/*
+ * 桌面：礼物 / 标签 / 单价 / 操作（礼物个数、钻石总额、场次在「修改」弹窗里看）
+ * 手机：标签收进礼物名下面，只留 礼物 / 单价 / 操作 三列，避免横向滚动看不到关键列
+ */
+const { isMobile } = useIsMobile()
+const columns = computed<ColumnOption[]>(() =>
+  isMobile.value
+    ? [
+        { prop: 'gift_name', label: '礼物', minWidth: 130, useSlot: true, slotName: 'gift_name' },
+        { prop: 'price', label: '单价', width: 100, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
+      ]
+    : [
+        { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
+        { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
+      ]
+)
 
-/* 两个标签的计数来自后端（过滤前算好的），不能用 rows.length —— 那是当前筛选结果 */
-const allCount = ref(0)
-const mappedCount = ref(0)
-const inconsistentCount = computed(() => rows.value.filter((r) => (r.price_kinds || 1) > 1).length)
+const inconsistentCount = computed(() => rows.value.filter((r) => (r.price_kinds || 0) > 1).length)
 const zeroCount = computed(() => rows.value.filter((r) => r.rows > 0 && r.diamonds === 0).length)
 
 function fmtNum(n: number | null | undefined) {
   return Number(n ?? 0).toLocaleString('zh-CN')
 }
 
+
+function fmtPrice(n: number | null | undefined) {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—'
+  return Number(n).toLocaleString('zh-CN')
+}
 /** 大数字缩写：3.16亿 / 53.7万 —— 悬停看精确值 */
 function fmtBig(n: number | null | undefined) {
   const v = Number(n ?? 0)
@@ -234,38 +366,49 @@ function fmtBig(n: number | null | undefined) {
   return v.toLocaleString('zh-CN')
 }
 
-/** 单价：映射价优先，否则用最近一条消息里的价；都没有再退回内置价 */
-function initialPrice(it: GiftPriceItem): number {
-  if (it.override_price !== null && it.override_price !== undefined) return it.override_price
-  // 内置表（lib/gift-price-builtin.js）也是"映射价"，优先于消息价
-  if (it.builtin_price !== null && it.builtin_price !== undefined) return it.builtin_price
-  if (typeof it.latest_price === 'number' && it.latest_price !== null) return it.latest_price
+/** 历史出现过的单价（最多两个），用 " / " 连起来，带千分位 */
+function fmtPriceList(list: number[] | undefined) {
+  const arr = (list || []).filter((v) => Number.isFinite(Number(v)))
+  return arr.length ? arr.map((v) => fmtPrice(v)).join(' / ') : '—'
+}
+
+function fmtVariants(row: { unit_variants?: number[] }) {
+  return fmtPriceList(row.unit_variants)
+}
+
+/** 当前采用的单价：页面映射 > 代码内置 > 最近一次消息价 */
+function currentPrice(row: GiftPriceItem): number {
+  if (row.override_price !== null && row.override_price !== undefined) return row.override_price
+  if (row.builtin_price !== null && row.builtin_price !== undefined) return row.builtin_price
+  if (typeof row.latest_price === 'number' && row.latest_price !== null) return row.latest_price
+  if (row.unit_variants?.length) return row.unit_variants[row.unit_variants.length - 1]
   return 0
 }
 
-/** 单价来源标签：已改（覆盖）/ 内置（代码表）/ 消息 */
-function sourceLabel(row: Row) {
-  if (row.override_price !== null) return '已改'
-  if (row.builtin_price !== null && row.builtin_price !== undefined) return '内置'
-  return '消息'
+/** 价格来源：页面映射 / 代码内置 / 消息 */
+function sourceLabel(row: GiftPriceItem) {
+  if (row.override_price !== null) return '页面映射'
+  if (row.builtin_price !== null) return '内置'
+  return '消息价'
 }
 
-function isDirty(row: Row) {
-  return Number(row.price) !== Number(row.savedPrice)
+/** 已映射 = 页面映射价 或 代码内置价（采集端已经有明确价格） */
+function isMapped(row: GiftPriceItem) {
+  return row.override_price !== null || row.builtin_price !== null
 }
 
-async function load(onlyOverride?: '' | 'mapped') {
+async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const only = onlyOverride !== undefined ? onlyOverride : tab.value === 'override' ? 'mapped' : ''
-    const r = await fetchGiftPrices({ q: keyword.value.trim(), only: only as '' | 'override' })
-    allCount.value = r?.all_total ?? (r?.items || []).length
-    mappedCount.value = r?.mapped_total ?? 0
-    rows.value = (r?.items || []).map((it) => {
-      const p = initialPrice(it)
-      return { ...it, price: p, savedPrice: p }
+    const r = await fetchGiftPrices({
+      q: keyword.value.trim(),
+      only: filter.value === 'all' ? '' : filter.value
     })
+    allCount.value = r?.all_total ?? 0
+    unmappedCount.value = r?.unmapped_total ?? 0
+    mappedCount.value = r?.mapped_total ?? 0
+    rows.value = r?.items || []
     const maxPage = Math.max(1, Math.ceil(rows.value.length / pageSize.value))
     if (page.value > maxPage) page.value = maxPage
   } catch (e) {
@@ -281,16 +424,7 @@ function reload() {
   load()
 }
 
-/**
- * 切标签页 = 换筛选条件（已改价 = only=override）。
- * 注意：Element Plus 的 tab-change 可能在 v-model 更新前触发，所以这里用事件参数，
- * 不要读 tab.value —— 否则会拿到旧值（实测切到「已改价」仍然查到 689 条）。
- */
-function onTabChange(name: string | number) {
-  page.value = 1
-  tab.value = name === 'override' ? 'override' : 'all'
-  load(tab.value === 'override' ? 'mapped' : '')
-}
+
 
 function onPageChange(p: number) {
   page.value = p
@@ -304,90 +438,129 @@ function onSizeChange(s: number) {
 function onSortChange({ prop, order }: { prop: string; order: string | null }) {
   if (!prop || !order) return
   const dir = order === 'ascending' ? 1 : -1
-  rows.value = [...rows.value].sort((a, b) => (Number(a[prop as keyof Row]) - Number(b[prop as keyof Row])) * dir)
+  rows.value = [...rows.value].sort((a, b) => (Number(a[prop as keyof GiftPriceItem]) - Number(b[prop as keyof GiftPriceItem])) * dir)
   page.value = 1
 }
 
+/* ---------------- 设定单价弹窗 ---------------- */
+
+const editOpen = ref(false)
+const editing = ref<GiftPriceItem | null>(null)
+const editPrice = ref(0)
+const recompute = ref(true)
+const savingEdit = ref(false)
+const preview = ref<{
+  rows: number
+  gift_count: number
+  old_diamonds: number
+  new_diamonds: number
+  diff: number
+  sessions: number
+} | null>(null)
+
+/** 这个礼物有没有历史行（没有就别勾重算，保存只影响之后采集） */
+const hasHistory = computed(() => (editing.value?.rows || 0) > 0)
+
+function openEdit(row: GiftPriceItem) {
+  editing.value = row
+  editPrice.value = currentPrice(row)
+  recompute.value = (row.rows || 0) > 0
+  preview.value = null
+  editOpen.value = true
+  refreshPreview()
+}
+
+/** 预览"改成这个价会影响多少数据"；只在弹窗打开时请求 */
+let previewTimer: ReturnType<typeof setTimeout> | null = null
+function refreshPreview() {
+  if (!editing.value) return
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(async () => {
+    const gift = editing.value?.gift_name
+    const price = Number(editPrice.value)
+    if (!gift || !Number.isFinite(price) || price < 0) return
+    try {
+      const p = await previewGiftPriceRepair(gift, price)
+      if (editing.value?.gift_name === gift) preview.value = p
+    } catch {
+      /* 预览失败不打扰用户，保存时后端还会再算一次 */
+    }
+  }, 250)
+}
+
 /**
- * 保存单价 = 写映射 + **立即重算该礼物的全部历史与总价**。
- *
- * 重算会逐场重建预聚合（场次汇总 / 礼物排行 / 主播排行 / 时间线），
- * 场次多的时候要几十秒，所以这里用全屏 loading 而不是行内 loading —— 避免用户以为卡死又点一次。
+ * 保存：
+ *   · 勾了「同时重算历史」→ /api/gift-prices/repair（内部会先写映射表，再改历史、逐场重建）
+ *   · 没勾 → /api/gift-prices（只写映射表，只影响之后采集）
+ * 两条路都会写映射表，所以"下次抓到的价是对的"这件事不依赖是否重算。
  */
-async function save(row: Row) {
-  const price = Number(row.price)
+async function saveEdit() {
+  const row = editing.value
+  if (!row) return
+  const price = Number(editPrice.value)
   if (!Number.isFinite(price) || price < 0) {
     ElMessage.warning('单价必须是不小于 0 的数字')
     return
   }
-  saving.value = row.gift_name
-  const svc = ElLoading.service({ lock: true, text: `正在保存并重算「${row.gift_name}」的历史…`, background: 'rgba(0,0,0,.35)' })
+  savingEdit.value = true
+  const doRecompute = recompute.value && hasHistory.value
+  const svc = doRecompute
+    ? ElLoading.service({
+        lock: true,
+        text: `正在保存并重算「${row.gift_name}」的历史…`,
+        background: 'rgba(0,0,0,.35)'
+      })
+    : null
   try {
-    await saveGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
-    row.override_price = price
-    row.price_source = 'override'
-    const r = await repairGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
-    const failed = r?.failed?.length || 0
-    if (failed > 0) {
-      ElMessage.warning(`单价已保存，但有 ${failed} 个场次重算失败（见后端日志）`)
-    } else if ((r?.updated_rows || 0) === 0) {
-      ElMessage.success(`单价已存为 ${price}（这个礼物还没有历史记录，从下次采集开始生效）`)
+    if (doRecompute) {
+      const r = await repairGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
+      const failed = r?.failed?.length || 0
+      if (failed > 0) {
+        ElMessage.warning(`单价已保存，但有 ${failed} 个场次重算失败（见后端日志）`)
+      } else {
+        ElMessage.success(
+          `已存为 ${fmtPrice(price)}，重算 ${fmtNum(r?.updated_rows || 0)} 条历史 / ${fmtNum(
+            r?.rebuilt_sessions || 0
+          )} 个场次，用时 ${Math.round((r?.elapsed_ms || 0) / 1000)} 秒`
+        )
+      }
     } else {
-      ElMessage.success(
-        `单价已存为 ${price}，重算 ${r.updated_rows} 条历史记录 / ${r.rebuilt_sessions} 个场次，用时 ${Math.round((r.elapsed_ms || 0) / 1000)} 秒`
-      )
+      await saveGiftPrice({ giftName: row.gift_name, diamondPerUnit: price })
+      ElMessage.success(`已存为 ${fmtPrice(price)}（映射已生效，之后采集到的该礼物按新价计算）`)
     }
+    editOpen.value = false
     await load()
   } catch (e) {
     ElMessage.error(apiErrorMessage(e, '保存失败'))
   } finally {
-    svc.close()
-    saving.value = ''
+    svc?.close()
+    savingEdit.value = false
   }
 }
 
-/** 恢复默认：删掉映射价 —— 只影响之后的采集，历史不动 */
-async function resetOne(row: Row) {
-  try {
-    await ElMessageBox.confirm(
-      `恢复「${row.gift_name}」的默认价？之后采集会回到「消息里的价 / 内置价」。历史数据不受影响。`,
-      '恢复默认价',
-      { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-  try {
-    await deleteGiftPrice(row.gift_name)
-    ElMessage.success('已恢复默认')
-    await load()
-  } catch (e) {
-    ElMessage.error(apiErrorMessage(e, '恢复失败'))
-  }
-}
 
 /** 同步单价字段：只回填 diamond_count，金额一分不改，也不触发重算 */
 async function syncUnitFields() {
-  let preview
+  let p
   try {
-    preview = await previewGiftPriceUnitSync()
+    p = await previewGiftPriceUnitSync()
   } catch (e) {
     ElMessage.error(apiErrorMessage(e, '读取待同步数量失败'))
     return
   }
-  if (!preview || preview.total_rows === 0) {
+  if (!p || p.total_rows === 0) {
     ElMessage.success('没有需要同步的行，单价字段已经和总价一致')
     return
   }
-  const sample = (preview.items || [])
+  const sample = (p.items || [])
     .slice(0, 5)
     .map((it) => `· ${it.gift_name}：${it.rows} 行，${it.from_min}${it.from_min === it.from_max ? '' : '~' + it.from_max} → ${it.to_unit}`)
     .join('\n')
   try {
     await ElMessageBox.confirm(
-      `有 ${preview.total_rows} 行（${preview.gifts} 个礼物）的单价字段和总价不一致。\n\n` +
+      `有 ${p.total_rows} 行（${p.gifts} 个礼物）的单价字段和总价不一致。\n\n` +
         sample +
-        (preview.items.length > 5 ? '\n· …' : '') +
+        (p.items.length > 5 ? '\n· …' : '') +
         `\n\n会把这些行的 diamond_count 按「总价 ÷ 个数」回填；金额一分不改，也不触发重算。`,
       '同步单价字段',
       { type: 'info', confirmButtonText: '开始同步', cancelButtonText: '取消', customClass: 'repair-confirm' }
@@ -411,32 +584,133 @@ onMounted(load)
 </script>
 
 <style scoped>
-/*
-  单价输入框默认"隐形"：689 行每行一个明显的输入框视觉噪音太大。
-  hover 显浅底、focus 显主色描边 —— 一眼能看出是可编辑的数字。
-*/
-.price-input :deep(.el-input__wrapper) {
-  padding-left: 8px;
-  padding-right: 8px;
-  background: transparent;
-  box-shadow: none;
-  transition: box-shadow 0.16s, background-color 0.16s;
+/* 概览卡：电脑端把顶部填满，四个数字一眼看完 */
+.gift-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
 }
-.price-input :deep(.el-input__wrapper:hover) {
-  background: var(--el-fill-color-light);
+.gift-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--art-gray-100);
 }
-.price-input :deep(.el-input__wrapper.is-focus) {
-  background: var(--el-bg-color);
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+.gift-stat__label {
+  font-size: 12px;
+  color: var(--art-gray-500);
 }
-.price-input :deep(.el-input__inner) {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.gift-stat__value {
+  font-size: 22px;
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  line-height: 1.2;
+  color: var(--art-gray-900);
+  font-variant-numeric: tabular-nums;
 }
+.gift-stat__value--warn {
+  color: var(--el-color-warning);
+}
+.gift-stat__value--ok {
+  color: var(--el-color-success);
+}
+
+@media (max-width: 767px) {
+  .gift-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gift-stat__value {
+    font-size: 18px;
+  }
+}
+
+/* 「修改」按钮：浅主题底 + 圆角，比纯文字按钮更像一个可点的操作 */
+.el-button.edit-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--theme-color) 10%, transparent);
+  color: var(--theme-color);
+  font-weight: 500;
+}
+.el-button.edit-btn:hover {
+  background: color-mix(in srgb, var(--theme-color) 18%, transparent);
+  color: var(--theme-color);
+}
+
+
+/* 礼物图标：28px 圆角小图，缺图时用淡底 + 通用礼物图标兜底 */
+.gift-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--art-gray-100);
+  flex-shrink: 0;
+}
+.gift-icon--lg {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.gift-icon--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--art-gray-400);
+  font-size: 16px;
+}
+
+/* 影响面预览盒 */
+.preview-box {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--art-gray-100);
+}
+
+/* 窄屏单元格内边距收一点，避免「修改」按钮把 cell 撑出省略号小点 */
+@media (max-width: 767px) {
+  :deep(.el-table .cell) {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
 /* 确认框里的换行要生效（ElMessageBox 默认把 \n 压成空格） */
 :global(.repair-confirm .el-message-box__message) {
   white-space: pre-line;
+}
+/* 礼物名下面那行统计小字 */
+.gift-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--art-gray-500);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 电脑端：行高、图标、字号放大一点，页面不至于空 */
+@media (min-width: 768px) {
+  .gift-table :deep(.el-table td .cell) {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .gift-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+  .gift-name {
+    font-size: 15px;
+  }
+  .price-main {
+    font-size: 16px;
+  }
 }
 </style>

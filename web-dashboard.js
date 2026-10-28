@@ -270,8 +270,13 @@ async function serveStatic(req, res) {
         });
         // 带 hash 的静态资源长期缓存，index.html 不缓存
         const isHashed = /\-[A-Za-z0-9]{8}\.(css|js)$/.test(pathname);
+        /*
+         * index.html 必须 no-store：它决定加载哪个 hash 的 JS。
+         * 只写 no-cache 时，个别浏览器会按启发式缓存直接复用旧 html —— 重新构建后
+         * 用户刷新还是老界面（实测过：截图和用户屏幕不一致）。
+         */
         const cacheControl = pathname === '/' || pathname === '/index.html'
-          ? 'no-cache'
+          ? 'no-store, no-cache, must-revalidate'
           : isHashed ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
         res.writeHead(200, {
           'Content-Type': contentType,
@@ -288,7 +293,7 @@ async function serveStatic(req, res) {
   // 非压缩响应也加缓存头
   const isHashed = /\-[A-Za-z0-9]{8}\.(css|js)$/.test(pathname);
   const cacheControl = pathname === '/' || pathname === '/index.html'
-    ? 'no-cache'
+    ? 'no-store, no-cache, must-revalidate'
     : isHashed ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
   res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': cacheControl });
   // 流式读取失败（文件被删除/权限变化）时兜底，避免未捕获的 error 事件导致进程退出

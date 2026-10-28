@@ -132,20 +132,12 @@
 
   /*
    * 统计格（.dy-stat-tile，信息查询结果卡里的三格）：
-   * 原来是"图标 36px + gap 12 + px-4 32"的横向布局，在 3 列网格里（每格约 106px）
-   * 留给文字的只剩 ~26px —— "参与场次"只能一个字一行（用户截图里的竖排单字）。
-   * 窄屏改成"图标在上、文字在下"，文字拿到整格宽度，标签不再换行。
+   * 版式已改成"标签上 / 数字下 / 图标右上角"，跟总览页一致 ——
+   * 图标不再参与横向布局，3 列窄格子里的文字有整格宽度，标签不会竖排。
+   * 这里只保留窄屏的内边距和字号收敛。
    */
   .douyin-page .dy-stat-tile {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
     padding: 10px !important;
-  }
-
-  .douyin-page .dy-stat-tile > .size-9 {
-    width: 28px !important;
-    height: 28px !important;
   }
 
   .douyin-page .dy-stat-tile .text-xs {
@@ -543,14 +535,14 @@
     display: none;
   }
 
+  /*
+   * 这两条是旧版式的遗留：那时 tile 里第一个 div 是 36px 的图标块，
+   * 缩成 30px 是为了三列排得下。现在第一个 div 是**标签文字**，
+   * 再按 30px 卡会把「参与场次」裁掉、并让右上角图标压上来（用户截图）。
+   * 版式已改成「标签上 / 数字下 / 图标绝对定位右上角」，这里不再需要任何尺寸覆盖。
+   */
   .douyin-page .dy-user-card .dy-stat-tile {
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .douyin-page .dy-user-card .dy-stat-tile > div:first-child {
-    width: 30px;
-    height: 30px;
+    padding: 10px 12px;
   }
 
   .douyin-page .dy-user-card .mt-5 {

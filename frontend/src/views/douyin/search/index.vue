@@ -399,51 +399,56 @@
               </div>
 
               <template v-else>
-                <!-- 统计格：套官方 today-sales 的 tile 语言（实线框 + 图标块 + 数字上标签下） -->
-                <div class="grid grid-cols-3 gap-3 mt-5">
-                  <div class="dy-stat-tile flex items-center gap-3 px-4 py-3.5 border border-g-300/85 rounded-xl">
-                    <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
-                      <ArtSvgIcon icon="ri:live-line" class="text-base text-theme" />
+                <!-- 统计格：跟总览页一致（标签在上、数字在下、图标右上角） -->
+                <!--
+                  窄屏(≤767)改 2 列：3 列时每格只有 ~100px，右上角图标会压住标签、
+                  金额也会被截成「1252.26...」（用户截图）。2 列后每格 ~150px，
+                  第三格（弹幕数）跨两列，和画像页 5 格的排法一致。
+                -->
+                <div class="grid grid-cols-3 max-md:grid-cols-2 gap-3 mt-5">
+                  <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="min-w-0 truncate text-xs text-g-500">参与场次</span>
+                      <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
+                        <ArtSvgIcon icon="ri:live-line" class="text-xs text-theme" />
+                      </span>
                     </div>
-                    <div class="min-w-0">
-                      <div
-                        class="text-xl font-medium leading-none truncate"
-                        :class="hasSessions(u) ? 'text-g-900' : 'text-g-400'"
-                        :title="hasSessions(u) ? String(participatedSessions(u)) : ''"
-                      >
-                        {{ hasSessions(u) ? fmtNum(participatedSessions(u)) : '—' }}
-                      </div>
-                      <div class="text-xs text-g-500 mt-2">参与场次</div>
-                    </div>
-                  </div>
-                  <div class="dy-stat-tile flex items-center gap-3 px-4 py-3.5 border border-g-300/85 rounded-xl">
-                    <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
-                      <ArtSvgIcon icon="ri:diamond-line" class="text-base text-theme" />
-                    </div>
-                    <div class="min-w-0">
-                      <div
-                        class="text-xl font-medium leading-none truncate"
-                        :class="u.total_diamonds ? 'text-theme' : 'text-g-400'"
-                        :title="u.total_diamonds ? fmtTitle(u.total_diamonds) : ''"
-                      >
-                        {{ u.total_diamonds ? fmtNum(u.total_diamonds) : '—' }}
-                      </div>
-                      <div class="text-xs text-g-500 mt-2">累计钻石</div>
+                    <div
+                      class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
+                      :class="hasSessions(u) ? 'text-g-900' : 'text-g-400'"
+                      :title="hasSessions(u) ? fmtTitle(participatedSessions(u)) : ''"
+                    >
+                      {{ hasSessions(u) ? fmtNum(participatedSessions(u)) : '—' }}
                     </div>
                   </div>
-                  <div class="dy-stat-tile flex items-center gap-3 px-4 py-3.5 border border-g-300/85 rounded-xl">
-                    <div class="size-9 rounded-lg flex-cc bg-theme/10 shrink-0">
-                      <ArtSvgIcon icon="ri:chat-3-line" class="text-base text-theme" />
+                  <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="min-w-0 truncate text-xs text-g-500">累计钻石</span>
+                      <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
+                        <ArtSvgIcon icon="ri:diamond-line" class="text-xs text-theme" />
+                      </span>
                     </div>
-                    <div class="min-w-0">
-                      <div
-                        class="text-xl font-medium leading-none truncate"
-                        :class="u.danmaku_count ? 'text-g-900' : 'text-g-400'"
-                        :title="u.danmaku_count ? fmtTitle(u.danmaku_count) : ''"
-                      >
-                        {{ u.danmaku_count ? fmtNum(u.danmaku_count) : '—' }}
-                      </div>
-                      <div class="text-xs text-g-500 mt-2">弹幕数</div>
+                    <div
+                      class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
+                      :class="u.total_diamonds ? 'text-theme' : 'text-g-400'"
+                      :title="u.total_diamonds ? fmtTitle(u.total_diamonds) : ''"
+                    >
+                      {{ u.total_diamonds ? fmtNum(u.total_diamonds) : '—' }}
+                    </div>
+                  </div>
+                  <div class="dy-stat-tile relative px-4 py-3.5 border border-g-300/85 rounded-xl max-md:col-span-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="min-w-0 truncate text-xs text-g-500">弹幕数</span>
+                      <span class="size-7 shrink-0 rounded-md flex-cc bg-theme/10">
+                        <ArtSvgIcon icon="ri:chat-3-line" class="text-xs text-theme" />
+                      </span>
+                    </div>
+                    <div
+                      class="mt-2 text-xl font-medium leading-none whitespace-nowrap tabular-nums truncate max-md:text-lg"
+                      :class="u.danmaku_count ? 'text-g-900' : 'text-g-400'"
+                      :title="u.danmaku_count ? fmtTitle(u.danmaku_count) : ''"
+                    >
+                      {{ u.danmaku_count ? fmtNum(u.danmaku_count) : '—' }}
                     </div>
                   </div>
                 </div>
