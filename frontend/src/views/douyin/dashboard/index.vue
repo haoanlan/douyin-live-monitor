@@ -778,12 +778,16 @@
   })
 
   let statusTimer: number | undefined
+  /** 总览轮询（30 秒）—— 原来总览完全没有轮询，数字只在切页/录制结束时变 */
+  let overviewTimer: number | undefined
 
   function stopTimers() {
     if (statusTimer) clearInterval(statusTimer)
     if (staleTimer) clearInterval(staleTimer)
+    if (overviewTimer) clearInterval(overviewTimer)
     statusTimer = undefined
     staleTimer = undefined
+    overviewTimer = undefined
   }
 
   function startTimers() {
@@ -793,6 +797,17 @@
       if (document.visibilityState === 'visible') refreshStatus()
     }, 10000)
     staleTimer = window.setInterval(tickStale, 1000)
+    /*
+     * 总览轮询：30 秒一次（只在页面可见时）。
+     * 原来总览**完全没有轮询** —— 卡片数字只在"首次挂载 / 切回本页 / 录制结束"时更新，
+     * 直播期间用户盯着看会觉得"数据不动"。
+     * 有直播中的场次时传 fresh=true 跳过服务端 5 分钟缓存，否则拿到的是同一份 JSON（约 1 秒开销）。
+     */
+    overviewTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const live = Number(overview.value?.summary?.live_sessions || 0) > 0
+      refreshOverview(live)
+    }, 30000)
   }
 
   // keep-alive 页：切回来刷新并恢复轮询、切走立刻停。
