@@ -851,6 +851,10 @@
   onMounted(() => nextTick(measureFeedScrollbar))
 
   const giftDialogVisible = ref(false)
+  /** 最近一次打开"某人送了哪些礼物"弹窗用的行（直播中轮询要重新套用同一筛选） */
+  const lastGiftDialogRow = ref<GiftRankItem | null>(null)
+  /** 最近一次打开"主播送礼人榜单"弹窗用的主播行 */
+  const lastAnchorDialogRow = ref<AnchorRankItem | null>(null)
   const giftDialogUser = ref('')
   const giftDialogList = ref<NonNullable<SessionDetail['giftFeed']>>([])
   /**
@@ -860,8 +864,15 @@
    */
   const giftDetailsFull = ref<NonNullable<SessionDetail['giftFeed']> | null>(null)
   const giftDetailsLoading = ref(false)
-  async function ensureGiftDetails() {
-    if (giftDetailsFull.value || giftDetailsLoading.value) return
+  /**
+   * 拉全量礼物明细。
+   * @param force true = 无视已有数据重新拉（直播中弹窗开着时要靠它刷新人数/金额）
+   *
+   * 原来这里只要拉过一次就直接 return，于是"场次详情直播中打开弹窗后人数不再变化，
+   * 必须退出场次重进才会更新"（用户反馈）。
+   */
+  async function ensureGiftDetails(force = false) {
+    if (!force && (giftDetailsFull.value || giftDetailsLoading.value)) return
     giftDetailsLoading.value = true
     try {
       const r = await fetchSessionGiftDetails(String(sessionId))
@@ -951,7 +962,8 @@
     []
   )
 
-  async function openGiftDetail(gift: GiftRankItem) {
+  async function openGiftDetail(gift: GiftRankItem, force = false) {
+    lastGiftDialogRow.value = gift
     giftDialogUser.value = gift.nickname
     /*
      * 按 **user_sec_uid** 筛，不要按昵称筛。
@@ -968,16 +980,17 @@
     // 先用"最近若干条"里的即时结果把弹窗打开（有内容可看），再拉全量补齐
     giftDialogList.value = (detail.value?.giftFeed || []).filter(sameUser)
     giftDialogVisible.value = true
-    await ensureGiftDetails()
+    await ensureGiftDetails(force)
     giftDialogList.value = (giftDetailsFull.value || []).filter(sameUser)
   }
 
-  async function openAnchorPeopleList(anchor: AnchorRankItem) {
+  async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
+    lastAnchorDialogRow.value = anchor
     peopleAnchorName.value = anchor.anchor_name
     peopleAnchorAvatar.value = anchor.anchor_avatar || ''
     peopleDialogVisible.value = true
     void ensureRankThemes()
-    await ensureGiftDetails()
+    await ensureGiftDetails(force)
     const map = new Map<string, { nickname: string; avatar_url?: string; total_diamonds: number }>()
     ;(giftDetailsFull.value || [])
       .filter((g) => g.to_nickname === anchor.anchor_name)
@@ -1209,8 +1222,19 @@
 
   onMounted(() => {
     refresh()
-    timer = window.setInterval(() => {
-      if (detail.value?.session?.is_live) refresh({ silent: true })
+    timer = window.setInterval(async () => {
+      if (!detail.value?.session?.is_live) return
+      await refresh({ silent: true })
+      /*
+       * 弹窗开着时也要跟着刷：原来弹窗里的列表只在"打开那一刻"取一次全量明细，
+       * 直播中人数/金额就一直停在旧数字，必须退出场次重进才更新（用户反馈）。
+       */
+      if (giftDialogVisible.value && lastGiftDialogRow.value) {
+        await openGiftDetail(lastGiftDialogRow.value, true)
+      }
+      if (peopleDialogVisible.value && lastAnchorDialogRow.value) {
+        await openAnchorPeopleList(lastAnchorDialogRow.value, true)
+      }
     }, 15000)
   })
   onUnmounted(() => {
