@@ -1,6 +1,6 @@
 {
   "name": "douyin-live",
-  "version": "1.2.45",
+  "version": "1.2.46",
   "description": "一个基于 WebSocket 的抖音直播弹幕抓取工具。",
   "main": "monitor.js",
   "scripts": {

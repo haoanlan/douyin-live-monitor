@@ -285,13 +285,14 @@
               </div>
 
               <!-- 卡片级整行：左「归属地」，右「曾用名」入口 -->
-              <div class="flex items-center justify-between gap-2 mt-1.5 w-full text-xs text-g-500 leading-5">
-                <span class="inline-flex items-center gap-1 min-w-0">
+              <div class="grid grid-cols-2 mt-2 w-full rounded-md border border-g-200 overflow-hidden text-xs text-g-500 leading-5">
+                <span class="flex items-center gap-1 min-w-0 px-2.5 py-1">
                   <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
                   <span v-if="u.user_gender">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
                   <span v-if="u.is_private" class="text-warning">· 私密</span>
                   <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
                 </span>
+          <div class="flex items-center justify-end px-2.5 py-1 border-l border-g-200 min-w-0">
           <el-popover placement="top" :width="300" trigger="click">
           <template #reference>
           <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
@@ -315,6 +316,7 @@
           </div>
           </template>
           </el-popover>
+          </div>
               </div>
 
               <!-- 仅进场用户：三个空格子降噪成一行（占结果的大多数，满屏虚线格最扎眼） -->
