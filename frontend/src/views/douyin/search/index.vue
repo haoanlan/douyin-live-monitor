@@ -255,7 +255,7 @@
             <div class="dy-user-card art-card relative px-5 py-5 h-full flex flex-col">
               <!-- 头部：头像 + 昵称 + 别名 -->
               <div class="flex items-start gap-3.5">
-                <el-avatar :size="48" :src="u.avatar" class="shrink-0">
+                <el-avatar :size="56" :src="u.avatar" class="shrink-0">
                   {{ (u.nickname || '?')[0] }}
                 </el-avatar>
                 <div class="flex-1 min-w-0">
@@ -270,10 +270,9 @@
                     <span class="text-base font-medium text-g-900 truncate leading-snug">
                       {{ u.nickname || '未知用户' }}
                     </span>
-                    <!-- ID = 抖音号（user_display_id）。接口暂时没返回时用 -- 占位，位置固定，不跳动 -->
-                    <el-tag size="small" effect="plain" class="shrink-0">
+                    <span class="text-xs text-g-500 tabular-nums shrink-0">
                       ID {{ u.unique_id || u.user_display_id || '--' }}
-                    </el-tag>
+                    </span>
                   </div>
                   <!--
                     元信息：**一行**放完（ID 在上一行标签里）。
@@ -285,15 +284,16 @@
                     <span class="inline-flex items-center gap-0.5">
                       <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
                     </span>
+                    <span class="text-g-300 select-none">·</span>
                     <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
                     <span v-if="u.is_private" class="text-warning">私密</span>
                     <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
                     <el-popover placement="top" :width="300" trigger="click">
                         <template #reference>
-                          <button class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600">
-                            <ArtSvgIcon icon="ri:history-line" class="text-[12px] text-g-400" />
+                          <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
+                            <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
                             曾用名 {{ aliasNames(u).length }} 个
-                            <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px] text-g-400" />
+                            <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px]" />
                           </button>
                         </template>
                         <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
