@@ -263,8 +263,8 @@
                   {{ (u.nickname || '?')[0] }}
                 </el-avatar>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-base font-medium text-g-900 truncate leading-snug">
+                  <div class="flex flex-col items-start gap-1">
+                    <span class="text-base font-medium text-g-900 truncate leading-snug max-w-full">
                       {{ u.nickname || '未知用户' }}
                     </span>
                     <!-- ID = 抖音号（user_display_id）；接口没返回时用 -- 占位，位置固定不跳动 -->
@@ -285,7 +285,7 @@
               </div>
 
               <!-- 卡片级整行：左「归属地」，右「曾用名」入口 -->
-              <div class="flex items-center justify-between gap-2 mt-2.5 pt-2 w-full text-xs text-g-500 leading-5 border-t border-g-100">
+              <div class="flex items-center justify-between gap-2 mt-1.5 w-full text-xs text-g-500 leading-5">
                 <span class="inline-flex items-center gap-1 min-w-0">
                   <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
                   <span v-if="u.user_gender">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
