@@ -280,7 +280,7 @@
                     手机上宽度不够就逐条换行，整块又高又散（用户反馈"竖着一直罗列"）。
                     现在只留必要信息，文案也压缩：库内 N 条 → N 条；日期省年份。
                   -->
-                  <div class="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs text-g-500 leading-5">
+                  <div class="flex items-center justify-between gap-x-2 mt-1 -mr-5 pr-5 w-full text-xs text-g-500 leading-5">
                     <span class="inline-flex items-center gap-0.5">
                       <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
                     </span>
