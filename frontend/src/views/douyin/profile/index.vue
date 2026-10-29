@@ -21,7 +21,7 @@
             <el-skeleton-item variant="text" style="width: 60%; margin-top: 8px" />
           </div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-g-100">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3 pt-4 border-t border-g-100">
           <!-- 窄屏（2 列）下 5 个模块会排成 2+2+1，最后一块只剩半宽很难受 →
                让它（骨架与真实卡都）在窄屏占满整行 -->
           <el-skeleton
@@ -60,13 +60,23 @@
               <span v-if="profile?.danmakuStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.danmakuStyle }}</span>
               <span v-if="profile?.danmakuTone === '热情互动'" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.danmakuTone }}</span>
             </div>
-            <div class="text-xs text-g-400 mt-1 flex flex-wrap items-center gap-x-1.5">
-              <span>首次活跃 {{ fmtTime(profile?.firstSeen) }}</span>
-              <span class="hidden md:inline text-g-300">·</span>
-              <span>最近活跃 {{ fmtTime(profile?.lastSeen) }}</span>
-            </div>
             <!-- 顶部原来在这里展示"库内名字"，用户要求去掉（需要看名字历史可去信息查询页的别名入口） -->
           </div>
+        </div>
+
+        <!--
+          元信息单独一层：身份（名字 + chips）→ 元信息（活跃时间）→ 数据（统计卡）。
+          原来时间紧跟在 chips 下面，两类信息挤在一起，"标签"和"时间"看起来是一件事。
+        -->
+        <div class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] leading-relaxed text-g-400">
+          <span class="inline-flex items-center gap-1">
+            <ArtSvgIcon icon="ri:play-circle-line" class="text-[12px] text-g-300" />
+            首次活跃 {{ fmtTime(profile?.firstSeen) }}
+          </span>
+          <span class="inline-flex items-center gap-1">
+            <ArtSvgIcon icon="ri:time-line" class="text-[12px] text-g-300" />
+            最近活跃 {{ fmtTime(profile?.lastSeen) }}
+          </span>
         </div>
 
         <!-- 关键指标：官方 tile 语言（图标块 + 数字 + 标签）；数字口径 P1-7 -->
