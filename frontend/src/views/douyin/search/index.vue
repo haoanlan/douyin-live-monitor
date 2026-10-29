@@ -285,14 +285,17 @@
               </div>
 
               <!-- 卡片级整行：左「归属地」，右「曾用名」入口 -->
-              <div class="grid grid-cols-2 mt-2 w-full rounded-md border border-g-200 overflow-hidden text-xs text-g-500 leading-5">
-                <span class="flex items-center gap-1 min-w-0 px-2.5 py-1">
-                  <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
-                  <span v-if="u.user_gender">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
-                  <span v-if="u.is_private" class="text-warning">· 私密</span>
-                  <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
+              <div class="flex items-center justify-between gap-2 mt-2 w-full text-xs text-g-500 leading-5">
+                <span class="flex items-center gap-1 min-w-0 px-2 py-[3px] overflow-hidden bg-g-100" style="border-radius: calc(var(--custom-radius) / 2 + 2px)">
+                  <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400 shrink-0" />
+                  <span class="truncate">{{ u.ip_location || '--' }}</span>
+                  <span v-if="u.user_gender" class="shrink-0">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
+                  <span v-if="u.session_count" class="shrink-0">· {{ u.session_count }} 场</span>
+                  <span v-if="u.matched_last_time" class="shrink-0">· {{ fmtDate(u.matched_last_time) }}</span>
+                  <span v-if="u.is_private" class="text-warning shrink-0">· 私密</span>
+                  <span v-if="!u.sec_uid" class="text-g-400 shrink-0">无标识</span>
                 </span>
-          <div class="flex items-center justify-end px-2.5 py-1 border-l border-g-200 min-w-0">
+          <div class="flex items-center justify-end px-2 py-[3px] min-w-0 bg-g-100 shrink-0" style="border-radius: calc(var(--custom-radius) / 2 + 2px)">
           <el-popover placement="top" :width="280" trigger="click" popper-class="dy-alias-pop">
           <template #reference>
           <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
