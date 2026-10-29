@@ -120,6 +120,42 @@
           查询
         </el-button>
       </div>
+
+              <!--
+                整宽一行：左「归属地」右「曾用名」。
+                放在头像行**之外**，才能从卡片左边缘到右边缘铺满（用户要的效果），
+                之前它被关在"头像右边那一列"里，最宽只有 157px，右边永远留白。
+              -->
+              <div class="flex items-center justify-between gap-2 mt-2.5 pt-2 w-full text-xs text-g-500 leading-5 border-t border-g-100">
+                <span class="inline-flex items-center gap-1 min-w-0">
+                  <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
+                  <span v-if="u.user_gender">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
+                  <span v-if="u.is_private" class="text-warning">· 私密</span>
+                </span>
+          <el-popover placement="top" :width="300" trigger="click">
+              <template #reference>
+                <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
+                  <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
+                  曾用名 {{ aliasNames(u).length }} 个
+                  <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px]" />
+                </button>
+              </template>
+              <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
+              <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
+                <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
+                  {{ n }}
+                </el-tag>
+              </div>
+              <template v-if="tempAliases(u).length">
+                <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
+                <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
+                  <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
+                    {{ a.nickname }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-popover>
+              </div>
     </div>
 
     <!--
@@ -274,44 +310,6 @@
                       ID {{ u.unique_id || u.user_display_id || '--' }}
                     </el-tag>
                   </div>
-                  <!--
-                    元信息：**一行**放完（ID 在上一行标签里）。
-                    原来 IP / 性别 / 库内条数 / 首次 各自带 min-h 竖着罗列，
-                    手机上宽度不够就逐条换行，整块又高又散（用户反馈"竖着一直罗列"）。
-                    现在只留必要信息，文案也压缩：库内 N 条 → N 条；日期省年份。
-                  -->
-                  <div class="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs text-g-500 leading-5">
-                    <span class="inline-flex items-center gap-0.5">
-                      <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
-                    </span>
-                    <span class="text-g-300 select-none">·</span>
-                    <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
-                    <span v-if="u.is_private" class="text-warning">私密</span>
-                    <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
-                    <el-popover placement="top" :width="300" trigger="click">
-                        <template #reference>
-                          <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
-                            <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
-                            曾用名 {{ aliasNames(u).length }} 个
-                            <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px]" />
-                          </button>
-                        </template>
-                        <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
-                        <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
-                          <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
-                            {{ n }}
-                          </el-tag>
-                        </div>
-                        <template v-if="tempAliases(u).length">
-                          <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
-                          <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
-                            <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
-                              {{ a.nickname }}
-                            </el-tag>
-                          </div>
-                        </template>
-                      </el-popover>
-                    </div>
 
                   
                 </div>
