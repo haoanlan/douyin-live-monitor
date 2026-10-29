@@ -253,67 +253,25 @@
               下面把上下内边距提到 20px、主要块间距提到 20px（区块之间 16px）。
             -->
             <div class="dy-user-card art-card relative px-5 py-5 h-full flex flex-col">
-              <!-- 头部：头像 + 昵称 + 别名 -->
+              <!--
+                头部：头像 / 名字 / ID 标签 / 画像按钮。
+                下面那行（归属地 + 曾用名）是**卡片级整行** —— 放在这个 flex 之外，
+                才能从卡片左边缘铺到右边缘（之前被关在"头像右边那一列"里，最宽 157px）。
+              -->
               <div class="flex items-start gap-3.5">
                 <el-avatar :size="56" :src="u.avatar" class="shrink-0">
                   {{ (u.nickname || '?')[0] }}
                 </el-avatar>
                 <div class="flex-1 min-w-0">
-                  <!--
-                    昵称 + ID 标签：窄屏允许换行。
-                    实测（360px）：同一行放 [昵称 truncate][ID 标签 shrink-0]，
-                    标签占掉约 130px，长昵称只剩 ~110px —— 用户截图里昵称被截成「404 ...」。
-                    加 flex-wrap 后标签会自己折到下一行，昵称拿到整行宽度；
-                    桌面宽度够，仍是一行。
-                  -->
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-base font-medium text-g-900 truncate leading-snug">
                       {{ u.nickname || '未知用户' }}
                     </span>
+                    <!-- ID = 抖音号（user_display_id）；接口没返回时用 -- 占位，位置固定不跳动 -->
                     <el-tag size="small" effect="plain" class="shrink-0 tabular-nums">
                       ID {{ u.unique_id || u.user_display_id || '--' }}
                     </el-tag>
                   </div>
-                  <!--
-                    元信息：**一行**放完（ID 在上一行标签里）。
-                    原来 IP / 性别 / 库内条数 / 首次 各自带 min-h 竖着罗列，
-                    手机上宽度不够就逐条换行，整块又高又散（用户反馈"竖着一直罗列"）。
-                    现在只留必要信息，文案也压缩：库内 N 条 → N 条；日期省年份。
-                  -->
-                  <div class="flex items-center justify-between gap-x-2 mt-1 -mr-5 pr-5 w-full text-xs text-g-500 leading-5">
-                    <span class="inline-flex items-center gap-0.5">
-                      <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
-                    </span>
-                    <span class="text-g-300 select-none">·</span>
-                    <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
-                    <span v-if="u.is_private" class="text-warning">私密</span>
-                    <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
-                    <el-popover placement="top" :width="300" trigger="click">
-                        <template #reference>
-                          <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
-                            <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
-                            曾用名 {{ aliasNames(u).length }} 个
-                            <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px]" />
-                          </button>
-                        </template>
-                        <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
-                        <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
-                          <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
-                            {{ n }}
-                          </el-tag>
-                        </div>
-                        <template v-if="tempAliases(u).length">
-                          <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
-                          <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
-                            <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
-                              {{ a.nickname }}
-                            </el-tag>
-                          </div>
-                        </template>
-                      </el-popover>
-                    </div>
-
-                  
                 </div>
                 <el-button
                   v-if="u.sec_uid"
@@ -324,6 +282,39 @@
                 >
                   画像
                 </el-button>
+              </div>
+
+              <!-- 卡片级整行：左「归属地」，右「曾用名」入口 -->
+              <div class="flex items-center justify-between gap-2 mt-2.5 pt-2 w-full text-xs text-g-500 leading-5 border-t border-g-100">
+                <span class="inline-flex items-center gap-1 min-w-0">
+                  <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
+                  <span v-if="u.user_gender">· {{ u.user_gender === 1 ? '男' : '女' }}</span>
+                  <span v-if="u.is_private" class="text-warning">· 私密</span>
+                  <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
+                </span>
+          <el-popover placement="top" :width="300" trigger="click">
+          <template #reference>
+          <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
+          <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
+          曾用名 {{ aliasNames(u).length }} 个
+          <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px]" />
+          </button>
+          </template>
+          <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
+          <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
+          <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
+          {{ n }}
+          </el-tag>
+          </div>
+          <template v-if="tempAliases(u).length">
+          <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
+          <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
+          <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
+          {{ a.nickname }}
+          </el-tag>
+          </div>
+          </template>
+          </el-popover>
               </div>
 
               <!-- 仅进场用户：三个空格子降噪成一行（占结果的大多数，满屏虚线格最扎眼） -->
