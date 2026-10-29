@@ -270,8 +270,9 @@
                     <span class="text-base font-medium text-g-900 truncate leading-snug">
                       {{ u.nickname || '未知用户' }}
                     </span>
-                    <el-tag v-if="u.unique_id" size="small" effect="plain" class="shrink-0">
-                      ID {{ u.unique_id }}
+                    <!-- ID = 抖音号（user_display_id）。接口暂时没返回时用 -- 占位，位置固定，不跳动 -->
+                    <el-tag size="small" effect="plain" class="shrink-0">
+                      ID {{ u.unique_id || u.user_display_id || '--' }}
                     </el-tag>
                   </div>
                   <!--
@@ -287,33 +288,32 @@
                     <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
                     <span v-if="u.is_private" class="text-warning">私密</span>
                     <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
-                  </div>
-
-                  <div v-if="aliasNames(u).length" class="mt-2 min-w-0">
                     <el-popover placement="top" :width="300" trigger="click">
-                      <template #reference>
-                        <button class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600">
-                          <ArtSvgIcon icon="ri:history-line" class="text-[12px] text-g-400" />
-                          曾用名 {{ aliasNames(u).length }} 个
-                          <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px] text-g-400" />
-                        </button>
-                      </template>
-                      <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
-                      <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
-                        <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
-                          {{ n }}
-                        </el-tag>
-                      </div>
-                      <template v-if="tempAliases(u).length">
-                        <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
-                        <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
-                          <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
-                            {{ a.nickname }}
+                        <template #reference>
+                          <button class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600">
+                            <ArtSvgIcon icon="ri:history-line" class="text-[12px] text-g-400" />
+                            曾用名 {{ aliasNames(u).length }} 个
+                            <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px] text-g-400" />
+                          </button>
+                        </template>
+                        <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
+                        <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
+                          <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
+                            {{ n }}
                           </el-tag>
                         </div>
-                      </template>
-                    </el-popover>
-                  </div>
+                        <template v-if="tempAliases(u).length">
+                          <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
+                          <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
+                            <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
+                              {{ a.nickname }}
+                            </el-tag>
+                          </div>
+                        </template>
+                      </el-popover>
+                    </div>
+
+                  
                 </div>
                 <el-button
                   v-if="u.sec_uid"
