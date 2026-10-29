@@ -274,41 +274,21 @@
                       ID {{ u.unique_id }}
                     </el-tag>
                   </div>
-                  <div class="flex items-center gap-1.5 mt-1 flex-wrap min-h-[20px]">
-                    <span
-                      v-if="u.ip_location"
-                      class="inline-flex items-center gap-1 text-xs text-g-500"
-                    >
+                  <!--
+                    元信息压缩成**一行**：IP · 性别 · 库内记录数 · 首次出现。
+                    原来 IP/性别占一行、库内条数又单独一行（还带 min-h 占位），
+                    卡片上半部分被这些零碎信息撑得很高、又没层次（用户反馈"空间利用率低、杂乱"）。
+                    重复的"库内 N 条"不再重复展示（下面 skill 卡里已有场次/钻石/弹幕）。
+                  -->
+                  <div class="flex items-center gap-x-2 gap-y-0.5 mt-1 flex-wrap text-xs text-g-500 leading-5">
+                    <span v-if="u.ip_location" class="inline-flex items-center gap-0.5">
                       <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location }}
                     </span>
-                    <span v-if="u.user_gender" class="text-xs text-g-500">
-                      {{ u.user_gender === 1 ? '男' : '女' }}
-                    </span>
-                    <span v-if="u.is_private" class="text-xs text-warning">私密账号</span>
-                    <span v-if="!u.sec_uid" class="text-xs text-g-400">库里没有用户标识</span>
-                    <!--
-                      兜底信息：这个用户的抖音资料没取到时（没有 ip/性别/私密），
-                      这一行原来会留成一条空白（为卡片等高预留的 min-h）。
-                      填上"库内记录数 + 首次出现"既不留白，也顺带回答了"数据全不全"。
-                    -->
-                    <!--
-                      「库内 N 条记录 · 首次 YYYY/MM/DD」原来挂 truncate。
-                      实测（360px）：可见宽 164，内容 190（少 26px）——
-                      「首次 2026/06/1…」被截掉，日期读不全（用户截图）。
-                      改成允许换行（行高与字号一致），窄屏折成两行也不挤。
-                    -->
-                    <span
-                      v-if="
-                        u.sec_uid &&
-                        u.total_records &&
-                        !u.ip_location &&
-                        !u.user_gender &&
-                        !u.is_private
-                      "
-                      class="text-xs text-g-500 leading-5"
-                    >
-                      库内 {{ u.total_records }} 条记录 · 首次 {{ fmtDate(u.first_seen) }}
-                    </span>
+                    <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
+                    <span v-if="u.is_private" class="text-warning">私密账号</span>
+                    <span v-if="u.total_records">库内 {{ fmtNum(u.total_records) }} 条</span>
+                    <span v-if="u.first_seen">首次 {{ fmtDate(u.first_seen) }}</span>
+                    <span v-if="!u.sec_uid" class="text-g-400">库里没有用户标识</span>
                   </div>
 
                   <!--
@@ -326,7 +306,7 @@
                     （用户反馈的"库内别名存在被截断的遮挡"）。
                     现在放开高度、允许断行：!h-auto + whitespace-normal + break-all。
                   -->
-                  <div class="flex flex-wrap items-center gap-2 mt-2.5 min-w-0 min-h-[22px]">
+                  <div class="dy-alias-scroll flex items-center gap-1.5 mt-2 min-w-0 overflow-x-auto">
                     <span class="text-xs text-g-400 shrink-0">库内别名</span>
                     <el-tag
                       v-for="n in aliasNames(u)"
@@ -334,7 +314,8 @@
                       size="small"
                       effect="plain"
                       type="info"
-                      class="dy-alias-tag !h-auto max-w-full whitespace-normal break-all leading-5 !py-0.5"
+                      class="dy-alias-tag shrink-0 !h-auto leading-5 !py-0.5"
+                      style="white-space: nowrap"
                       :title="n"
                     >
                       {{ n }}
@@ -921,24 +902,21 @@
   }
 
   /**
-   * 卡片上展示的真名：最多 3 个 —— **最近用过的 2 个 + 最早用过的 1 个**（用户定的规则）。
-   * 依据 nickname_stats 里的 first/last 时间戳；不足 3 个就全显示。
-   * 「最近 2 个」反映现在叫什么，「最早 1 个」保留最初认识他时的名字。
+  /**
+   * 卡片上展示的"真名"（全部，不含 douXXX / 神秘人 这类自动生成的匿名名）。
+   * 单行 + 横向滚动展示，所以名字再多也不撑高卡片。
    */
   function aliasNames(u: any): string[] {
     const list = realAliases(u)
     if (!list.length) return []
-    // 展示顺序统一按规则来（不因名字个数而变）：最近的 2 个在前，最早的 1 个在后
-    const recent = [...list].sort((a, b) => (b.last || 0) - (a.last || 0)).slice(0, 2)
-    const earliest = [...list].sort((a, b) => (a.first || 0) - (b.first || 0))[0]
-    const out = recent.map((a) => a.nickname)
-    if (earliest && !out.includes(earliest.nickname)) out.push(earliest.nickname)
-    // 不足 3 个（例如只有 1~2 个真名）时按出现次数补足
-    for (const a of list) {
-      if (out.length >= 3) break
-      if (!out.includes(a.nickname)) out.push(a.nickname)
-    }
-    return out.slice(0, 3)
+    /*
+     * 显示**全部**"像真名"的曾用名（原来只给 3 个：最近 2 + 最早 1）。
+     * 不撑高的办法不在这里，而在容器：单行 + 横向滚动（见模板里的 dy-alias-scroll）。
+     * 排序：最近用过的在前 —— 看的人通常关心"他最近叫什么"。
+     */
+    return [...list]
+      .sort((a, b) => (b.last || 0) - (a.last || 0))
+      .map((a) => a.nickname)
   }
 
   /** 自动生成的游客名，收进 popover 里"点开看全部" */
