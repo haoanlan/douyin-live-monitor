@@ -53,9 +53,12 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-lg font-bold text-g-900 leading-snug line-clamp-2 pr-10 md:truncate md:pr-[86px]">{{ profile?.nickname || '-' }}</div>
-            <div class="text-xs md:text-sm text-g-500 mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <span v-if="profile?.giftStyle">{{ profile.giftStyle }}</span>
-              <span v-if="profile?.danmakuStyle" class="text-g-400">弹幕 · {{ profile.danmakuStyle }}</span>
+            <div class="mt-1.5 flex flex-wrap items-center gap-1">
+              <!-- 三个维度各一个 chip：消费力 / 偏好 / 弹幕形态 / 互动性 —— 手机上一行放得下，超出自动换行但不挤 -->
+              <span v-if="profile?.giftStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftStyle }}</span>
+              <span v-if="profile?.giftPref" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftPref }}</span>
+              <span v-if="profile?.danmakuStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.danmakuStyle }}</span>
+              <span v-if="profile?.danmakuTone === '热情互动'" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.danmakuTone }}</span>
             </div>
             <div class="text-xs text-g-400 mt-1 flex flex-wrap items-center gap-x-1.5">
               <span>首次活跃 {{ fmtTime(profile?.firstSeen) }}</span>

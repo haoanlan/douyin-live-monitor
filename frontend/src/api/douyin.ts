@@ -380,6 +380,8 @@ export interface UserProfile {
   gift_types?: string
   /** 送礼风格判定，如「重度粉丝（专注型）」 */
   giftStyle?: string
+  /** 偏好（专注型 / 多元型），与消费力分开 */
+  giftPref?: string
   /** 场均消费钻石 */
   avgPerSession?: number
   /** 活跃高峰时段，如「21:00」 */
@@ -387,6 +389,8 @@ export interface UserProfile {
   danmakuCount?: number
   /** 弹幕风格标签，如「表情丰富·热情互动」 */
   danmakuStyle?: string
+  /** 互动性（热情互动 / 围观型），与形态分开 */
+  danmakuTone?: string
   danmakuSamples?: { content: string; create_time: number | string }[]
   favoriteStreamer?: string
   activeSessionCount?: number
