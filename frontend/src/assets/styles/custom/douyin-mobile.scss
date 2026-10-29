@@ -1008,3 +1008,9 @@
     height: 30px;
   }
 }
+
+
+/* 曾用名弹窗：贴右边缘时不超出屏幕（Element Plus 默认会 teleport 到 body，宽度得自己限） */
+.dy-alias-pop {
+  max-width: calc(100vw - 24px) !important;
+}

@@ -293,7 +293,7 @@
                   <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
                 </span>
           <div class="flex items-center justify-end px-2.5 py-1 border-l border-g-200 min-w-0">
-          <el-popover placement="top" :width="300" trigger="click">
+          <el-popover placement="top" :width="280" trigger="click" popper-class="dy-alias-pop">
           <template #reference>
           <button class="inline-flex items-center gap-0.5 text-[11px] leading-5 text-theme">
           <ArtSvgIcon icon="ri:history-line" class="text-[12px]" />
