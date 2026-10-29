@@ -275,20 +275,21 @@
                     </el-tag>
                   </div>
                   <!--
-                    元信息压缩成**一行**：IP · 性别 · 库内记录数 · 首次出现。
-                    原来 IP/性别占一行、库内条数又单独一行（还带 min-h 占位），
-                    卡片上半部分被这些零碎信息撑得很高、又没层次（用户反馈"空间利用率低、杂乱"）。
-                    重复的"库内 N 条"不再重复展示（下面 skill 卡里已有场次/钻石/弹幕）。
+                  <!--
+                    元信息：**一行**放完（ID 在上一行标签里）。
+                    原来 IP / 性别 / 库内条数 / 首次 各自带 min-h 竖着罗列，
+                    手机上宽度不够就逐条换行，整块又高又散（用户反馈"竖着一直罗列"）。
+                    现在只留必要信息，文案也压缩：库内 N 条 → N 条；日期省年份。
                   -->
-                  <div class="flex items-center gap-x-2 gap-y-0.5 mt-1 flex-wrap text-xs text-g-500 leading-5">
+                  <div class="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs text-g-500 leading-5">
                     <span v-if="u.ip_location" class="inline-flex items-center gap-0.5">
                       <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location }}
                     </span>
                     <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
-                    <span v-if="u.is_private" class="text-warning">私密账号</span>
-                    <span v-if="u.total_records">库内 {{ fmtNum(u.total_records) }} 条</span>
-                    <span v-if="u.first_seen">首次 {{ fmtDate(u.first_seen) }}</span>
-                    <span v-if="!u.sec_uid" class="text-g-400">库里没有用户标识</span>
+                    <span v-if="u.is_private" class="text-warning">私密</span>
+                    <span v-if="u.total_records">{{ fmtNum(u.total_records) }} 条</span>
+                    <span v-if="u.first_seen">首次 {{ String(fmtDate(u.first_seen)).slice(5) }}</span>
+                    <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
                   </div>
 
                   <!--
@@ -304,49 +305,35 @@
                     el-tag 的文字在**内层 span**（.el-tag__content）里，
                     外层 truncate 拦不住它：长名字会溢出标签、压到旁边的字上
                     （用户反馈的"库内别名存在被截断的遮挡"）。
-                    现在放开高度、允许断行：!h-auto + whitespace-normal + break-all。
+                  <!--
+                    曾用名只留**一个入口**（用户定的方案：卡面最干净，点开看全部）。
+                    原来把名字铺成一行标签：第一个常被裁在中间，看着像坏了；名字多时还挤。
+                    过滤规则不变：douXXXX / 神秘人 / 神*** 这类自动生成的名字不进来。
                   -->
-                  <div class="dy-alias-scroll flex items-center gap-1.5 mt-2 min-w-0 overflow-x-auto">
-                    <span class="text-xs text-g-400 shrink-0">库内别名</span>
-                    <el-tag
-                      v-for="n in aliasNames(u)"
-                      :key="n"
-                      size="small"
-                      effect="plain"
-                      type="info"
-                      class="dy-alias-tag shrink-0 !h-auto leading-5 !py-0.5"
-                      style="white-space: nowrap"
-                      :title="n"
-                    >
-                      {{ n }}
-                    </el-tag>
-                    <el-popover
-                      v-if="tempAliases(u).length"
-                      placement="top"
-                      :width="300"
-                      trigger="click"
-                    >
+                  <div v-if="aliasNames(u).length" class="mt-2 min-w-0">
+                    <el-popover placement="top" :width="300" trigger="click">
                       <template #reference>
-                        <button class="dy-pressable text-xs text-theme shrink-0">
-                          另有 {{ tempAliases(u).length }} 个游客名
+                        <button class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600">
+                          <ArtSvgIcon icon="ri:history-line" class="text-[12px] text-g-400" />
+                          曾用名 {{ aliasNames(u).length }} 个
+                          <ArtSvgIcon icon="ri:arrow-right-s-line" class="text-[12px] text-g-400" />
                         </button>
                       </template>
-                      <div class="text-xs text-g-500 mb-2">
-                        抖音自动生成的游客/匿名名字（不在卡片上展示）：
-                      </div>
-                      <div class="max-h-[220px] overflow-auto flex flex-wrap gap-1.5">
-                        <el-tag
-                          v-for="a in tempAliases(u)"
-                          :key="a.nickname"
-                          size="small"
-                          effect="plain"
-                          type="info"
-                        >
-                          {{ a.nickname }}
+                      <div class="text-xs text-g-500 mb-2">库内出现过的名字（不含游客/匿名名）：</div>
+                      <div class="max-h-[240px] overflow-auto flex flex-wrap gap-1.5">
+                        <el-tag v-for="n in aliasNames(u)" :key="n" size="small" effect="plain" type="info" style="white-space: nowrap">
+                          {{ n }}
                         </el-tag>
                       </div>
+                      <template v-if="tempAliases(u).length">
+                        <div class="text-xs text-g-500 mt-3 mb-2">另有 {{ tempAliases(u).length }} 个游客/匿名名：</div>
+                        <div class="max-h-[160px] overflow-auto flex flex-wrap gap-1.5">
+                          <el-tag v-for="a in tempAliases(u)" :key="a.nickname" size="small" effect="plain">
+                            {{ a.nickname }}
+                          </el-tag>
+                        </div>
+                      </template>
                     </el-popover>
-                    <span v-if="!aliasList(u).length" class="text-xs text-g-400">—</span>
                   </div>
                 </div>
                 <el-button
