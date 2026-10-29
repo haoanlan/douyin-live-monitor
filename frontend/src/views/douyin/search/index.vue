@@ -275,41 +275,20 @@
                     </el-tag>
                   </div>
                   <!--
-                  <!--
                     元信息：**一行**放完（ID 在上一行标签里）。
                     原来 IP / 性别 / 库内条数 / 首次 各自带 min-h 竖着罗列，
                     手机上宽度不够就逐条换行，整块又高又散（用户反馈"竖着一直罗列"）。
                     现在只留必要信息，文案也压缩：库内 N 条 → N 条；日期省年份。
                   -->
                   <div class="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs text-g-500 leading-5">
-                    <span v-if="u.ip_location" class="inline-flex items-center gap-0.5">
-                      <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location }}
+                    <span class="inline-flex items-center gap-0.5">
+                      <ArtSvgIcon icon="ri:map-pin-line" class="text-g-400" />{{ u.ip_location || '--' }}
                     </span>
                     <span v-if="u.user_gender">{{ u.user_gender === 1 ? "男" : "女" }}</span>
                     <span v-if="u.is_private" class="text-warning">私密</span>
-                    <span v-if="u.total_records">{{ fmtNum(u.total_records) }} 条</span>
-                    <span v-if="u.first_seen">首次 {{ String(fmtDate(u.first_seen)).slice(5) }}</span>
                     <span v-if="!u.sec_uid" class="text-g-400">无用户标识</span>
                   </div>
 
-                  <!--
-                    库内别名：跟在昵称下面（同属"这个人的身份信息"）。
-                    一个人可能有一二十个名字，其中绝大多数是抖音给未登录访客生成的 douXXXXXXX
-                    （实测样本 30 个名字里 28 个是这种）——全铺出来非常吵。
-                    所以只内联"像真名"的（最近 2 个 + 最早 1 个），游客名压成一个入口，点开看全部；
-                    名字长时可以换行（不截断），最少占一行。
-                  -->
-                  <!--
-                    名字长时**换行**而不是截断。
-                    原来写的是 `max-w-[220px] truncate` —— 与注释相反，而且
-                    el-tag 的文字在**内层 span**（.el-tag__content）里，
-                    外层 truncate 拦不住它：长名字会溢出标签、压到旁边的字上
-                    （用户反馈的"库内别名存在被截断的遮挡"）。
-                  <!--
-                    曾用名只留**一个入口**（用户定的方案：卡面最干净，点开看全部）。
-                    原来把名字铺成一行标签：第一个常被裁在中间，看着像坏了；名字多时还挤。
-                    过滤规则不变：douXXXX / 神秘人 / 神*** 这类自动生成的名字不进来。
-                  -->
                   <div v-if="aliasNames(u).length" class="mt-2 min-w-0">
                     <el-popover placement="top" :width="300" trigger="click">
                       <template #reference>
