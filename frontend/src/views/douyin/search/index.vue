@@ -270,9 +270,9 @@
                     <span class="text-base font-medium text-g-900 truncate leading-snug">
                       {{ u.nickname || '未知用户' }}
                     </span>
-                    <span class="text-xs text-g-500 tabular-nums shrink-0">
+                    <el-tag size="small" effect="plain" class="shrink-0 tabular-nums">
                       ID {{ u.unique_id || u.user_display_id || '--' }}
-                    </span>
+                    </el-tag>
                   </div>
                   <!--
                     元信息：**一行**放完（ID 在上一行标签里）。
