@@ -612,7 +612,7 @@
           -->
           <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
           <button
-            class="absolute top-0 right-[84px] size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme dy-pressable"
+            class="rank-dl-btn dy-pressable absolute size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme !right-[84px]"
             :title="manualGiftOpen ? '返回榜单' : '补录礼物'"
             :aria-label="manualGiftOpen ? '返回榜单' : '补录礼物'"
             @click="toggleManualGift"
@@ -642,10 +642,11 @@
       </template>
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
       <!-- 补录礼物：和模板网格同一个容器策略（高度固定，内容内部滚动） -->
-      <div v-if="manualGiftOpen" class="max-h-80 overflow-y-auto">
+      <div v-if="manualGiftOpen" class="flex flex-col max-h-80">
+        <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 <div class="flex flex-col gap-3">
         <div>
-          <div class="text-xs text-g-500 mb-1">① 这个人是谁</div>
+          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">1</span>这个人是谁</div>
           <el-input
             v-model="manualGiftQuery"
             placeholder="输入昵称或抖音号搜索，选中一个；搜不到就作为新观众"
@@ -677,7 +678,7 @@
         </div>
 
         <div>
-          <div class="text-xs text-g-500 mb-1">② 什么礼物</div>
+          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">2</span>什么礼物</div>
           <el-select
             v-model="manualGiftName"
             filterable
@@ -710,11 +711,11 @@
         </div>
 
         <div>
-          <div class="text-xs text-g-500 mb-1">③ 时间（默认现在）</div>
+          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">3</span>时间</div>
           <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
         </div>
         <div v-if="manualGiftTo">
-          <div class="text-xs text-g-500 mb-1">收礼人（自动锁定为当前主播）</div>
+          <div class="text-xs font-medium text-g-600 mb-1">收礼人<span class="text-g-400 font-normal">（自动锁定为当前主播）</span></div>
           <div class="text-sm text-g-800">{{ manualGiftTo }}</div>
         </div>
       </div>
@@ -729,7 +730,7 @@
             <div
               v-for="r in manualGiftList"
               :key="r.id"
-              class="flex items-center gap-2 text-xs px-2 py-1 rounded bg-g-50"
+              class="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md bg-g-50 border border-g-100"
             >
               <span class="truncate flex-1">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
               <span class="tabular-nums text-theme shrink-0">{{ fmtNum(r.total_diamonds) }} 钻</span>
@@ -738,8 +739,10 @@
           </div>
         </div>
 
-        <!-- 操作按钮：右对齐（和弹窗 footer 习惯一致） -->
-        <div class="mt-3 flex items-center justify-end gap-2">
+        </div>
+
+        <!-- 底部固定：不随内容滚动 -->
+        <div class="shrink-0 mt-2 pt-2 border-t border-g-100 flex items-center justify-end gap-2">
           <el-button size="small" @click="manualGiftOpen = false">取消</el-button>
           <el-button size="small" type="primary" :loading="manualGiftSaving" @click="submitManualGiftAndClose">补录</el-button>
         </div>
