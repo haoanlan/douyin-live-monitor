@@ -643,101 +643,102 @@
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
       <!-- 补录礼物：和模板网格同一个容器策略（高度固定，内容内部滚动） -->
       <div v-if="manualGiftOpen" class="flex flex-col max-h-[360px] overflow-x-hidden">
-        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0.5">
-<div class="flex flex-col gap-3">
-        <div>
-          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">1</span>这个人是谁</div>
-          <el-input
-            v-model="manualGiftQuery"
-            placeholder="输入昵称或抖音号搜索，选中一个；搜不到就作为新观众"
-            clearable
-            @input="searchManualUser"
-          >
-            <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
-          </el-input>
-          <div class="mt-1.5 h-[104px] overflow-auto rounded border border-g-200">
-            <div v-if="manualGiftSearching" class="h-full flex items-center justify-center gap-1.5 text-xs text-g-500">
-              <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2">
+          <!-- ① 这个人是谁 -->
+          <div>
+            <div class="text-xs font-medium text-g-600 mb-1 flex items-center gap-1">
+              <span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">1</span>这个人是谁
             </div>
-            <div v-else-if="!manualGiftCandidates.length" class="h-full flex items-center justify-center text-xs text-g-400">
-              {{ manualGiftQuery.trim().length >= 2 ? '没有匹配到人' : '输入至少 2 个字开始搜索' }}
-            </div>
-            <button
-              v-for="c in manualGiftCandidates"
-              :key="c.sec_uid || c.nickname"
-              type="button"
-              class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
-              @click="pickManualUser(c)"
+            <el-input
+              v-model="manualGiftQuery"
+              placeholder="输入昵称或抖音号搜索；搜不到就作为新观众"
+              clearable
+              @input="searchManualUser"
             >
-              <span class="truncate">{{ c.nickname }}</span>
-              <span class="text-g-400 shrink-0">{{ c.unique_id || c.user_display_id || '' }} · {{ c.session_count || 0 }} 场</span>
-            </button>
-          </div>
-          <div class="mt-1 text-xs" :class="manualGiftUser.sec_uid ? 'text-success' : 'text-g-500'">
-            {{ manualGiftUser.sec_uid
-              ? '已选中：' + manualGiftUser.nickname
-              : (manualGiftQuery ? '未选中 → 会作为新观众（虚拟 uid：manual:' + manualGiftQuery + '）' : '还没选人') }}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">2</span>什么礼物</div>
-          <el-select
-            v-model="manualGiftName"
-            filterable
-            allow-create
-            default-first-option
-            placeholder="搜历史礼物名，搜不到直接输入新名字"
-            class="w-full"
-            @change="fillManualGiftPrice"
-          >
-            <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
-              <span>{{ g.name }}</span>
-              <span class="float-right text-g-400 text-xs">{{ g.price }} 钻</span>
-            </el-option>
-          </el-select>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2">
-          <div>
-            <div class="text-xs text-g-500 mb-1">单价（钻）</div>
-            <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="!w-full" />
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">次数</div>
-            <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="!w-full" />
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">合计（自动算）</div>
-            <div class="h-8 flex items-center font-medium text-theme">{{ fmtNum((manualGiftPrice || 0) * (manualGiftCount || 0)) }} 钻</div>
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">3</span>时间</div>
-          <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
-        </div>
-      </div>
-
-        <!-- 本场补录记录 + 撤销 -->
-        <div class="mt-3 pt-3 border-t border-g-100">
-          <div class="text-xs text-g-500 mb-1.5">
-            本场补录记录（{{ manualGiftList.length }} 条 · 合计 {{ fmtNum(manualGiftTotal) }} 钻）
-          </div>
-          <div v-if="!manualGiftList.length" class="text-xs text-g-400">还没有补录记录</div>
-          <div v-else class="flex flex-col gap-1">
-            <div
-              v-for="r in manualGiftList"
-              :key="r.id"
-              class="flex items-center gap-2 text-xs px-2 py-1 rounded-md bg-g-50 border border-g-300 min-w-0"
-            >
-              <span class="truncate flex-1 min-w-0">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
-              <span class="tabular-nums text-theme shrink-0 w-[64px] text-right">{{ fmtNum(r.total_diamonds) }} 钻</span>
-              <el-button size="small" text type="danger" class="shrink-0" @click="removeManualGift(r)">撤销</el-button>
+              <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
+            </el-input>
+            <div class="mt-1 h-[92px] overflow-y-auto overflow-x-hidden rounded border border-g-200">
+              <div v-if="manualGiftSearching" class="h-full flex items-center justify-center gap-1.5 text-xs text-g-500">
+                <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
+              </div>
+              <div v-else-if="!manualGiftCandidates.length" class="h-full flex items-center justify-center text-xs text-g-400">
+                {{ manualGiftQuery.trim().length >= 2 ? '没有匹配到人' : '输入至少 2 个字开始搜索' }}
+              </div>
+              <button
+                v-for="c in manualGiftCandidates"
+                :key="c.sec_uid || c.nickname"
+                type="button"
+                class="w-full text-left px-2 py-1 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
+                @click="pickManualUser(c)"
+              >
+                <span class="truncate">{{ c.nickname }}</span>
+                <span class="text-g-400 shrink-0">{{ c.unique_id || c.user_display_id || '' }}</span>
+              </button>
+            </div>
+            <div class="mt-0.5 text-[11px] truncate" :class="manualGiftUser.sec_uid ? 'text-success' : 'text-g-400'">
+              {{ manualGiftUser.sec_uid ? '已选中：' + manualGiftUser.nickname : (manualGiftQuery ? '将作为新观众（manual:' + manualGiftQuery + '）' : '未选人') }}
             </div>
           </div>
-        </div>
 
+          <!-- ② 礼物 + 单价 + 次数 + 时间（一行放完） -->
+          <div>
+            <div class="text-xs font-medium text-g-600 mb-1 flex items-center gap-1">
+              <span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">2</span>礼物与数量
+            </div>
+            <div class="grid grid-cols-12 gap-2 items-center">
+              <el-select
+                v-model="manualGiftName"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="礼物名"
+                class="col-span-5"
+                @change="fillManualGiftPrice"
+              >
+                <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
+                  <span class="flex items-center justify-between gap-3">
+                    <span class="truncate">{{ g.name }}</span>
+                    <span class="text-g-400 text-xs tabular-nums shrink-0">{{ g.price }} 钻</span>
+                  </span>
+                </el-option>
+              </el-select>
+              <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="col-span-2" placeholder="单价" />
+              <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="col-span-2" placeholder="次数" />
+              <el-date-picker
+                v-model="manualGiftTime"
+                type="datetime"
+                class="col-span-3"
+                :clearable="false"
+                format="MM-DD HH:mm"
+              />
+            </div>
+            <div class="mt-1 text-[11px] text-g-500">
+              单价 <b class="text-g-700">{{ fmtNum(manualGiftPrice || 0) }}</b> ×
+              次数 <b class="text-g-700">{{ manualGiftCount || 0 }}</b> =
+              <b class="text-theme tabular-nums">{{ fmtNum((manualGiftPrice || 0) * (manualGiftCount || 0)) }}</b> 钻
+              <span class="text-g-400">（金额自动算，不可手填）</span>
+            </div>
+          </div>
+
+          <!-- ③ 本场补录记录 -->
+          <div>
+            <div class="text-xs font-medium text-g-600 mb-1">
+              本场补录记录
+              <span class="text-g-400 font-normal">（{{ manualGiftList.length }} 条 · 合计 {{ fmtNum(manualGiftTotal) }} 钻）</span>
+            </div>
+            <div v-if="!manualGiftList.length" class="text-[11px] text-g-400 py-1">还没有补录记录</div>
+            <div v-else class="flex flex-col gap-1">
+              <div
+                v-for="r in manualGiftList"
+                :key="r.id"
+                class="flex items-center gap-2 text-xs px-2 py-1 rounded-md bg-g-50 border border-g-300 min-w-0"
+              >
+                <span class="truncate flex-1 min-w-0">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
+                <span class="tabular-nums text-theme shrink-0 w-[64px] text-right">{{ fmtNum(r.total_diamonds) }} 钻</span>
+                <el-button size="small" text type="danger" class="shrink-0 !px-1.5" @click="removeManualGift(r)">撤销</el-button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 底部固定：不随内容滚动 -->
