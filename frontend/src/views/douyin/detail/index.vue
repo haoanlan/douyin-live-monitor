@@ -545,7 +545,10 @@
           >
             <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
           </el-input>
-          <div v-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
+          <div v-if="manualGiftSearching" class="mt-1.5 text-xs text-g-500 flex items-center gap-1.5">
+            <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
+          </div>
+          <div v-else-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
             <button
               v-for="c in manualGiftCandidates"
               :key="c.sec_uid || c.nickname"
@@ -601,12 +604,9 @@
           <div class="text-xs text-g-500 mb-1">③ 时间（默认现在）</div>
           <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
         </div>
-
-        <div v-if="detail?.anchorRanking?.length">
-          <div class="text-xs text-g-500 mb-1">收礼人（团播选一个）</div>
-          <el-select v-model="manualGiftTo" clearable placeholder="不选则算作无收礼人" class="w-full">
-            <el-option v-for="a in detail.anchorRanking" :key="a.anchor_name" :label="a.anchor_name" :value="a.anchor_name" />
-          </el-select>
+        <div v-if="manualGiftTo">
+          <div class="text-xs text-g-500 mb-1">收礼人（自动锁定为当前主播）</div>
+          <div class="text-sm text-g-800">{{ manualGiftTo }}</div>
         </div>
       </div>
 
@@ -698,7 +698,7 @@
           -->
           <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
           <button
-            class="absolute top-1 right-[88px] size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme dy-pressable"
+            class="absolute top-0 right-[84px] size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme dy-pressable"
             title="补录礼物"
             aria-label="补录礼物"
             @click="openManualGift"
@@ -1347,6 +1347,8 @@
   const manualGiftVisible = ref(false)
   const manualGiftQuery = ref('')
   const manualGiftCandidates = ref<any[]>([])
+  /** 搜人请求进行中（全库查询要 1~3 秒，不显示 loading 用户会以为没搜） */
+  const manualGiftSearching = ref(false)
   const manualGiftUser = ref<{ sec_uid?: string; nickname?: string; user_display_id?: string }>({})
   const manualGiftName = ref('')
   const manualGiftPrice = ref<number>(1)
@@ -1359,6 +1361,11 @@
   /** 打开弹窗：第一次打开才去拉礼物名+单价的候选列表（689 条，一次就够） */
   async function openManualGift() {
     manualGiftVisible.value = true
+    /*
+     * 从「主播排名」弹窗点加号进来的 —— 收礼人必然是当前这个主播，
+     * 不需要再让用户选（原来还要在下拉里选一次，纯属多余）。
+     */
+    manualGiftTo.value = peopleAnchorName.value || ''
     if (!manualGiftTime.value) manualGiftTime.value = new Date()
     if (manualGiftOptions.value.length) return
     try {
@@ -1383,11 +1390,14 @@
       return
     }
     manualGiftSearchTimer = window.setTimeout(async () => {
+      manualGiftSearching.value = true
       try {
         const r: any = await anonymousLookup(q)
         manualGiftCandidates.value = (r?.users || []).filter((u: any) => u.sec_uid).slice(0, 20)
       } catch {
         manualGiftCandidates.value = []
+      } finally {
+        manualGiftSearching.value = false
       }
     }, 300)
   }
