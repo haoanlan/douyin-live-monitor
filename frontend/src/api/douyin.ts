@@ -1350,3 +1350,25 @@ export function fetchRecentSessions(limit = 200) {
     showErrorMessage: false
   })
 }
+
+export interface ManualGiftRow {
+  id: number
+  nickname: string
+  user_sec_uid: string
+  user_display_id?: string
+  gift_name: string
+  to_nickname?: string
+  repeat_count: number
+  diamond_count: number
+  total_diamonds: number
+  create_time: number
+}
+
+/** 某场次的补录记录（source='manual'） */
+export function fetchManualGifts(sessionId: string | number) {
+  return request.get<{ session_id: number; count: number; total_diamonds: number; items: ManualGiftRow[] }>({
+    timeout: 30000,
+    url: `/api/sessions/${sessionId}/gifts/manual`,
+    showErrorMessage: false
+  })
+}
