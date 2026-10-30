@@ -22,83 +22,15 @@
     <article class="art-card p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-          <h3 class="text-lg font-semibold text-g-900 m-0">礼物修改</h3>
+          <h3 class="text-lg font-semibold text-g-900 m-0">礼物价格</h3>
           <p class="mt-1 mb-0 text-sm leading-6 text-g-600">
             改价会写入映射表，<b class="font-medium text-g-800">之后采集到的该礼物按新价计算</b>（约 10 秒内生效）；
             勾选「同时重算历史数据」还会把已有的历史记录和总价一起改掉。
           </p>
         </div>
-        <el-button type="primary" plain @click="openManualGift">
-          <ArtSvgIcon icon="ri:add-circle-line" class="mr-1" />补录礼物
-        </el-button>
       </div>
 
-      <el-dialog v-model="mg.visible" title="补录礼物（采集没录到的那条）" width="560px" :close-on-click-modal="false">
-        <div class="flex flex-col gap-3">
-          <div>
-            <div class="text-xs text-g-500 mb-1">① 补到哪个场次</div>
-            <el-select v-model="mg.sessionId" filterable placeholder="搜索场次（主播名 / 时间）" class="w-full">
-              <el-option
-                v-for="s in mg.sessions"
-                :key="s.id"
-                :label="'#' + s.id + '  ' + (s.streamer_name || '未知主播') + '  ' + (s.start_time || '')"
-                :value="s.id"
-              />
-            </el-select>
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">② 这个人是谁</div>
-            <el-input v-model="mg.query" placeholder="输入昵称或抖音号搜索；搜不到就作为新观众" clearable @input="searchManualUser">
-              <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
-            </el-input>
-            <div v-if="mg.candidates.length" class="mt-1.5 max-h-[130px] overflow-auto border border-g-200 rounded">
-              <button
-                v-for="c in mg.candidates"
-                :key="c.sec_uid"
-                type="button"
-                class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
-                @click="pickManualUser(c)"
-              >
-                <span class="truncate">{{ c.nickname }}</span>
-                <span class="text-g-400 shrink-0">{{ c.unique_id || '' }} · {{ c.session_count || 0 }} 场</span>
-              </button>
-            </div>
-            <div class="mt-1 text-xs" :class="mg.user.sec_uid ? 'text-success' : 'text-g-500'">
-              {{ mg.user.sec_uid ? '已选中：' + mg.user.nickname : (mg.query ? '未选中 → 作为新观众（manual:' + mg.query + '）' : '还没选人') }}
-            </div>
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">③ 什么礼物</div>
-            <el-select v-model="mg.giftName" filterable allow-create default-first-option placeholder="搜礼物名，搜不到直接输入" class="w-full" @change="fillManualGiftPrice">
-              <el-option v-for="g in mg.giftOptions" :key="g.name" :label="g.name" :value="g.name">
-                <span>{{ g.name }}</span><span class="float-right text-g-400 text-xs">{{ g.price }} 钻</span>
-              </el-option>
-            </el-select>
-          </div>
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <div class="text-xs text-g-500 mb-1">单价（钻）</div>
-              <el-input-number v-model="mg.price" :min="1" :controls="false" class="!w-full" />
-            </div>
-            <div>
-              <div class="text-xs text-g-500 mb-1">次数</div>
-              <el-input-number v-model="mg.count" :min="1" :controls="false" class="!w-full" />
-            </div>
-            <div>
-              <div class="text-xs text-g-500 mb-1">合计（自动）</div>
-              <div class="h-8 flex items-center font-medium text-theme">{{ fmtNum((mg.price || 0) * (mg.count || 0)) }} 钻</div>
-            </div>
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">④ 时间（默认现在）</div>
-            <el-date-picker v-model="mg.time" type="datetime" class="!w-full" />
-          </div>
-        </div>
-        <template #footer>
-          <el-button @click="mg.visible = false">取消</el-button>
-          <el-button type="primary" :loading="mg.saving" @click="submitManualGift">补录</el-button>
-        </template>
-      </el-dialog>
+      
 
       <!-- 概览：四个数字，电脑端把顶部填满，也方便一眼看总体 -->
       <div class="gift-stats">
@@ -361,9 +293,6 @@ import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import type { ColumnOption } from '@/types'
 import {
   fetchGiftPrices,
-  addManualGift,
-  anonymousLookup,
-  fetchRecentSessions,
   previewGiftPriceRepair,
   previewGiftPriceUnitSync,
   repairGiftPrice,
@@ -655,95 +584,7 @@ async function syncUnitFields() {
 
 onMounted(load)
 
-  /* ===== 补录礼物 ===== */
-  const mg = reactive({
-    visible: false,
-    sessionId: undefined as number | undefined,
-    sessions: [] as { id: number; streamer_name?: string; start_time?: string }[],
-    query: '',
-    candidates: [] as any[],
-    user: {} as { sec_uid?: string; nickname?: string; user_display_id?: string },
-    giftName: '',
-    price: 1,
-    count: 1,
-    time: new Date() as Date | null,
-    saving: false,
-    giftOptions: [] as { name: string; price: number }[]
-  })
-
-  async function openManualGift() {
-    mg.visible = true
-    if (!mg.sessions.length) {
-      try {
-        const r: any = await fetchRecentSessions(300)
-        mg.sessions = Array.isArray(r) ? r : (r?.sessions || [])
-      } catch (e) { console.warn('[manual-gift] 场次列表拉取失败', e) }
-    }
-    if (!mg.giftOptions.length) {
-      try {
-        const r: any = await fetchGiftPrices({})
-        mg.giftOptions = ((r?.items) || [])
-          .map((g: any) => ({ name: g.gift_name || g.name, price: Number(g.latest_price || g.eff_max_unit || 0) }))
-          .filter((g: any) => g.name && g.price > 0)
-      } catch (e) { console.warn('[manual-gift] 礼物列表拉取失败', e) }
-    }
-  }
-
-  let mgTimer: number | undefined
-  function searchManualUser() {
-    const q = mg.query.trim()
-    mg.user = {}
-    if (mgTimer) clearTimeout(mgTimer)
-    if (q.length < 2) { mg.candidates = []; return }
-    mgTimer = window.setTimeout(async () => {
-      try {
-        const r: any = await anonymousLookup(q)
-        mg.candidates = (r?.users || []).filter((u: any) => u.sec_uid).slice(0, 20)
-      } catch { mg.candidates = [] }
-    }, 300)
-  }
-
-  function pickManualUser(c: any) {
-    mg.user = { sec_uid: c.sec_uid, nickname: c.nickname, user_display_id: c.unique_id || '' }
-    mg.query = c.nickname
-    mg.candidates = []
-  }
-
-  function fillManualGiftPrice() {
-    const hit = mg.giftOptions.find((g) => g.name === mg.giftName)
-    if (hit && hit.price > 0) mg.price = hit.price
-  }
-
-  async function submitManualGift() {
-    if (!mg.sessionId) return ElMessage.warning('请选择要补录到的场次')
-    if (!mg.giftName) return ElMessage.warning('请选择或输入礼物名')
-    if (!mg.price || mg.price <= 0) return ElMessage.warning('单价必须大于 0')
-    if (!mg.count || mg.count < 1) return ElMessage.warning('次数必须 ≥ 1')
-    const nickname = mg.user.nickname || mg.query.trim()
-    if (!nickname) return ElMessage.warning('请选择或输入昵称')
-    mg.saving = true
-    try {
-      const r: any = await addManualGift(mg.sessionId, {
-        nickname,
-        user_sec_uid: mg.user.sec_uid || '',
-        user_display_id: mg.user.user_display_id || '',
-        gift_name: mg.giftName,
-        unit_price: Math.floor(mg.price),
-        count: Math.floor(mg.count),
-        create_time: mg.time ? mg.time.getTime() : Date.now()
-      })
-      ElMessage.success('已补录 ' + mg.giftName + ' × ' + mg.count + '，合计 ' + fmtNum(r.total_diamonds || 0) + ' 钻')
-      mg.visible = false
-      mg.giftName = ''
-      mg.count = 1
-      mg.user = {}
-      mg.query = ''
-    } catch (e) {
-      ElMessage.error(apiErrorMessage(e, '补录失败'))
-    } finally {
-      mg.saving = false
-    }
-  }
+  
 
 </script>
 

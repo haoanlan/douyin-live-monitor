@@ -108,9 +108,6 @@
             :class="loading ? 'dy-spin' : ''"
           /><span class="dy-session-head__btn-label">刷新</span>
         </el-button>
-          <el-button size="small" type="primary" plain title="补录一条采集没录到的礼物" @click="openManualGift">
-            <ArtSvgIcon icon="ri:add-circle-line" class="mr-1" />补录礼物
-          </el-button>
       </div>
     </div>
 
@@ -639,7 +636,10 @@
                 <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />共
                 {{ fmtNum(giftDialogTotal) }}
               </span>
-            </div>
+            
+            <el-button size="small" type="primary" plain class="ml-2" @click="openManualGift">
+              <ArtSvgIcon icon="ri:add-circle-line" class="mr-1" />补录礼物
+            </el-button></div>
           </div>
         </div>
       </template>
