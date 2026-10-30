@@ -642,8 +642,8 @@
       </template>
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
       <!-- 补录礼物：和模板网格同一个容器策略（高度固定，内容内部滚动） -->
-      <div v-if="manualGiftOpen" class="flex flex-col max-h-80">
-        <div class="flex-1 min-h-0 overflow-y-auto pr-1">
+      <div v-if="manualGiftOpen" class="flex flex-col max-h-[360px] overflow-x-hidden">
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-0.5">
 <div class="flex flex-col gap-3">
         <div>
           <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">1</span>这个人是谁</div>
@@ -729,10 +729,10 @@
             <div
               v-for="r in manualGiftList"
               :key="r.id"
-              class="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md bg-g-50 border border-g-300"
+              class="flex items-center gap-2 text-xs px-2 py-1 rounded-md bg-g-50 border border-g-300 min-w-0"
             >
-              <span class="truncate flex-1">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
-              <span class="tabular-nums text-theme shrink-0">{{ fmtNum(r.total_diamonds) }} 钻</span>
+              <span class="truncate flex-1 min-w-0">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
+              <span class="tabular-nums text-theme shrink-0 w-[64px] text-right">{{ fmtNum(r.total_diamonds) }} 钻</span>
               <el-button size="small" text type="danger" class="shrink-0" @click="removeManualGift(r)">撤销</el-button>
             </div>
           </div>
