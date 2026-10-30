@@ -769,7 +769,12 @@ export interface AnonymousLookupResponse {
 }
 
 export function fetchUser(secUid: string) {
-  return request.get<UserProfile>({ url: `/api/users/${secUid}` })
+  /*
+   * 单独放长超时：画像要查 6 张表 + 顺带调抖音接口取最新资料，
+   * 全局默认 20 秒在服务器上会命中 —— 表现就是"点进画像一片空白/用户不存在"
+   * （用户反馈"为啥出现没有画像的人"）。
+   */
+  return request.get<UserProfile>({ timeout: 60000, url: `/api/users/${secUid}` })
 }
 
 /**

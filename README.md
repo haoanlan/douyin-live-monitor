@@ -12,7 +12,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003b57?logo=sqlite&logoColor=white)](#)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)](#-方式三dockerlinux-推荐)
 [![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
-[![Release](https://img.shields.io/badge/Release-v1.2.50-blue)](https://github.com/haoanlan/douyin-live-monitor/releases)
+[![Release](https://img.shields.io/badge/Release-v1.2.51-blue)](https://github.com/haoanlan/douyin-live-monitor/releases)
 
 > ⚠️ **声明**：仅供学习与研究。请遵守抖音平台规则与所在地法律法规，不要用于商业或非法用途。
 

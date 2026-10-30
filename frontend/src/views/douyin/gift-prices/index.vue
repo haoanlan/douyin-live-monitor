@@ -1,5 +1,5 @@
 <!--
-  礼物价格管理（/douyin/gift-prices）。
+  礼物修改管理（/douyin/gift-prices）。
 
   ## 这一版按用户要求改的三件事
 
@@ -22,7 +22,7 @@
     <article class="art-card p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-          <h3 class="text-lg font-semibold text-g-900 m-0">礼物价格</h3>
+          <h3 class="text-lg font-semibold text-g-900 m-0">礼物修改</h3>
           <p class="mt-1 mb-0 text-sm leading-6 text-g-600">
             改价会写入映射表，<b class="font-medium text-g-800">之后采集到的该礼物按新价计算</b>（约 10 秒内生效）；
             勾选「同时重算历史数据」还会把已有的历史记录和总价一起改掉。
@@ -413,7 +413,7 @@ async function load() {
     if (page.value > maxPage) page.value = maxPage
   } catch (e) {
     rows.value = []
-    loadError.value = apiErrorMessage(e, '读取礼物价格失败')
+    loadError.value = apiErrorMessage(e, '读取礼物修改失败')
   } finally {
     loading.value = false
   }
