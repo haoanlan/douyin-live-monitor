@@ -162,3 +162,79 @@ GET    /api/me/permissions              当前登录者的 { menus: [...], actio
 - 回滚：保留旧的 `role === 'R_SUPER'` 判断作为**兜底**，新逻辑失败时回落
 
 **预计**：4~6 轮（每阶段一轮，每轮都要你在真机上点一遍）
+
+
+---
+
+# A2. 虚拟礼物补录（按用户确认的最终逻辑）
+
+## 流程
+
+```
+① 搜「人」   输入昵称/抖音号 → 列出库里候选人（昵称/抖音号/参与场次）
+             选中一个 → 用他的真实 sec_uid
+             搜不到 → 「作为新观众」→ 生成虚拟 uid：manual:<昵称或标识>
+
+② 搜「礼物」 输入礼物名 → 列出库里有价格记录的礼物（自动带出单价）
+             搜不到 → 自己填「礼物名 + 单价」
+
+③ 填「时间」和「条数」 → 金额 = 单价 × 次数（服务端算，不可手填）
+
+④ 保存 → 写 gifts（source='manual'）→ 重算该场次四张聚合表 + 清总览缓存
+```
+
+## 数据
+
+```sql
+ALTER TABLE gifts ADD COLUMN source TEXT DEFAULT 'live';   -- 只加这一列（实测 4ms）
+```
+
+- 真实用户：source='manual' + 真实 user_sec_uid
+- 新观众：source='manual' + user_sec_uid='manual:<标识>'
+- 自定义礼物：gift_name 用你填的名字，diamond_count = 你填的单价
+
+## 后期「确认后更新虚拟 sec_uid」
+
+新页面：虚拟用户管理（列出所有 manual:* 的虚拟 uid + 条数 + 涉及场次）
+
+```
+POST /api/manual/merge
+{ "from": "manual:小明", "to": "<真实 sec_uid>" }
+```
+
+做的事（一个事务内）：
+
+```sql
+UPDATE gifts SET user_sec_uid = :to
+ WHERE user_sec_uid = :from AND source = 'manual';
+```
+
+然后对受影响的每个场次重算聚合（先查出受影响的 session_id）。
+
+幂等：再次调用时 from 已无记录 → 返回“没有需要合并的记录”，不报错、不重复改。
+
+## 重算的四张表
+
+- sessions.agg_gifts / agg_diamonds
+- session_gift_details
+- session_user_gift_totals
+- session_gift_type_totals
+- 另外清 /api/overview 的模块缓存
+
+## 验收（硬指标）
+
+```
+补录前：SUM(total_diamonds) WHERE session_id=X → A
+补录 unit_price=99, count=3 → 必须 A + 297（精确）
+agg_diamonds 也必须 = A + 297
+撤销后必须回到 A
+合并虚拟用户后：总额不变（只换归属），受影响场次 agg 不变
+```
+
+## 实现顺序（3 步，每步独立验证）
+
+| 步 | 内容 | 验证 |
+|---|---|---|
+| 1 | 加 source 列 + 补录/撤销接口 + 重算 | curl 补一条，查 SUM 差值 |
+| 2 | 前端补录弹窗（搜人 / 搜礼物 / 填时间条数） | 页面补一条，看榜单与画像是否更新 |
+| 3 | 虚拟用户管理页 + 合并接口 | 把 manual:x 合并到真 uid，总额不变 |
