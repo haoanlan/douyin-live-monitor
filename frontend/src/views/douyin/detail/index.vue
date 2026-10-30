@@ -636,10 +636,8 @@
                 <ArtSvgIcon icon="ri:diamond-line" class="text-g-400" />共
                 {{ fmtNum(giftDialogTotal) }}
               </span>
+            </div>
             
-            <el-button size="small" type="primary" plain class="ml-2" @click="openManualGift">
-              <ArtSvgIcon icon="ri:add-circle-line" class="mr-1" />补录礼物
-            </el-button></div>
           </div>
         </div>
       </template>
@@ -698,6 +696,15 @@
             点它 → 弹窗内容切成模板网格 → 选哪个用它下载并自动切回榜单。
             （曾试过放底部 footer，用户反馈"留白太多"，故回到标题栏。）
           -->
+          <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
+          <button
+            class="absolute top-1 right-[88px] size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme dy-pressable"
+            title="补录礼物"
+            aria-label="补录礼物"
+            @click="openManualGift"
+          >
+            <ArtSvgIcon icon="ri:add-line" class="text-base" />
+          </button>
           <button
             class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
             :disabled="rankDownloading || !rankThemes.length"
