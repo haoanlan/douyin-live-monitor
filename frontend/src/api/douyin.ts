@@ -1101,11 +1101,19 @@ export interface QrLoginState {
 }
 
 export function startQrLogin() {
-  return request.post<QrLoginState>({ url: '/api/douyin/qrlogin/start', data: {} })
+  /*
+   * 必须单独放长超时：这一步要在服务器上**启动 Chromium**、打开抖音首页、
+   * 等二维码接口返回并截图（实测 10~60 秒），用全局默认的 20 秒会必然报
+   * "timeout of 20000ms exceeded"（用户反馈）。
+   */
+  return request.post<QrLoginState>({
+    timeout: 150000, url: '/api/douyin/qrlogin/start', data: {} })
 }
 
 export function fetchQrLoginStatus(id: string) {
   return request.get<QrLoginState>({
+    // 状态接口在"刚出二维码"时会带一张 base64 截图，20 秒偶尔不够
+    timeout: 30000,
     url: `/api/douyin/qrlogin/status?id=${encodeURIComponent(id)}`,
     showErrorMessage: false
   })
