@@ -108,6 +108,9 @@
             :class="loading ? 'dy-spin' : ''"
           /><span class="dy-session-head__btn-label">刷新</span>
         </el-button>
+          <el-button size="small" type="primary" plain title="补录一条采集没录到的礼物" @click="openManualGift">
+            <ArtSvgIcon icon="ri:add-circle-line" class="mr-1" />补录礼物
+          </el-button>
       </div>
     </div>
 
@@ -529,6 +532,94 @@
       .detail-dialog 那两条为自绘布局服务的 padding 覆盖，交给 Element 默认内边距）。
     -->
     <el-dialog
+      v-model="manualGiftVisible"
+      title="补录礼物（当前采集没录到的那条）"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <div class="flex flex-col gap-3">
+        <div>
+          <div class="text-xs text-g-500 mb-1">① 这个人是谁</div>
+          <el-input
+            v-model="manualGiftQuery"
+            placeholder="输入昵称或抖音号搜索，选中一个；搜不到就作为新观众"
+            clearable
+            @input="searchManualUser"
+          >
+            <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
+          </el-input>
+          <div v-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
+            <button
+              v-for="c in manualGiftCandidates"
+              :key="c.sec_uid || c.nickname"
+              type="button"
+              class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
+              @click="pickManualUser(c)"
+            >
+              <span class="truncate">{{ c.nickname }}</span>
+              <span class="text-g-400 shrink-0">{{ c.unique_id || c.user_display_id || '' }} · {{ c.session_count || 0 }} 场</span>
+            </button>
+          </div>
+          <div class="mt-1 text-xs" :class="manualGiftUser.sec_uid ? 'text-success' : 'text-g-500'">
+            {{ manualGiftUser.sec_uid
+              ? '已选中：' + manualGiftUser.nickname
+              : (manualGiftQuery ? '未选中 → 会作为新观众（虚拟 uid：manual:' + manualGiftQuery + '）' : '还没选人') }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs text-g-500 mb-1">② 什么礼物</div>
+          <el-select
+            v-model="manualGiftName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="搜历史礼物名，搜不到直接输入新名字"
+            class="w-full"
+            @change="fillManualGiftPrice"
+          >
+            <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
+              <span>{{ g.name }}</span>
+              <span class="float-right text-g-400 text-xs">{{ g.price }} 钻</span>
+            </el-option>
+          </el-select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <div class="text-xs text-g-500 mb-1">单价（钻）</div>
+            <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="!w-full" />
+          </div>
+          <div>
+            <div class="text-xs text-g-500 mb-1">次数</div>
+            <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="!w-full" />
+          </div>
+          <div>
+            <div class="text-xs text-g-500 mb-1">合计（自动算）</div>
+            <div class="h-8 flex items-center font-medium text-theme">{{ fmtNum((manualGiftPrice || 0) * (manualGiftCount || 0)) }} 钻</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs text-g-500 mb-1">③ 时间（默认现在）</div>
+          <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
+        </div>
+
+        <div v-if="detail?.anchorRanking?.length">
+          <div class="text-xs text-g-500 mb-1">收礼人（团播选一个）</div>
+          <el-select v-model="manualGiftTo" clearable placeholder="不选则算作无收礼人" class="w-full">
+            <el-option v-for="a in detail.anchorRanking" :key="a.anchor_name" :label="a.anchor_name" :value="a.anchor_name" />
+          </el-select>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="manualGiftVisible = false">取消</el-button>
+        <el-button type="primary" :loading="manualGiftSaving" @click="submitManualGift">补录</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="giftDialogVisible"
       width="500"
       class="detail-dialog"
@@ -683,6 +774,9 @@
     fetchSessionGiftDetails,
     fetchDanmaku,
     fetchRankThemes,
+    addManualGift,
+    anonymousLookup,
+    fetchGiftPrices,
     getRankImageUrl,
     getRankImageZipUrl,
     type SessionDetail,
@@ -1241,6 +1335,103 @@
     clearInterval(timer)
     cloudObserver?.disconnect()
   })
+
+  /* ===== 补录礼物（虚拟记录）===== */
+  const manualGiftVisible = ref(false)
+  const manualGiftQuery = ref('')
+  const manualGiftCandidates = ref<any[]>([])
+  const manualGiftUser = ref<{ sec_uid?: string; nickname?: string; user_display_id?: string }>({})
+  const manualGiftName = ref('')
+  const manualGiftPrice = ref<number>(1)
+  const manualGiftCount = ref<number>(1)
+  const manualGiftTime = ref<Date | null>(null)
+  const manualGiftTo = ref('')
+  const manualGiftSaving = ref(false)
+  const manualGiftOptions = ref<{ name: string; price: number }[]>([])
+
+  /** 打开弹窗：第一次打开才去拉礼物名+单价的候选列表（689 条，一次就够） */
+  async function openManualGift() {
+    manualGiftVisible.value = true
+    if (!manualGiftTime.value) manualGiftTime.value = new Date()
+    if (manualGiftOptions.value.length) return
+    try {
+      const r = await fetchGiftPrices({})
+      const items = (r as any)?.items || []
+      manualGiftOptions.value = items
+        .map((g: any) => ({ name: g.gift_name || g.name, price: Number(g.latest_price || g.eff_max_unit || 0) }))
+        .filter((g: any) => g.name && g.price > 0)
+    } catch (e) {
+      console.warn('[manual-gift] 礼物候选拉取失败:', e)
+    }
+  }
+
+  let manualGiftSearchTimer: number | undefined
+  /** 搜人：输入停顿 300ms 再查（复用信息查询接口） */
+  function searchManualUser() {
+    const q = manualGiftQuery.value.trim()
+    manualGiftUser.value = {}
+    if (manualGiftSearchTimer) clearTimeout(manualGiftSearchTimer)
+    if (q.length < 2) {
+      manualGiftCandidates.value = []
+      return
+    }
+    manualGiftSearchTimer = window.setTimeout(async () => {
+      try {
+        const r: any = await anonymousLookup(q)
+        manualGiftCandidates.value = (r?.users || []).filter((u: any) => u.sec_uid).slice(0, 20)
+      } catch {
+        manualGiftCandidates.value = []
+      }
+    }, 300)
+  }
+
+  function pickManualUser(c: any) {
+    manualGiftUser.value = { sec_uid: c.sec_uid, nickname: c.nickname, user_display_id: c.unique_id || '' }
+    manualGiftQuery.value = c.nickname
+    manualGiftCandidates.value = []
+  }
+
+  /** 选了礼物名 → 自动带出单价 */
+  function fillManualGiftPrice() {
+    const hit = manualGiftOptions.value.find((g) => g.name === manualGiftName.value)
+    if (hit && hit.price > 0) manualGiftPrice.value = hit.price
+  }
+
+  async function submitManualGift() {
+    const sid = String(route.params.sessionId || '')
+    if (!sid) return
+    if (!manualGiftName.value) return ElMessage.warning('请选择或输入礼物名')
+    if (!manualGiftPrice.value || manualGiftPrice.value <= 0) return ElMessage.warning('单价必须大于 0')
+    if (!manualGiftCount.value || manualGiftCount.value < 1) return ElMessage.warning('次数必须 ≥ 1')
+    const nickname = manualGiftUser.value.nickname || manualGiftQuery.value.trim()
+    if (!nickname) return ElMessage.warning('请选择或输入昵称')
+
+    manualGiftSaving.value = true
+    try {
+      const r = await addManualGift(sid, {
+        nickname,
+        user_sec_uid: manualGiftUser.value.sec_uid || '',
+        user_display_id: manualGiftUser.value.user_display_id || '',
+        gift_name: manualGiftName.value,
+        unit_price: Math.floor(manualGiftPrice.value),
+        count: Math.floor(manualGiftCount.value),
+        create_time: manualGiftTime.value ? manualGiftTime.value.getTime() : Date.now(),
+        to_nickname: manualGiftTo.value || ''
+      })
+      ElMessage.success('已补录 ' + manualGiftName.value + ' × ' + manualGiftCount.value + '，合计 ' + fmtNum((r as any).total_diamonds || 0) + ' 钻')
+      manualGiftVisible.value = false
+      manualGiftName.value = ''
+      manualGiftCount.value = 1
+      manualGiftUser.value = {}
+      manualGiftQuery.value = ''
+      await refresh({ silent: true })
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '补录失败'))
+    } finally {
+      manualGiftSaving.value = false
+    }
+  }
+
 </script>
 
 <style>

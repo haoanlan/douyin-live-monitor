@@ -1293,3 +1293,51 @@ export function getCombinedRankImageZipUrl(
   if (opts.avatar) q.set('avatar', opts.avatar)
   return `/api/sessions/combined/rank-image.zip?${q.toString()}`
 }
+
+// ===================== 虚拟礼物补录 =====================
+
+export interface ManualGiftPayload {
+  nickname: string
+  /** 真实用户 sec_uid；不传后端会生成 manual:<标识> 的虚拟 uid */
+  user_sec_uid?: string
+  user_display_id?: string
+  gift_name: string
+  /** 单价（不是金额） */
+  unit_price: number
+  /** 次数 */
+  count: number
+  create_time?: number
+  to_nickname?: string
+}
+
+/** 补录一条礼物（金额 = 单价 × 次数，由后端算） */
+export function addManualGift(sessionId: string | number, payload: ManualGiftPayload) {
+  return request.post<{ ok: boolean; id: number; user_sec_uid: string; virtual: boolean; total_diamonds: number }>({
+    // 写完会重算整场聚合，可能要一两秒
+    timeout: 60000,
+    url: `/api/sessions/${sessionId}/gifts/manual`,
+    data: payload
+  })
+}
+
+/** 撤销补录（只允许删 source='manual' 的记录） */
+export function deleteManualGift(id: number) {
+  return request.del<{ ok: boolean }>({ timeout: 60000, url: `/api/gifts/manual/${id}` })
+}
+
+/** 所有虚拟身份（manual:*），供"确认后合并"用 */
+export function fetchManualUsers() {
+  return request.get<{ users: { user_sec_uid: string; nickname: string; rows_n: number; diamonds: number; sessions: number }[] }>({
+    url: '/api/manual/users',
+    showErrorMessage: false
+  })
+}
+
+/** 把虚拟身份合并到真实 sec_uid（只改归属，不动金额；幂等） */
+export function mergeManualUser(from: string, to: string) {
+  return request.post<{ ok: boolean; merged: number; sessions: number[]; note?: string }>({
+    timeout: 60000,
+    url: '/api/manual/merge',
+    data: { from, to }
+  })
+}
