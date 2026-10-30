@@ -528,93 +528,7 @@
       这里原来用 :show-header="false" + 自绘 X，已改回标准写法（顺便去掉了
       .detail-dialog 那两条为自绘布局服务的 padding 覆盖，交给 Element 默认内边距）。
     -->
-    <el-dialog
-      v-model="manualGiftVisible"
-      title="补录礼物（当前采集没录到的那条）"
-      width="520px"
-      :close-on-click-modal="false"
-    >
-      <div class="flex flex-col gap-3">
-        <div>
-          <div class="text-xs text-g-500 mb-1">① 这个人是谁</div>
-          <el-input
-            v-model="manualGiftQuery"
-            placeholder="输入昵称或抖音号搜索，选中一个；搜不到就作为新观众"
-            clearable
-            @input="searchManualUser"
-          >
-            <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
-          </el-input>
-          <div v-if="manualGiftSearching" class="mt-1.5 text-xs text-g-500 flex items-center gap-1.5">
-            <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
-          </div>
-          <div v-else-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
-            <button
-              v-for="c in manualGiftCandidates"
-              :key="c.sec_uid || c.nickname"
-              type="button"
-              class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
-              @click="pickManualUser(c)"
-            >
-              <span class="truncate">{{ c.nickname }}</span>
-              <span class="text-g-400 shrink-0">{{ c.unique_id || c.user_display_id || '' }} · {{ c.session_count || 0 }} 场</span>
-            </button>
-          </div>
-          <div class="mt-1 text-xs" :class="manualGiftUser.sec_uid ? 'text-success' : 'text-g-500'">
-            {{ manualGiftUser.sec_uid
-              ? '已选中：' + manualGiftUser.nickname
-              : (manualGiftQuery ? '未选中 → 会作为新观众（虚拟 uid：manual:' + manualGiftQuery + '）' : '还没选人') }}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs text-g-500 mb-1">② 什么礼物</div>
-          <el-select
-            v-model="manualGiftName"
-            filterable
-            allow-create
-            default-first-option
-            placeholder="搜历史礼物名，搜不到直接输入新名字"
-            class="w-full"
-            @change="fillManualGiftPrice"
-          >
-            <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
-              <span>{{ g.name }}</span>
-              <span class="float-right text-g-400 text-xs">{{ g.price }} 钻</span>
-            </el-option>
-          </el-select>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2">
-          <div>
-            <div class="text-xs text-g-500 mb-1">单价（钻）</div>
-            <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="!w-full" />
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">次数</div>
-            <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="!w-full" />
-          </div>
-          <div>
-            <div class="text-xs text-g-500 mb-1">合计（自动算）</div>
-            <div class="h-8 flex items-center font-medium text-theme">{{ fmtNum((manualGiftPrice || 0) * (manualGiftCount || 0)) }} 钻</div>
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs text-g-500 mb-1">③ 时间（默认现在）</div>
-          <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
-        </div>
-        <div v-if="manualGiftTo">
-          <div class="text-xs text-g-500 mb-1">收礼人（自动锁定为当前主播）</div>
-          <div class="text-sm text-g-800">{{ manualGiftTo }}</div>
-        </div>
-      </div>
-
-      <template #footer>
-        <el-button @click="manualGiftVisible = false">取消</el-button>
-        <el-button type="primary" :loading="manualGiftSaving" @click="submitManualGift">补录</el-button>
-      </template>
-    </el-dialog>
+    
 
     <el-dialog
       v-model="giftDialogVisible"
@@ -699,11 +613,11 @@
           <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
           <button
             class="absolute top-0 right-[84px] size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme dy-pressable"
-            title="补录礼物"
-            aria-label="补录礼物"
-            @click="openManualGift"
+            :title="manualGiftOpen ? '返回榜单' : '补录礼物'"
+            :aria-label="manualGiftOpen ? '返回榜单' : '补录礼物'"
+            @click="toggleManualGift"
           >
-            <ArtSvgIcon icon="ri:add-line" class="text-base" />
+            <ArtSvgIcon :icon="manualGiftOpen ? 'ri:arrow-left-line' : 'ri:add-line'" class="text-base" />
           </button>
           <button
             class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
@@ -727,7 +641,111 @@
         </div>
       </template>
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
-      <div v-if="rankPickerOpen" class="max-h-80 overflow-y-auto">
+      <!-- 补录礼物：和模板网格同一个容器策略（高度固定，内容内部滚动） -->
+      <div v-if="manualGiftOpen" class="max-h-80 overflow-y-auto">
+<div class="flex flex-col gap-3">
+        <div>
+          <div class="text-xs text-g-500 mb-1">① 这个人是谁</div>
+          <el-input
+            v-model="manualGiftQuery"
+            placeholder="输入昵称或抖音号搜索，选中一个；搜不到就作为新观众"
+            clearable
+            @input="searchManualUser"
+          >
+            <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
+          </el-input>
+          <div v-if="manualGiftSearching" class="mt-1.5 text-xs text-g-500 flex items-center gap-1.5">
+            <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
+          </div>
+          <div v-else-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
+            <button
+              v-for="c in manualGiftCandidates"
+              :key="c.sec_uid || c.nickname"
+              type="button"
+              class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
+              @click="pickManualUser(c)"
+            >
+              <span class="truncate">{{ c.nickname }}</span>
+              <span class="text-g-400 shrink-0">{{ c.unique_id || c.user_display_id || '' }} · {{ c.session_count || 0 }} 场</span>
+            </button>
+          </div>
+          <div class="mt-1 text-xs" :class="manualGiftUser.sec_uid ? 'text-success' : 'text-g-500'">
+            {{ manualGiftUser.sec_uid
+              ? '已选中：' + manualGiftUser.nickname
+              : (manualGiftQuery ? '未选中 → 会作为新观众（虚拟 uid：manual:' + manualGiftQuery + '）' : '还没选人') }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs text-g-500 mb-1">② 什么礼物</div>
+          <el-select
+            v-model="manualGiftName"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="搜历史礼物名，搜不到直接输入新名字"
+            class="w-full"
+            @change="fillManualGiftPrice"
+          >
+            <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
+              <span>{{ g.name }}</span>
+              <span class="float-right text-g-400 text-xs">{{ g.price }} 钻</span>
+            </el-option>
+          </el-select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <div class="text-xs text-g-500 mb-1">单价（钻）</div>
+            <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="!w-full" />
+          </div>
+          <div>
+            <div class="text-xs text-g-500 mb-1">次数</div>
+            <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="!w-full" />
+          </div>
+          <div>
+            <div class="text-xs text-g-500 mb-1">合计（自动算）</div>
+            <div class="h-8 flex items-center font-medium text-theme">{{ fmtNum((manualGiftPrice || 0) * (manualGiftCount || 0)) }} 钻</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs text-g-500 mb-1">③ 时间（默认现在）</div>
+          <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
+        </div>
+        <div v-if="manualGiftTo">
+          <div class="text-xs text-g-500 mb-1">收礼人（自动锁定为当前主播）</div>
+          <div class="text-sm text-g-800">{{ manualGiftTo }}</div>
+        </div>
+      </div>
+
+        <!-- 本场补录记录 + 撤销 -->
+        <div class="mt-3 pt-3 border-t border-g-100">
+          <div class="text-xs text-g-500 mb-1.5">
+            本场补录记录（{{ manualGiftList.length }} 条 · 合计 {{ fmtNum(manualGiftTotal) }} 钻）
+          </div>
+          <div v-if="!manualGiftList.length" class="text-xs text-g-400">还没有补录记录</div>
+          <div v-else class="flex flex-col gap-1">
+            <div
+              v-for="r in manualGiftList"
+              :key="r.id"
+              class="flex items-center gap-2 text-xs px-2 py-1 rounded bg-g-50"
+            >
+              <span class="truncate flex-1">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
+              <span class="tabular-nums text-theme shrink-0">{{ fmtNum(r.total_diamonds) }} 钻</span>
+              <el-button size="small" text type="danger" class="shrink-0" @click="removeManualGift(r)">撤销</el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作按钮：右对齐（和弹窗 footer 习惯一致） -->
+        <div class="mt-3 flex items-center justify-end gap-2">
+          <el-button size="small" @click="manualGiftOpen = false">取消</el-button>
+          <el-button size="small" type="primary" :loading="manualGiftSaving" @click="submitManualGiftAndClose">补录</el-button>
+        </div>
+      </div>
+
+      <div v-else-if="rankPickerOpen" class="max-h-80 overflow-y-auto">
         <div class="mb-2.5 text-xs text-g-500">选择模板（选完自动下载榜单图片）</div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <button
@@ -782,6 +800,8 @@
     fetchDanmaku,
     fetchRankThemes,
     addManualGift,
+    deleteManualGift,
+    fetchManualGifts,
     anonymousLookup,
     fetchGiftPrices,
     getRankImageUrl,
@@ -1344,7 +1364,68 @@
   })
 
   /* ===== 补录礼物（虚拟记录）===== */
-  const manualGiftVisible = ref(false)
+  /** 拉本场补录记录 */
+  async function loadManualGiftList() {
+    const sid = String(route.params.sessionId || '')
+    if (!sid) return
+    try {
+      const r: any = await fetchManualGifts(sid)
+      manualGiftList.value = r?.items || []
+      manualGiftTotal.value = r?.total_diamonds || 0
+    } catch (e) {
+      console.warn('[manual-gift] 列表拉取失败', e)
+    }
+  }
+
+  /** 首次切到补录视图：礼物候选 + 本场记录 */
+  async function ensureManualGiftData() {
+    if (!manualGiftOptions.value.length) {
+      try {
+        const r = await fetchGiftPrices({})
+        const items = (r as any)?.items || []
+        manualGiftOptions.value = items
+          .map((g: any) => ({ name: g.gift_name || g.name, price: Number(g.latest_price || g.eff_max_unit || 0) }))
+          .filter((g: any) => g.name && g.price > 0)
+      } catch (e) {
+        console.warn('[manual-gift] 礼物候选拉取失败:', e)
+      }
+    }
+    await loadManualGiftList()
+  }
+
+  /** 补录成功后：关视图 + 刷新记录和页面 */
+  async function submitManualGiftAndClose() {
+    const ok = await submitManualGift()
+    if (!ok) return
+    manualGiftOpen.value = false
+    await loadManualGiftList()
+  }
+
+  /** 撤销一条补录 */
+  async function removeManualGift(r: { id: number; gift_name?: string }) {
+    try {
+      await ElMessageBox.confirm('撤销这条补录：' + (r.gift_name || '') + '？该场次的统计会一起回滚。', '确认撤销', {
+        type: 'warning',
+        confirmButtonText: '撤销',
+        cancelButtonText: '取消'
+      })
+    } catch {
+      return
+    }
+    try {
+      await deleteManualGift(r.id)
+      ElMessage.success('已撤销')
+      await loadManualGiftList()
+      await refresh({ silent: true })
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '撤销失败'))
+    }
+  }
+
+  /** 是否切到"补录礼物"视图（和 rankPickerOpen 同一套思路：弹窗内切换，不拉长） */
+  const manualGiftOpen = ref(false)
+  const manualGiftList = ref<{ id: number; gift_name: string; repeat_count: number; nickname: string; total_diamonds: number }[]>([])
+  const manualGiftTotal = ref(0)
   const manualGiftQuery = ref('')
   const manualGiftCandidates = ref<any[]>([])
   /** 搜人请求进行中（全库查询要 1~3 秒，不显示 loading 用户会以为没搜） */
@@ -1359,8 +1440,11 @@
   const manualGiftOptions = ref<{ name: string; price: number }[]>([])
 
   /** 打开弹窗：第一次打开才去拉礼物名+单价的候选列表（689 条，一次就够） */
-  async function openManualGift() {
-    manualGiftVisible.value = true
+  /** 点加号：切换视图；首次打开时拉礼物候选和本场补录记录 */
+  async function toggleManualGift() {
+    manualGiftOpen.value = !manualGiftOpen.value
+    if (!manualGiftOpen.value) return
+    await ensureManualGiftData()
     /*
      * 从「主播排名」弹窗点加号进来的 —— 收礼人必然是当前这个主播，
      * 不需要再让用户选（原来还要在下拉里选一次，纯属多余）。
@@ -1414,14 +1498,14 @@
     if (hit && hit.price > 0) manualGiftPrice.value = hit.price
   }
 
-  async function submitManualGift() {
+  async function submitManualGift(): Promise<boolean> {
     const sid = String(route.params.sessionId || '')
-    if (!sid) return
-    if (!manualGiftName.value) return ElMessage.warning('请选择或输入礼物名')
-    if (!manualGiftPrice.value || manualGiftPrice.value <= 0) return ElMessage.warning('单价必须大于 0')
-    if (!manualGiftCount.value || manualGiftCount.value < 1) return ElMessage.warning('次数必须 ≥ 1')
+    if (!sid) return false
+    if (!manualGiftName.value) { ElMessage.warning('请选择或输入礼物名'); return false }
+    if (!manualGiftPrice.value || manualGiftPrice.value <= 0) { ElMessage.warning('单价必须大于 0'); return false }
+    if (!manualGiftCount.value || manualGiftCount.value < 1) { ElMessage.warning('次数必须 ≥ 1'); return false }
     const nickname = manualGiftUser.value.nickname || manualGiftQuery.value.trim()
-    if (!nickname) return ElMessage.warning('请选择或输入昵称')
+    if (!nickname) { ElMessage.warning('请选择或输入昵称'); return false }
 
     manualGiftSaving.value = true
     try {
@@ -1436,7 +1520,7 @@
         to_nickname: manualGiftTo.value || ''
       })
       ElMessage.success('已补录 ' + manualGiftName.value + ' × ' + manualGiftCount.value + '，合计 ' + fmtNum((r as any).total_diamonds || 0) + ' 钻')
-      manualGiftVisible.value = false
+      return true
       manualGiftName.value = ''
       manualGiftCount.value = 1
       manualGiftUser.value = {}
@@ -1444,6 +1528,7 @@
       await refresh({ silent: true })
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '补录失败'))
+      return false
     } finally {
       manualGiftSaving.value = false
     }
