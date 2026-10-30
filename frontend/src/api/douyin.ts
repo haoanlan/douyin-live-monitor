@@ -1341,3 +1341,12 @@ export function mergeManualUser(from: string, to: string) {
     data: { from, to }
   })
 }
+
+/** 最近的场次列表（补录礼物时选场次用） */
+export function fetchRecentSessions(limit = 200) {
+  return request.get<{ id: number; streamer_name?: string; start_time?: string }[]>({
+    timeout: 30000,
+    url: `/api/sessions?limit=${limit}`,
+    showErrorMessage: false
+  })
+}
