@@ -612,7 +612,7 @@
           -->
           <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
           <button
-            class="rank-dl-btn dy-pressable absolute size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme !right-[84px]"
+            class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme !right-[96px]"
             :title="manualGiftOpen ? '返回榜单' : '补录礼物'"
             :aria-label="manualGiftOpen ? '返回榜单' : '补录礼物'"
             @click="toggleManualGift"
@@ -655,10 +655,13 @@
           >
             <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
           </el-input>
-          <div v-if="manualGiftSearching" class="mt-1.5 text-xs text-g-500 flex items-center gap-1.5">
-            <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
-          </div>
-          <div v-else-if="manualGiftCandidates.length" class="mt-1.5 max-h-[140px] overflow-auto border border-g-200 rounded">
+          <div class="mt-1.5 h-[104px] overflow-auto rounded border border-g-200">
+            <div v-if="manualGiftSearching" class="h-full flex items-center justify-center gap-1.5 text-xs text-g-500">
+              <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
+            </div>
+            <div v-else-if="!manualGiftCandidates.length" class="h-full flex items-center justify-center text-xs text-g-400">
+              {{ manualGiftQuery.trim().length >= 2 ? '没有匹配到人' : '输入至少 2 个字开始搜索' }}
+            </div>
             <button
               v-for="c in manualGiftCandidates"
               :key="c.sec_uid || c.nickname"
@@ -714,10 +717,6 @@
           <div class="text-xs font-medium text-g-600 mb-1.5 flex items-center gap-1"><span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">3</span>时间</div>
           <el-date-picker v-model="manualGiftTime" type="datetime" class="!w-full" />
         </div>
-        <div v-if="manualGiftTo">
-          <div class="text-xs font-medium text-g-600 mb-1">收礼人<span class="text-g-400 font-normal">（自动锁定为当前主播）</span></div>
-          <div class="text-sm text-g-800">{{ manualGiftTo }}</div>
-        </div>
       </div>
 
         <!-- 本场补录记录 + 撤销 -->
@@ -730,7 +729,7 @@
             <div
               v-for="r in manualGiftList"
               :key="r.id"
-              class="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md bg-g-50 border border-g-100"
+              class="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md bg-g-50 border border-g-300"
             >
               <span class="truncate flex-1">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
               <span class="tabular-nums text-theme shrink-0">{{ fmtNum(r.total_diamonds) }} 钻</span>
@@ -742,9 +741,9 @@
         </div>
 
         <!-- 底部固定：不随内容滚动 -->
-        <div class="shrink-0 mt-2 pt-2 border-t border-g-100 flex items-center justify-end gap-2">
-          <el-button size="small" @click="manualGiftOpen = false">取消</el-button>
-          <el-button size="small" type="primary" :loading="manualGiftSaving" @click="submitManualGiftAndClose">补录</el-button>
+        <div class="shrink-0 mt-2 pt-2 border-t border-g-100 flex items-center justify-end gap-3">
+          <el-button @click="manualGiftOpen = false">取消</el-button>
+          <el-button type="primary" class="!min-w-[88px]" :loading="manualGiftSaving" @click="submitManualGiftAndClose">补录</el-button>
         </div>
       </div>
 
@@ -1402,6 +1401,9 @@
     if (!ok) return
     manualGiftOpen.value = false
     await loadManualGiftList()
+    // 弹窗里那份"送礼人榜单"也要重取，否则数字和总览不一致（用户反馈刷新不及时）
+    if (lastAnchorDialogRow.value) await openAnchorPeopleList(lastAnchorDialogRow.value, true)
+    await refresh({ silent: true })
   }
 
   /** 撤销一条补录 */
@@ -1520,7 +1522,7 @@
         unit_price: Math.floor(manualGiftPrice.value),
         count: Math.floor(manualGiftCount.value),
         create_time: manualGiftTime.value ? manualGiftTime.value.getTime() : Date.now(),
-        to_nickname: manualGiftTo.value || ''
+        to_nickname: manualGiftTo.value || peopleAnchorName.value || ''
       })
       ElMessage.success('已补录 ' + manualGiftName.value + ' × ' + manualGiftCount.value + '，合计 ' + fmtNum((r as any).total_diamonds || 0) + ' 钻')
       return true
