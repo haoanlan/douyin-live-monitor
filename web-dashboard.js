@@ -24,6 +24,7 @@ const routeHandlers = [
   require('./lib/routes/sessions'),
   require('./lib/routes/detail'),
   require('./lib/routes/gifts'),
+  require('./lib/routes/manual-gifts'),
   require('./lib/routes/users'),
   require('./lib/routes/status'),
   require('./lib/routes/douyin-login'),

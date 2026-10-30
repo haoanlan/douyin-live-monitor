@@ -282,6 +282,20 @@ async function init() {
    * 复合索引：查询页/画像页会按 (user_sec_uid, session_id, create_time) 精确点查，
    * 实测 300 次点查 31ms → 4ms（7.7 倍）。放这里而不是 SQL 模板里，避免动那段大字符串。
    */
+    /*
+   * source: 'live' = 抓到的（默认，老行自动是这个值），'manual' = 手动补录。
+   * 实测 43 万行 ALTER ADD COLUMN 只要 4ms（SQLite 只改元数据，不重建表）。
+   */
+  try {
+    const cols = d.prepare('PRAGMA table_info(gifts)').all().map((c) => c.name);
+    if (!cols.includes('source')) {
+      d.exec("ALTER TABLE gifts ADD COLUMN source TEXT DEFAULT 'live'");
+      console.log("[db] gifts 已补 source 列（live/manual）");
+    }
+  } catch (e) {
+    console.warn('[db] 补 source 列失败（不影响使用）:', e.message);
+  }
+
   try {
     d.exec('CREATE INDEX IF NOT EXISTS idx_danmaku_uid_sess_time ON danmaku(user_sec_uid, session_id, create_time)');
   } catch (e) {
