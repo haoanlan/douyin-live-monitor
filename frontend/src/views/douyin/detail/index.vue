@@ -1141,15 +1141,14 @@
     giftDialogList.value = (giftDetailsFull.value || []).filter(sameUser)
   }
 
-  async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
-    // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
-    manualGiftOpen.value = false
-    rankPickerOpen.value = false
-    lastAnchorDialogRow.value = anchor
-    peopleAnchorName.value = anchor.anchor_name
-    peopleAnchorAvatar.value = anchor.anchor_avatar || ''
-    peopleDialogVisible.value = true
-    void ensureRankThemes()
+  /**
+   * 按当前弹窗里的主播，重新算「送礼人员」列表。
+   * 单独抽出来是为了补录/撤销之后能**原地刷新列表**，
+   * 又不会像 openAnchorPeopleList 那样把视图复位回榜单（撤销时用户还在补录面板里）。
+   */
+  async function loadAnchorPeople(force = false) {
+    const anchor = lastAnchorDialogRow.value
+    if (!anchor) return
     await ensureGiftDetails(force)
     const map = new Map<string, { nickname: string; avatar_url?: string; total_diamonds: number }>()
     ;(giftDetailsFull.value || [])
@@ -1165,6 +1164,18 @@
         map.set(g.nickname, cur)
       })
     peopleDialogList.value = [...map.values()].sort((a, b) => b.total_diamonds - a.total_diamonds)
+  }
+
+  async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
+    // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
+    manualGiftOpen.value = false
+    rankPickerOpen.value = false
+    lastAnchorDialogRow.value = anchor
+    peopleAnchorName.value = anchor.anchor_name
+    peopleAnchorAvatar.value = anchor.anchor_avatar || ''
+    peopleDialogVisible.value = true
+    void ensureRankThemes()
+    await loadAnchorPeople(force)
     peopleDialogVisible.value = true
   }
 
@@ -1458,6 +1469,11 @@
       await deleteManualGift(r.id)
       ElMessage.success('已撤销')
       await loadManualGiftList()
+      /*
+       * 撤销后必须把弹窗里这份「送礼人员」也重算：
+       * 之前只刷新了页面数据，弹窗里仍留着那个人（用户反馈"数对了但榜单上还有记录"）。
+       */
+      await loadAnchorPeople(true)
       await refresh({ silent: true })
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '撤销失败'))
