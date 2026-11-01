@@ -657,18 +657,26 @@
             >
               <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
             </el-input>
-            <div class="mt-1 h-[76px] overflow-y-auto overflow-x-hidden rounded border border-g-200">
-              <div v-if="manualGiftSearching" class="h-full flex items-center justify-center gap-1.5 text-xs text-g-500">
+            <!--
+              候选列表**只在真正搜索时出现**（输入满 2 个字）。
+              之前一直挂着一个 76px 高、写着「输入至少 2 个字开始搜索」的空框，
+              白占一大块地方（用户："这个模块根本不需要"）。
+            -->
+            <div
+              v-if="manualGiftQuery.trim().length >= 2"
+              class="mt-1 max-h-[120px] overflow-y-auto overflow-x-hidden rounded border border-g-200"
+            >
+              <div v-if="manualGiftSearching" class="py-2 flex items-center justify-center gap-1.5 text-xs text-g-500">
                 <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
               </div>
-              <div v-else-if="!manualGiftCandidates.length" class="h-full flex items-center justify-center text-xs text-g-400">
-                {{ manualGiftQuery.trim().length >= 2 ? '没有匹配到人' : '输入至少 2 个字开始搜索' }}
+              <div v-else-if="!manualGiftCandidates.length" class="py-2 text-center text-xs text-g-400">
+                没有匹配到人，确认后按「新观众」记
               </div>
               <button
                 v-for="c in manualGiftCandidates"
                 :key="c.sec_uid || c.nickname"
                 type="button"
-                class="w-full text-left px-2 py-1 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
+                class="w-full text-left px-2 py-1.5 text-xs hover:bg-g-50 flex items-center justify-between gap-2"
                 @click="pickManualUser(c)"
               >
                 <span class="truncate">{{ c.nickname }}</span>
