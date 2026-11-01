@@ -21,7 +21,8 @@ export const RANK_THEME_LABELS: Record<string, string> = {
   ruler: '刻度尺',
   'chroma-bar': '色带',
   'chroma-tile': '色块拼贴',
-  'chroma-refined': '精致色块'
+  'chroma-refined': '精致色块',
+  diamonds: '钻石榜'
 }
 
 export function rankThemeLabel(theme: string): string {

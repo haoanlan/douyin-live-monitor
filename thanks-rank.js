@@ -180,15 +180,28 @@ const MAG = {
   accent: '#8A2B2B',
   serif: "'Noto Serif SC','Noto Serif CJK SC','Source Han Serif SC','Songti SC','Hanazono Mincho',serif",
 };
-const MAG_THEME_NAMES = ['magazine-v1', 'magazine-v2', 'noir', 'typegrid', 'cute', 'news', 'ghost', 'faces', 'ruler', 'chroma-bar', 'chroma-tile', 'chroma-refined', 'depth-glass', 'depth-stack'];
+const MAG_THEME_NAMES = ['magazine-v1', 'magazine-v2', 'noir', 'typegrid', 'cute', 'news', 'ghost', 'faces', 'ruler', 'chroma-bar', 'chroma-tile', 'chroma-refined', 'depth-glass', 'depth-stack', 'diamonds'];
 const IS_CLASSIC = THEME_ARG === 'classic';
 if (THEME_ARG && !IS_CLASSIC && !MAG_THEME_NAMES.includes(THEME_ARG)) {
   console.warn(`⚠️  未知模板 "${THEME_ARG}" → 回退默认 ${DEFAULT_THEME}（可选：${MAG_THEME_NAMES.join(' / ')} / classic）`);
 }
 if (IS_CLASSIC) console.log('📐 模板 classic（老版暗紫渐变）');
-const MAG_VARIANT = IS_CLASSIC ? null : (MAG_THEME_NAMES.includes(THEME_ARG) ? THEME_ARG : DEFAULT_THEME);
-// 是否显示钻石数：提名榜（thanks-rank.js）不显示，钻石榜显示
-const MAG_AMOUNT = false;
+/*
+ * 「钻石榜」= 同一套杂志排版，但每行多一列 💎 钻石数（MAG_AMOUNT）。
+ * 这套模板本来就支持金额列（旧版靠改脚本里的 MAG_AMOUNT 开关切换），
+ * 现在做成独立模板 key（diamonds），页面上直接可选，不用再改代码。
+ */
+const AMOUNT_THEME_OF = { diamonds: 'magazine-v1' };
+const IS_AMOUNT_THEME = Object.prototype.hasOwnProperty.call(AMOUNT_THEME_OF, THEME_ARG || '');
+const MAG_VARIANT = IS_CLASSIC
+  ? null
+  : IS_AMOUNT_THEME
+    ? AMOUNT_THEME_OF[THEME_ARG]
+    : MAG_THEME_NAMES.includes(THEME_ARG)
+      ? THEME_ARG
+      : DEFAULT_THEME;
+// 是否显示钻石数：提名榜不显示，钻石榜（diamonds）显示
+let MAG_AMOUNT = IS_AMOUNT_THEME;
 const MAG2_ROW_RULE = '1px dotted rgba(26,26,30,0.16)';
 const MAG2_PAPER_CSS = `
 .page{position:relative}
@@ -402,7 +415,12 @@ async function renderMag(html, outPath) {
 }
 
 async function renderMagazine(variant, users, meta) {
-  const suffix = variant;
+  /*
+   * 文件名里的模板标识用**用户选的 key**（THEME_ARG），不是内部用的 variant。
+   * 「钻石榜」实际复用 magazine-v1 的排版，若按 variant 命名，产物会和 magazine-v1
+   * 撞名（后渲染覆盖前一个，路由还找不到 diamonds 那批）。
+   */
+  const suffix = IS_AMOUNT_THEME ? THEME_ARG : variant;
   const n = users.length;
   const topN = Math.min(10, n);
   const restCount = n - topN;
