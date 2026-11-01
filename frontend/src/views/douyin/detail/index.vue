@@ -588,7 +588,7 @@
     <!-- 同上：标准 X + 遮罩禁用（内容放 #header 插槽） -->
     <el-dialog
       v-model="peopleDialogVisible"
-      width="500"
+      :width="isMobile ? '92%' : '500px'"
       class="detail-dialog"
       align-center
       :close-on-click-modal="false"
@@ -624,7 +624,7 @@
             :disabled="rankDownloading || !rankThemes.length"
             :title="rankPickerOpen ? '返回榜单' : '下载榜单图片'"
             :aria-label="rankPickerOpen ? '返回榜单' : '下载榜单图片'"
-            @click="rankPickerOpen = !rankPickerOpen"
+            @click="toggleRankPicker"
           >
             <ArtSvgIcon
               :icon="
@@ -642,8 +642,8 @@
       </template>
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
       <!-- 补录礼物：和模板网格同一个容器策略（高度固定，内容内部滚动） -->
-      <div v-if="manualGiftOpen" class="flex flex-col max-h-[360px] overflow-x-hidden">
-        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-2">
+      <div v-if="manualGiftOpen" class="dy-people-panel flex flex-col overflow-x-hidden">
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col gap-3 pr-1">
           <!-- ① 这个人是谁 -->
           <div>
             <div class="text-xs font-medium text-g-600 mb-1 flex items-center gap-1">
@@ -657,7 +657,7 @@
             >
               <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
             </el-input>
-            <div class="mt-1 h-[92px] overflow-y-auto overflow-x-hidden rounded border border-g-200">
+            <div class="mt-1 h-[76px] overflow-y-auto overflow-x-hidden rounded border border-g-200">
               <div v-if="manualGiftSearching" class="h-full flex items-center justify-center gap-1.5 text-xs text-g-500">
                 <ArtSvgIcon icon="ri:loader-4-line" class="animate-spin" />正在搜索全库…
               </div>
@@ -685,32 +685,56 @@
             <div class="text-xs font-medium text-g-600 mb-1 flex items-center gap-1">
               <span class="size-4 rounded bg-theme/10 text-theme flex-cc text-[10px]">2</span>礼物与数量
             </div>
-            <div class="grid grid-cols-12 gap-2 items-center">
-              <el-select
-                v-model="manualGiftName"
-                filterable
-                allow-create
-                default-first-option
-                placeholder="礼物名"
-                class="col-span-5"
-                @change="fillManualGiftPrice"
-              >
-                <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
-                  <span class="flex items-center justify-between gap-3">
-                    <span class="truncate">{{ g.name }}</span>
-                    <span class="text-g-400 text-xs tabular-nums shrink-0">{{ g.price }} 钻</span>
-                  </span>
-                </el-option>
-              </el-select>
-              <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="col-span-2" placeholder="单价" />
-              <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="col-span-2" placeholder="次数" />
-              <el-date-picker
-                v-model="manualGiftTime"
-                type="datetime"
-                class="col-span-3"
-                :clearable="false"
-                format="MM-DD HH:mm"
-              />
+            <!--
+              一行放完：礼物名吃剩余宽度，单价/次数/时间固定宽度。
+              原来用 grid-cols-12 分栏，但 el-input-number / el-date-picker 自带 150px 宽度，
+              会把列撑爆、时间选择器直接溢出弹窗右边（用户截图里那种"排版混乱"）。
+            -->
+            <!--
+              礼物名单独一行（要能看清长名字），单价/次数/时间三格一行带小标题。
+              原来用 grid-cols-12 分栏：el-input-number / el-date-picker 自带 150px 宽度，
+              会把列撑爆、时间选择器直接溢出弹窗右边（用户截图里那种"排版混乱"）。
+            -->
+            <div class="flex flex-col gap-2">
+              <div>
+                <div class="mb-1 text-[11px] leading-none text-g-500">礼物</div>
+                <el-select
+                  v-model="manualGiftName"
+                  filterable
+                  allow-create
+                  default-first-option
+                  placeholder="选礼物，或直接输入礼物名"
+                  class="w-full"
+                  @change="fillManualGiftPrice"
+                >
+                  <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
+                    <span class="flex items-center justify-between gap-3">
+                      <span class="truncate">{{ g.name }}</span>
+                      <span class="text-g-400 text-xs tabular-nums shrink-0">{{ g.price }} 钻</span>
+                    </span>
+                  </el-option>
+                </el-select>
+              </div>
+              <div class="grid grid-cols-[88px_80px_1fr] gap-2">
+                <div>
+                  <div class="mb-1 text-[11px] leading-none text-g-500">单价（钻）</div>
+                  <el-input-number v-model="manualGiftPrice" :min="1" :controls="false" class="!w-full" />
+                </div>
+                <div>
+                  <div class="mb-1 text-[11px] leading-none text-g-500">次数</div>
+                  <el-input-number v-model="manualGiftCount" :min="1" :controls="false" class="!w-full" />
+                </div>
+                <div>
+                  <div class="mb-1 text-[11px] leading-none text-g-500">时间</div>
+                  <el-date-picker
+                    v-model="manualGiftTime"
+                    type="datetime"
+                    class="!w-full"
+                    :clearable="false"
+                    format="MM-DD HH:mm"
+                  />
+                </div>
+              </div>
             </div>
             <div class="mt-1 text-[11px] text-g-500">
               单价 <b class="text-g-700">{{ fmtNum(manualGiftPrice || 0) }}</b> ×
@@ -748,7 +772,7 @@
         </div>
       </div>
 
-      <div v-else-if="rankPickerOpen" class="max-h-80 overflow-y-auto">
+      <div v-else-if="rankPickerOpen" class="dy-people-panel overflow-y-auto pr-1">
         <div class="mb-2.5 text-xs text-g-500">选择模板（选完自动下载榜单图片）</div>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <button
@@ -769,7 +793,7 @@
         </div>
       </div>
 
-      <div v-else class="flex flex-col gap-2.5 max-h-80 overflow-y-auto">
+      <div v-else class="dy-people-panel flex flex-col gap-2.5 overflow-y-auto pr-1">
           <div
             v-for="(p, i) in peopleDialogList"
             :key="i"
@@ -1109,6 +1133,9 @@
   }
 
   async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
+    // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
+    manualGiftOpen.value = false
+    rankPickerOpen.value = false
     lastAnchorDialogRow.value = anchor
     peopleAnchorName.value = anchor.anchor_name
     peopleAnchorAvatar.value = anchor.anchor_avatar || ''
@@ -1447,16 +1474,29 @@
 
   /** 打开弹窗：第一次打开才去拉礼物名+单价的候选列表（689 条，一次就够） */
   /** 点加号：切换视图；首次打开时拉礼物候选和本场补录记录 */
+  /**
+   * 下载榜单 / 补录礼物 是两个互斥视图：
+   * 之前各自 toggle，打开一个不清另一个 —— 状态会残留，
+   * 表现为"点下载没反应"或"返回箭头指错"，而且两个视图高度不同，弹窗会忽高忽低。
+   */
+  function toggleRankPicker() {
+    rankPickerOpen.value = !rankPickerOpen.value
+    if (rankPickerOpen.value) manualGiftOpen.value = false
+  }
+
   async function toggleManualGift() {
     manualGiftOpen.value = !manualGiftOpen.value
+    if (manualGiftOpen.value) rankPickerOpen.value = false
     if (!manualGiftOpen.value) return
-    await ensureManualGiftData()
     /*
-     * 从「主播排名」弹窗点加号进来的 —— 收礼人必然是当前这个主播，
-     * 不需要再让用户选（原来还要在下拉里选一次，纯属多余）。
+     * 收礼人 / 时间先填好，再去拉「本场补录记录 + 礼物候选」。
+     * 原来这两行写在 await 之后：数据没回来之前，时间选择器是空的（看着像没填），
+     * 先赋值可以保证打开即有值。
+     * 收礼人从「主播排名」点加号进来时必然是当前主播，不需要用户再选一次。
      */
     manualGiftTo.value = peopleAnchorName.value || ''
     if (!manualGiftTime.value) manualGiftTime.value = new Date()
+    await ensureManualGiftData()
     if (manualGiftOptions.value.length) return
     try {
       const r = await fetchGiftPrices({})
@@ -1589,6 +1629,19 @@
 @media (max-width: 767px) {
   .dy-mobile-pane--off {
     display: none !important;
+  }
+}
+
+/* 主播送礼人员弹窗：三个视图（榜单 / 下载模板 / 补录礼物）共用固定高度，
+   切换时弹窗不再忽高忽低（用户反馈"两个弹窗都会让弹窗高度变化"）。
+   420px 是「补录」那一屏刚好放完（选中提示 + 礼物表单 + 合计 + 记录列表）的值。 */
+.dy-people-panel {
+  height: 420px;
+}
+
+@media (max-width: 767px) {
+  .dy-people-panel {
+    height: 420px;
   }
 }
 </style>
