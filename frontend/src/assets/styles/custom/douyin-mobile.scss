@@ -131,6 +131,53 @@
   }
 
   /*
+   * 近期行为行（画像页 · 明细 tab）：窄屏两行排布。
+   *
+   * 原来是一行：标签 + 内容(truncate) + 直播间(max-w-120) + 时间。
+   * 350px 宽下内容只剩几十像素 —— 直播间名一长就完全看不到"说了什么/送了什么"。
+   * 现在第一行给内容（最多两行），直播间名单独一行，时间留在右上。
+   */
+  .douyin-page .dy-action-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: start;
+  }
+
+  /* 标签固定在左上 */
+  .douyin-page .dy-action-row > .dy-action-tag {
+    grid-area: 1 / 1 / 2 / 2;
+    justify-self: start;
+    margin-top: 1px;
+  }
+
+  /* 内容吃掉「标签」右边的整行宽度（时间挪到第二行，别再跟内容抢横向空间） */
+  .douyin-page .dy-action-row > .dy-action-text {
+    grid-area: 1 / 2 / 2 / 4;
+    white-space: normal;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+
+  /* 第二行：直播间名（左，超长省略）+ 时间（右） */
+  .douyin-page .dy-action-row > .dy-action-room {
+    grid-area: 2 / 2 / 3 / 3;
+    max-width: none;
+    font-size: 12px;
+  }
+
+  .douyin-page .dy-action-row > .dy-action-time {
+    grid-area: 2 / 3 / 3 / 4;
+    justify-self: end;
+    font-size: 11px;
+  }
+
+  /*
    * 统计格（.dy-stat-tile，信息查询结果卡里的三格）：
    * 版式已改成"标签上 / 数字下 / 图标右上角"，跟总览页一致 ——
    * 图标不再参与横向布局，3 列窄格子里的文字有整格宽度，标签不会竖排。
