@@ -132,12 +132,15 @@
 
   /*
    * 近期行为行（画像页 · 明细 tab）：窄屏两行排布。
+ * 类名用 dy-recent-*，不能再用 dy-action-* —— 那是状态监控「操作行」的类，
+ * 它在本文件后面的 @media(max-width:800px) 里定义了 grid-template-columns: 1fr 1fr，
+ * 同名会互相覆盖（实测标签列被撑到 114px，内容和标签之间空一大片）。
    *
    * 原来是一行：标签 + 内容(truncate) + 直播间(max-w-120) + 时间。
    * 350px 宽下内容只剩几十像素 —— 直播间名一长就完全看不到"说了什么/送了什么"。
    * 现在第一行给内容（最多两行），直播间名单独一行，时间留在右上。
    */
-  .douyin-page .dy-action-row {
+  .douyin-page .dy-recent-row {
     display: grid;
     grid-template-columns: auto 1fr auto;
     grid-template-rows: auto auto;
@@ -147,14 +150,14 @@
   }
 
   /* 标签固定在左上 */
-  .douyin-page .dy-action-row > .dy-action-tag {
+  .douyin-page .dy-recent-row > .dy-recent-tag {
     grid-area: 1 / 1 / 2 / 2;
     justify-self: start;
     margin-top: 1px;
   }
 
   /* 内容吃掉「标签」右边的整行宽度（时间挪到第二行，别再跟内容抢横向空间） */
-  .douyin-page .dy-action-row > .dy-action-text {
+  .douyin-page .dy-recent-row > .dy-recent-text {
     grid-area: 1 / 2 / 2 / 4;
     white-space: normal;
     overflow: hidden;
@@ -164,17 +167,30 @@
     word-break: break-word;
   }
 
-  /* 第二行：直播间名（左，超长省略）+ 时间（右） */
-  .douyin-page .dy-action-row > .dy-action-room {
-    grid-area: 2 / 2 / 3 / 3;
+  /* 第二行：直播间 · 时间，合成一行左对齐（时间不再孤零零飘到最右） */
+  .douyin-page .dy-recent-meta {
+    grid-area: 2 / 2 / 3 / 4;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .douyin-page .dy-recent-meta > .dy-recent-room {
     max-width: none;
+    min-width: 0;
     font-size: 12px;
   }
 
-  .douyin-page .dy-action-row > .dy-action-time {
-    grid-area: 2 / 3 / 3 / 4;
-    justify-self: end;
+  .douyin-page .dy-recent-meta > .dy-recent-sep {
+    display: inline;
+    color: var(--art-gray-300);
+    font-size: 12px;
+  }
+
+  .douyin-page .dy-recent-meta > .dy-recent-time {
     font-size: 11px;
+    flex-shrink: 0;
   }
 
   /*
@@ -1060,4 +1076,20 @@
 /* 曾用名弹窗：贴右边缘时不超出屏幕（Element Plus 默认会 teleport 到 body，宽度得自己限） */
 .dy-alias-pop {
   max-width: calc(100vw - 24px) !important;
+}
+
+/*
+ * 非窄屏（≥768px）：近期行为的「直播间 · 时间」保持原来的两个独立元素 ——
+ * 包裹层 display: contents 不参与排版，分隔点隐藏。
+ * 注意必须限定在 min-width 里：窄屏那段用的是 flex，若被这条覆盖成 contents，
+ * 「·」会消失、时间会被自动放进最右一列（实测时间飘到最右边）。
+ */
+@media (min-width: 768px) {
+  .douyin-page .dy-recent-meta {
+    display: contents;
+  }
+
+  .douyin-page .dy-recent-sep {
+    display: none;
+  }
 }

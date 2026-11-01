@@ -389,36 +389,43 @@
               <div
                 v-for="(a, i) in (profile?.recent_actions || []).slice(0, 80)"
                 :key="i"
-                class="dy-rank-row dy-action-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
+                class="dy-rank-row dy-recent-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
               >
                 <el-tag
                   size="small"
                   :type="a.type === 'gift' ? 'warning' : a.type === 'member' ? 'success' : 'info'"
-                  class="dy-action-tag shrink-0 !border-none"
+                  class="dy-recent-tag shrink-0 !border-none"
                 >
                   {{ a.type === 'gift' ? '礼物' : a.type === 'member' ? '进场' : '弹幕' }}
                 </el-tag>
                 <!--
                   内容和直播间名在手机上抢宽度：原来是「内容 truncate + 直播间 max-w-120 + 时间」
                   挤在一行，窄屏时内容只剩几十像素，等于看不到说了/送了什么（用户反馈）。
-                  现在窄屏改成两行（见 douyin-mobile.scss 的 .dy-action-row）：
+                  现在窄屏改成两行（见 douyin-mobile.scss 的 .dy-recent-row）：
                     第一行  标签 + 内容（最多两行）+ 时间
                     第二行  直播间名（整行，超长省略）
                 -->
                 <!-- 弹幕内容里的 [比心] 这类是抖音表情代码，交给 emojiHtml 渲染成图，不要当纯文本显示 -->
                 <span
-                  class="dy-action-text flex-1 min-w-0 truncate text-sm text-g-700"
+                  class="dy-recent-text flex-1 min-w-0 truncate text-sm text-g-700"
                   :title="a.content"
                   v-html="emojiHtml(a.content)"
                 ></span>
-                <!-- 进场必须写明进了哪个直播间，所以这列不能省（后端已兜底"未知直播间"） -->
-                <span v-if="a.streamer" class="dy-action-room text-xs text-g-500 shrink-0 max-w-[120px] truncate">
-                  {{ a.streamer }}
-                </span>
-                <span v-else-if="a.type === 'member'" class="dy-action-room text-xs text-g-500 shrink-0">
-                  未知直播间
-                </span>
-                <span class="dy-action-time text-xs text-g-400 shrink-0">{{ a.time }}</span>
+                <!--
+                  进场必须写明进了哪个直播间，所以这列不能省（后端已兜底"未知直播间"）。
+                  窄屏把「直播间 · 时间」合并成一行显示（见 .dy-recent-meta），
+                  桌面仍是分开的两块（display: contents 让这层包裹不参与排版）。
+                -->
+                <div class="dy-recent-meta">
+                  <span v-if="a.streamer" class="dy-recent-room text-xs text-g-500 shrink-0 max-w-[120px] truncate">
+                    {{ a.streamer }}
+                  </span>
+                  <span v-else-if="a.type === 'member'" class="dy-recent-room text-xs text-g-500 shrink-0">
+                    未知直播间
+                  </span>
+                  <span class="dy-recent-sep" aria-hidden="true">·</span>
+                  <span class="dy-recent-time text-xs text-g-400 shrink-0">{{ a.time }}</span>
+                </div>
               </div>
               <el-empty
                 v-if="!profile?.recent_actions?.length"
