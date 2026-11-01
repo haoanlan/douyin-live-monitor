@@ -131,66 +131,55 @@
   }
 
   /*
-   * 近期行为行（画像页 · 明细 tab）：窄屏两行排布。
- * 类名用 dy-recent-*，不能再用 dy-action-* —— 那是状态监控「操作行」的类，
- * 它在本文件后面的 @media(max-width:800px) 里定义了 grid-template-columns: 1fr 1fr，
- * 同名会互相覆盖（实测标签列被撑到 114px，内容和标签之间空一大片）。
+   * 近期行为行（画像页 · 明细 tab）。
    *
-   * 原来是一行：标签 + 内容(truncate) + 直播间(max-w-120) + 时间。
-   * 350px 宽下内容只剩几十像素 —— 直播间名一长就完全看不到"说了什么/送了什么"。
-   * 现在第一行给内容（最多两行），直播间名单独一行，时间留在右上。
+   * 结构：标签（固定在最左）+ 正文块（内容 / 直播间 · 时间）。
+   *   · 窄屏：正文块两行 —— 内容一行，直播间 · 时间一行（左对齐，不右飘）
+   *   · 宽屏：直播间 · 时间改成行内接在内容后面（见文件末尾的 min-width 规则）
+   * 之前试过 grid 分列、时间右对齐：列宽被标签撑出空隙、两行对不齐，
+   * 用户反馈「标签和正文空隙大、排版上下乱」。这里用最朴素的两行块，没有列、没有空隙。
    */
   .douyin-page .dy-recent-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    grid-template-rows: auto auto;
-    column-gap: 8px;
-    row-gap: 2px;
-    align-items: start;
+    align-items: flex-start;
   }
 
-  /* 标签固定在左上 */
   .douyin-page .dy-recent-row > .dy-recent-tag {
-    grid-area: 1 / 1 / 2 / 2;
-    justify-self: start;
     margin-top: 1px;
   }
 
-  /* 内容吃掉「标签」右边的整行宽度（时间挪到第二行，别再跟内容抢横向空间） */
-  .douyin-page .dy-recent-row > .dy-recent-text {
-    grid-area: 1 / 2 / 2 / 4;
-    white-space: normal;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+  .douyin-page .dy-recent-body {
+    font-size: 13px;
+    line-height: 1.5;
     word-break: break-word;
   }
 
-  /* 第二行：直播间 · 时间，合成一行左对齐（时间不再孤零零飘到最右） */
+  .douyin-page .dy-recent-text {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+
   .douyin-page .dy-recent-meta {
-    grid-area: 2 / 2 / 3 / 4;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--art-gray-400);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .douyin-page .dy-recent-meta > .dy-recent-room {
-    max-width: none;
-    min-width: 0;
-    font-size: 12px;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
   }
 
-  .douyin-page .dy-recent-meta > .dy-recent-sep {
-    display: inline;
-    color: var(--art-gray-300);
-    font-size: 12px;
-  }
-
-  .douyin-page .dy-recent-meta > .dy-recent-time {
-    font-size: 11px;
-    flex-shrink: 0;
+  .douyin-page .dy-recent-meta > .dy-recent-time::before {
+    content: ' · ';
   }
 
   /*
@@ -1079,17 +1068,22 @@
 }
 
 /*
- * 非窄屏（≥768px）：近期行为的「直播间 · 时间」保持原来的两个独立元素 ——
- * 包裹层 display: contents 不参与排版，分隔点隐藏。
- * 注意必须限定在 min-width 里：窄屏那段用的是 flex，若被这条覆盖成 contents，
- * 「·」会消失、时间会被自动放进最右一列（实测时间飘到最右边）。
+ * 宽屏（≥768px）：近期行为的「直播间 · 时间」接在内容后面（一行），
+ * 与列表其它行保持同样的单行密度。
  */
 @media (min-width: 768px) {
-  .douyin-page .dy-recent-meta {
-    display: contents;
+  .douyin-page .dy-recent-body > .dy-recent-text {
+    display: inline;
   }
 
-  .douyin-page .dy-recent-sep {
-    display: none;
+  .douyin-page .dy-recent-body > .dy-recent-meta {
+    display: inline;
+    margin-top: 0;
+    margin-left: 8px;
   }
+}
+
+/* 直播间与时间之间的分隔点：窄屏/宽屏都要有（之前只写在窄屏媒体块里，桌面端就没了） */
+.douyin-page .dy-recent-meta > .dy-recent-time::before {
+  content: ' · ';
 }
