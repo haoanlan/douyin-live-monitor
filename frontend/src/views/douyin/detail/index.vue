@@ -663,7 +663,7 @@
               白占一大块地方（用户："这个模块根本不需要"）。
             -->
             <div
-              v-if="manualGiftQuery.trim().length >= 2"
+              v-if="manualGiftQuery.trim().length >= 2 && !manualGiftUser.sec_uid"
               class="mt-1 max-h-[120px] overflow-y-auto overflow-x-hidden rounded border border-g-200"
             >
               <div v-if="manualGiftSearching" class="py-2 flex items-center justify-center gap-1.5 text-xs text-g-500">
@@ -713,9 +713,10 @@
                   default-first-option
                   placeholder="选礼物，或直接输入礼物名"
                   class="w-full"
+                  :filter-method="onGiftFilter"
                   @change="fillManualGiftPrice"
                 >
-                  <el-option v-for="g in manualGiftOptions" :key="g.name" :label="g.name" :value="g.name">
+                  <el-option v-for="g in filteredGiftOptions" :key="g.name" :label="g.name" :value="g.name">
                     <span class="flex items-center justify-between gap-3">
                       <span class="truncate">{{ g.name }}</span>
                       <span class="text-g-400 text-xs tabular-nums shrink-0">{{ g.price }} 钻</span>
@@ -1544,6 +1545,21 @@
     manualGiftUser.value = { sec_uid: c.sec_uid, nickname: c.nickname, user_display_id: c.unique_id || '' }
     manualGiftQuery.value = c.nickname
     manualGiftCandidates.value = []
+  }
+
+  /*
+   * 礼物下拉的搜索：Element 自带的 filterable 在这份 696 条的列表上不生效
+   * （实测输入「抖音」仍然把全部礼物列出来），改成自己按 filter-method 过滤。
+   */
+  const manualGiftFilter = ref('')
+  const filteredGiftOptions = computed(() => {
+    const q = manualGiftFilter.value.trim().toLowerCase()
+    if (!q) return manualGiftOptions.value
+    return manualGiftOptions.value.filter((g) => g.name.toLowerCase().includes(q))
+  })
+
+  function onGiftFilter(q: string) {
+    manualGiftFilter.value = q || ''
   }
 
   /** 选了礼物名 → 自动带出单价 */

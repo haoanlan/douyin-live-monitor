@@ -21,6 +21,13 @@ function getDb() {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
+    /*
+     * 排序/聚合的临时空间放内存，不落盘。
+     * 踩过的坑：后端若继承了指向已删除目录的 TEMP，SQLite 建临时文件会失败，
+     * 报 "unable to open database file" —— 只有「礼物价格」这种大 GROUP BY 的接口 500，
+     * 其它接口都正常，极难排查。改成 MEMORY 后不再依赖 TEMP 目录。
+     */
+    db.pragma('temp_store = MEMORY');
     // 添加查询索引（忽略已存在的）
     const idxs = [
       'CREATE INDEX IF NOT EXISTS idx_gifts_session ON gifts(session_id)',
