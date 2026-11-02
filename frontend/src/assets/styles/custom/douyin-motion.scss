@@ -1531,3 +1531,58 @@
   }
 }
 
+
+
+/*
+ * 画像页「近期行为」—— **只对电脑端**生效（min-width: 801px，手机完全不受影响）。
+ *
+ * 目标布局（用户给的参考图）：
+ *   [标签] 内容……………………    直播间名  2026-11-01 22:57
+ *                                 ↑ 房间名和时间整体靠右对齐
+ *
+ * 现状：dy-recent-body 里 text 和 meta 是上下两个块；宽屏时 meta 就紧跟在内容后面，
+ * 于是出现"内容和房间名粘在一起、时间位置飘忽"（图2）。这里把 body 改成一行 flex，
+ * 用 margin-left:auto 把 meta 顶到最右。
+ *
+ * dy-recent-desk: 本段标识（防止重复追加）
+ */
+@media (min-width: 801px) {
+  .douyin-page .dy-recent-body {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .douyin-page .dy-recent-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .douyin-page .dy-recent-meta {
+    flex: 0 0 auto;
+    margin-left: auto;
+    margin-top: 0;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--art-gray-500);
+  }
+
+  .douyin-page .dy-recent-room {
+    display: inline;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: baseline;
+  }
+
+  .douyin-page .dy-recent-time {
+    margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+    color: var(--art-gray-500);
+  }
+}
