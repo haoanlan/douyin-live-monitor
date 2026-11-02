@@ -212,7 +212,7 @@
               <div
                 v-for="i in 5"
                 :key="i"
-                class="dy-rank-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
+                class="dy-rank-row dy-recent-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
               >
                 <el-skeleton-item variant="text" style="width: 34px; height: 22px; flex: 0 0 auto" />
                 <el-skeleton-item variant="text" style="flex: 1; height: 15px" />
@@ -400,17 +400,17 @@
                 </el-tag>
                 <!-- 弹幕内容里的 [比心] 这类是抖音表情代码，交给 emojiHtml 渲染成图，不要当纯文本显示 -->
                 <span
-                  class="flex-1 min-w-0 truncate text-sm text-g-700"
+                  class="dy-recent-text flex-1 min-w-0 truncate text-sm text-g-700"
                   v-html="emojiHtml(a.content)"
                 ></span>
                 <!-- 进场必须写明进了哪个直播间，所以这列不能省（后端已兜底"未知直播间"） -->
-                <span v-if="a.streamer" class="text-xs text-g-500 shrink-0 max-w-[120px] truncate">
+                <span v-if="a.streamer" class="dy-recent-room text-xs text-g-500 shrink-0 max-w-[120px] truncate">
                   {{ a.streamer }}
                 </span>
-                <span v-else-if="a.type === 'member'" class="text-xs text-g-500 shrink-0">
+                <span v-else-if="a.type === 'member'" class="dy-recent-room text-xs text-g-500 shrink-0">
                   未知直播间
                 </span>
-                <span class="text-xs text-g-400 shrink-0">{{ a.time }}</span>
+                <span class="dy-recent-time text-xs text-g-400 shrink-0">{{ a.time }}</span>
               </div>
               <el-empty
                 v-if="!profile?.recent_actions?.length"
