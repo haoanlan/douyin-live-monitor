@@ -1094,7 +1094,7 @@ export interface QrLoginState {
   id?: string
   /** starting/loading=开窗口，waiting=等扫码，scanned=已扫码待确认，saved=已写入，其余为终止态 */
   state?:
-    'starting' | 'loading' | 'waiting' | 'scanned' | 'saved' | 'error' | 'cancelled' | 'timeout'
+    'starting' | 'loading' | 'waiting' | 'scanned' | 'mfa' | 'saved' | 'error' | 'cancelled' | 'timeout'
   message?: string
   /** 二维码（data:image/png;base64,…），等待扫码期间由后端截图给出 */
   qr?: string | null
