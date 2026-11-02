@@ -1338,6 +1338,8 @@
     switch (qr.value.state) {
       case 'saved':
         return 'ri:checkbox-circle-line'
+      case 'mfa':
+        return 'ri:shield-keyhole-line'
       case 'scanned':
         return 'ri:smartphone-line'
       case 'error':
@@ -1351,6 +1353,8 @@
     switch (qr.value.state) {
       case 'saved':
         return 'text-success'
+      case 'mfa':
+        return 'text-warning'
       case 'scanned':
         return 'text-theme'
       case 'error':
