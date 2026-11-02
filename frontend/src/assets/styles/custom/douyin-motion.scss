@@ -1531,15 +1531,3 @@
   }
 }
 
-/* ============================================================
- * 确认弹窗（ElMessageBox）的圆角与其它弹窗统一
- *
- * 现状：el-dialog 是 12px（--custom-radius = 0.75rem），
- * 而 Element 的 --el-messagebox-border-radius 被设成 calc(custom/3 + 4px) = 8px，
- * 所以「撤销补录」这类确认框看起来比其它弹窗尖一档（用户反馈圆角不统一）。
- * ============================================================ */
-.el-message-box {
-  /* !important：Element 自带 .el-message-box 的 border-radius 规则在我们之后注入，
-     不加权重会被盖回 4px（实测确认框 4px、el-dialog 12px）。 */
-  border-radius: var(--custom-radius, 12px) !important;
-}
