@@ -555,7 +555,11 @@
           </div>
         </div>
       </template>
-      <div class="flex flex-col gap-2.5 max-h-80 overflow-y-auto">
+      <div
+        v-loading="giftDialogLoading"
+        element-loading-text="正在加载全场礼物明细…"
+        class="flex flex-col gap-2.5 max-h-80 overflow-y-auto"
+      >
           <div
             v-for="(g, i) in giftDialogList"
             :key="i"
@@ -1119,7 +1123,18 @@
     []
   )
 
+  /*
+   * 竞态守卫：用户快速连点多个人时，先发起的请求可能**后返回**，
+   * 于是后点的那个人的名字配上先点的那个人的明细（用户反馈"显示的礼物和人乱"）。
+   * 每次打开递增序号，await 回来后发现序号已变就丢弃这次结果。
+   */
+  let giftDialogSeq = 0
+  let peopleDialogSeq = 0
+  /** 全量明细还在拉（弹窗里显示加载态，避免看起来"卡住不动"） */
+  const giftDialogLoading = ref(false)
+
   async function openGiftDetail(gift: GiftRankItem, force = false) {
+    const seq = ++giftDialogSeq
     lastGiftDialogRow.value = gift
     giftDialogUser.value = gift.nickname
     /*
@@ -1137,7 +1152,14 @@
     // 先用"最近若干条"里的即时结果把弹窗打开（有内容可看），再拉全量补齐
     giftDialogList.value = (detail.value?.giftFeed || []).filter(sameUser)
     giftDialogVisible.value = true
-    await ensureGiftDetails(force)
+    giftDialogLoading.value = true
+    try {
+      await ensureGiftDetails(force)
+    } finally {
+      if (seq === giftDialogSeq) giftDialogLoading.value = false
+    }
+    // 已经点了别的人 → 这次的结果作废，不要覆盖
+    if (seq !== giftDialogSeq) return
     giftDialogList.value = (giftDetailsFull.value || []).filter(sameUser)
   }
 
@@ -1167,6 +1189,7 @@
   }
 
   async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
+    const seq = ++peopleDialogSeq
     // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
     manualGiftOpen.value = false
     rankPickerOpen.value = false
@@ -1176,6 +1199,7 @@
     peopleDialogVisible.value = true
     void ensureRankThemes()
     await loadAnchorPeople(force)
+    if (seq !== peopleDialogSeq) return
     peopleDialogVisible.value = true
   }
 
