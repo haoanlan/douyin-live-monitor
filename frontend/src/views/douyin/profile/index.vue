@@ -387,34 +387,30 @@
             -->
             <div class="flex flex-col gap-2.5 mt-4 max-h-[360px] overflow-y-auto dy-scroll">
               <div
-                v-for="(a, i) in (profile?.recent_actions || []).slice(0, 80)"
+                v-for="(a, i) in (profile?.recent_actions || []).slice(0, 10)"
                 :key="i"
-                class="dy-rank-row dy-recent-row flex items-start gap-2 rounded-xl bg-g-100/50 px-3 py-2"
+                class="dy-rank-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
               >
                 <el-tag
                   size="small"
                   :type="a.type === 'gift' ? 'warning' : a.type === 'member' ? 'success' : 'info'"
-                  class="dy-recent-tag shrink-0 !border-none"
+                  class="shrink-0 !border-none"
                 >
                   {{ a.type === 'gift' ? '礼物' : a.type === 'member' ? '进场' : '弹幕' }}
                 </el-tag>
-                <!--
-                  一行自然流式排版：标签 | 内容 · 直播间 · 时间。
-                  之前试过「两行网格」「直播间单独一行」「时间右对齐」都别扭：
-                  标签和内容之间被网格列撑出空隙、不同行的高度也不一致。
-                  现在内容/直播间/时间都是行内元素，超长就整体换行（内容永远不会被截断），
-                  标签固定在最左，行高随内容自然增长 —— 没有空档、也没有对不齐。
-                -->
-                <div class="dy-recent-body min-w-0 flex-1">
-                  <!-- 弹幕内容里的 [比心] 这类是抖音表情代码，交给 emojiHtml 渲染成图，不要当纯文本显示 -->
-                  <div class="dy-recent-text text-sm text-g-700" v-html="emojiHtml(a.content)"></div>
-                  <!-- 第二行（窄屏）：直播间 · 时间；宽屏由 CSS 改成行内，接在内容后面 -->
-                  <div class="dy-recent-meta">
-                    <span v-if="a.streamer" class="dy-recent-room">{{ a.streamer }}</span>
-                    <span v-else-if="a.type === 'member'" class="dy-recent-room">未知直播间</span>
-                    <span class="dy-recent-time">{{ isMobile ? shortTime(a.time) : a.time }}</span>
-                  </div>
-                </div>
+                <!-- 弹幕内容里的 [比心] 这类是抖音表情代码，交给 emojiHtml 渲染成图，不要当纯文本显示 -->
+                <span
+                  class="flex-1 min-w-0 truncate text-sm text-g-700"
+                  v-html="emojiHtml(a.content)"
+                ></span>
+                <!-- 进场必须写明进了哪个直播间，所以这列不能省（后端已兜底"未知直播间"） -->
+                <span v-if="a.streamer" class="text-xs text-g-500 shrink-0 max-w-[120px] truncate">
+                  {{ a.streamer }}
+                </span>
+                <span v-else-if="a.type === 'member'" class="text-xs text-g-500 shrink-0">
+                  未知直播间
+                </span>
+                <span class="text-xs text-g-400 shrink-0">{{ a.time }}</span>
               </div>
               <el-empty
                 v-if="!profile?.recent_actions?.length"
@@ -518,11 +514,6 @@
    * 同一个页面上，"首次活跃"是短横线、点进某个场次就变斜杠，看着像两个产品。
    * 现在统一用共享的 fmtTime()；粒度（精确到分钟）保持不变，只统一写法。
    */
-
-  /** 窄屏近期行为里省略年份：2026-10-11 02:07 -> 10-11 02:07（一行放得下，不用拆日期） */
-  function shortTime(t: string | null | undefined) {
-    return String(t || '').replace(/^\d{4}-/, '')
-  }
 
   const stats = computed(() => {
     const p = profile.value
