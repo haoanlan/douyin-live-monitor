@@ -1543,3 +1543,39 @@
      不加权重会被盖回 4px（实测确认框 4px、el-dialog 12px）。 */
   border-radius: var(--custom-radius, 12px) !important;
 }
+
+/*
+ * 画像页「近期行为」的尾部「直播间 · 时间」—— **全局**（不只在手机媒体查询里）。
+ *
+ * 原来这套样式只写在 @media (max-width: 800px) 里，电脑端完全没有 → 房间名和时间
+ * 直接继承了正文的 14px 和正文同色，看起来和手机上不是一套（用户反馈"字体和大小好像变了"）。
+ * 这里统一成 12px / 灰 500 / 时间等宽数字，手机端那段可以保留更紧凑的 11px。
+ */
+.douyin-page .dy-recent-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--art-gray-500);
+}
+
+.douyin-page .dy-recent-meta > .dy-recent-room {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.douyin-page .dy-recent-meta > .dy-recent-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--art-gray-400);
+}
+
+/* 房间和时间之间加个分隔点（宽屏时它们和内容同一行，没分隔点会粘在一起） */
+.douyin-page .dy-recent-meta > .dy-recent-time::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--art-gray-300);
+}
