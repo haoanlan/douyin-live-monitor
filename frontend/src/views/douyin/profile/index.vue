@@ -387,7 +387,7 @@
             -->
             <div class="flex flex-col gap-2.5 mt-4 max-h-[360px] overflow-y-auto dy-scroll">
               <div
-                v-for="(a, i) in (profile?.recent_actions || []).slice(0, 10)"
+                v-for="(a, i) in (profile?.recent_actions || []).slice(0, isMobile ? 50 : 10)"
                 :key="i"
                 class="dy-rank-row flex items-center gap-2.5 rounded-xl bg-g-100/50 px-3 py-2"
               >
