@@ -112,6 +112,17 @@ export const douyinRoutes: AppRouteRecord = {
       }
     },
     {
+      path: 'permissions',
+      name: 'DouyinPermissions',
+      component: '/douyin/permissions',
+      meta: {
+        title: 'menus.douyin.permissions',
+        icon: 'ri:shield-keyhole-line',
+        keepAlive: true,
+        roles: ['R_SUPER']
+      }
+    },
+    {
       path: 'detail/:sessionId',
       name: 'DouyinDetail',
       component: '/douyin/detail',

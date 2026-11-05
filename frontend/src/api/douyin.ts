@@ -1372,3 +1372,44 @@ export function fetchManualGifts(sessionId: string | number) {
     showErrorMessage: false
   })
 }
+
+// ===================== 菜单与权限（阶段二：只读）=====================
+
+export interface AdminMenuItem {
+  key: string
+  title: string
+  path?: string | null
+  icon?: string | null
+  parentKey?: string | null
+  sort?: number
+  visible?: number
+  hidden?: number
+}
+
+export interface AdminRole {
+  key: string
+  name: string
+  note?: string
+  menu_count: number
+  action_count: number
+}
+
+/** 菜单清单 */
+export function adminMenus() {
+  return request.get<{ items: AdminMenuItem[]; count: number }>({ url: "/api/admin/menus", showErrorMessage: false })
+}
+
+/** 角色清单（含菜单数/操作数） */
+export function adminRoles() {
+  return request.get<{ roles: AdminRole[]; count: number }>({ url: "/api/admin/roles", showErrorMessage: false })
+}
+
+/** 某角色的菜单勾选情况 + 全部菜单 + 操作 */
+export function adminRoleMenus(roleKey: string) {
+  return request.get<{
+    role: { key: string; name: string }
+    menus: (AdminMenuItem & { canView: boolean })[]
+    grantedCount: number
+    actions: string[]
+  }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/menus", showErrorMessage: false })
+}
