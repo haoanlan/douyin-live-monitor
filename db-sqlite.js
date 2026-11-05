@@ -483,6 +483,103 @@ async function init() {
   }
 
   // 到这里建表/补列/回填/种子都完成了，后续再调 init() 直接返回
+  /*
+   * ============================================================
+   * 菜单 / 角色 / 权限（可视化配置的**数据底座**）
+   * ============================================================
+   *
+   * 阶段一：只建表 + 把现有菜单和角色灌进去，**不改任何鉴权逻辑**。
+   * 现在鉴权还是 auth-guard.js 里硬编码的 `role === 'R_SUPER'`，
+   * 新表只是"数据库里有了这份清单"，页面能读、能比对，但还不生效。
+   *
+   * 为什么要分阶段：一旦让新表接管鉴权，任何一处漏配就是"所有人看不到菜单"
+   * 或"越权"，必须单独一轮 + 回滚方案。
+   */
+  try {
+    d.exec(`
+      CREATE TABLE IF NOT EXISTS menu_items (
+        key        TEXT PRIMARY KEY,
+        title      TEXT NOT NULL,
+        path       TEXT,
+        icon       TEXT,
+        parent_key TEXT,
+        sort       INTEGER DEFAULT 100,
+        visible    INTEGER DEFAULT 1,
+        hidden     INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS roles (
+        key   TEXT PRIMARY KEY,
+        name  TEXT NOT NULL,
+        note  TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS role_menus (
+        role_key TEXT NOT NULL,
+        menu_key TEXT NOT NULL,
+        can_view INTEGER DEFAULT 1,
+        PRIMARY KEY (role_key, menu_key)
+      );
+
+      CREATE TABLE IF NOT EXISTS role_actions (
+        role_key   TEXT NOT NULL,
+        action_key TEXT NOT NULL,
+        PRIMARY KEY (role_key, action_key)
+      );
+    `);
+
+    // ---- 灌基础数据（INSERT OR IGNORE：用户改过就不覆盖）----
+    const seedMenus = [
+      ['DouyinDashboard', '总览', '/douyin/dashboard', 'ri:pie-chart-2-line', null, 10, 1, 0],
+      ['DouyinRooms', '房间管理', '/douyin/rooms', 'ri:live-line', null, 20, 1, 0],
+      ['DouyinSessions', '场次详情', '/douyin/sessions', 'ri:file-list-3-line', null, 30, 1, 0],
+      ['DouyinTrends', '趋势分析', '/douyin/trends', 'ri:line-chart-line', null, 40, 1, 0],
+      ['DouyinCombined', '数据合并查看', '/douyin/combined', 'ri:table-2', null, 50, 1, 0],
+      ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', null, 60, 1, 0],
+      ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', null, 70, 1, 0],
+      ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
+      ['DouyinDetail', '场次明细页', '/douyin/detail/:sessionId', null, 'DouyinSessions', 31, 1, 1],
+      ['DouyinProfile', '用户画像页', '/douyin/profile/:secUid', null, 'DouyinSearch', 71, 1, 1],
+      ['UserCenter', '个人中心', '/user-center', null, null, 900, 1, 1]
+    ];
+    const insMenu = d.prepare(
+      'INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden) VALUES (?,?,?,?,?,?,?,?)'
+    );
+    for (const m of seedMenus) insMenu.run(...m);
+
+    const insRole = d.prepare('INSERT OR IGNORE INTO roles (key,name,note) VALUES (?,?,?)');
+    insRole.run('R_SUPER', '超级管理员', '全部菜单 + 全部操作');
+    insRole.run('R_GUEST', '访客', '只读查看（尚未生效，等阶段四）');
+
+    // 超管：全部菜单可见
+    const insRM = d.prepare('INSERT OR IGNORE INTO role_menus (role_key,menu_key,can_view) VALUES (?,?,1)');
+    for (const m of seedMenus) insRM.run('R_SUPER', m[0]);
+    // 访客：只给查看类的几页（改价 / 扫码 / 重启这些都不给）
+    for (const k of ['DouyinDashboard', 'DouyinSessions', 'DouyinTrends', 'DouyinCombined', 'DouyinSearch', 'DouyinDetail', 'DouyinProfile', 'UserCenter']) {
+      insRM.run('R_GUEST', k);
+    }
+
+    // 操作级权限：先用字符串登记，阶段四才真正校验
+    const insRA = d.prepare('INSERT OR IGNORE INTO role_actions (role_key,action_key) VALUES (?,?)');
+    const actions = [
+      'gift_price.write',    // 改礼物价格
+      'manual_gift.add',     // 补录礼物
+      'manual_gift.delete',  // 撤销补录
+      'manual_user.merge',   // 合并虚拟用户
+      'qrlogin.start',       // 扫码登录
+      'service.restart',     // 启动/重启/停止监控与代理
+      'proxy_config.write',  // 改代理配置
+      'account.manage'       // 账号管理
+    ];
+    for (const a of actions) insRA.run('R_SUPER', a);
+
+    const n = d.prepare('SELECT COUNT(*) c FROM menu_items').get().c;
+    const r2 = d.prepare('SELECT COUNT(*) c FROM roles').get().c;
+    console.log('[db] 菜单/权限表就绪：' + n + ' 个菜单，' + r2 + ' 个角色（阶段一，尚未接管鉴权）');
+  } catch (e) {
+    console.warn('[db] 菜单/权限表初始化失败（不影响采集）:', e.message);
+  }
+
   initDone = true;
 }
 
