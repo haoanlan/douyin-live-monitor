@@ -211,7 +211,7 @@
         （用户反馈"没有匹配的这个窗口没有占满全屏"）。图例尺寸同步放大到 96，撑得住整块高度。
       -->
       <div v-else-if="!loading && !sortedUsers.length" class="art-card dy-search-fill p-5">
-        <el-empty :description="`没有匹配「${lastQuery}」的用户`" :image-size="96">
+        <el-empty :image-size="96">
           <template #description>
             <p class="dy-search-empty__title">没有匹配「{{ lastQuery }}」的用户</p>
             <p class="dy-search-empty__hint">
@@ -886,14 +886,6 @@
     return aliasList(u).filter((a) => isGeneratedAlias(a))
   }
 
-  /**
-   * 弹幕/动作文本里的抖音表情代码（[比心]、[捂脸]）交给 emojiHtml 渲染成图。
-   *
-   * 原来这里先用一个正则把开头的方括号段删掉，注释说是"去掉后端带的 [礼物] 前缀"——
-   * 但后端从来不产生这种前缀，而弹幕内容**本身就是** [xxx] 形式的表情代码，
-   * 于是整条弹幕是 [比心] 时会被整段删掉，卡片上那行变成空白（用户反馈）。
-   * 表情代码是内容的一部分，不能当噪音剥掉。
-   */
 </script>
 
 <style scoped lang="scss">
