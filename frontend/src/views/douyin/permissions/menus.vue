@@ -73,15 +73,19 @@
             v-for="(row, i) in sidebarItems"
             :key="row.key"
             class="group relative flex items-center gap-3 border-t border-g-100 px-5 py-3 transition-colors hover:bg-g-50/70"
+            :class="row.parentKey ? 'pl-11' : ''"
           >
             <!-- 序号 = 侧边栏排位（这一版唯一"敢"的地方） -->
             <span
               class="w-6 shrink-0 text-right text-[15px] font-semibold tabular-nums leading-none text-g-300 transition-colors group-hover:text-theme"
-            >{{ String(i + 1).padStart(2, '0') }}</span>
+            >{{ row.parentKey ? '' : String(ordinalOf(i) ).padStart(2, '0') }}</span>
 
             <!-- 图标 = 菜单身份 -->
-            <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-g-100 text-g-600">
-              <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[14px]" />
+            <span
+              class="flex shrink-0 items-center justify-center rounded-md bg-g-100 text-g-600"
+              :class="row.parentKey ? 'size-5' : 'size-7'"
+            >
+              <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" :class="row.parentKey ? 'text-[11px]' : 'text-[14px]'" />
             </span>
 
             <!-- 名称 + 路径 -->
@@ -284,10 +288,44 @@
   const sidebarItems = computed(() =>
     items.value.filter((m) => !!m.visible && !m.hidden).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
   )
+
+  /**
+   * 侧边栏的树形结构（只支持一级子菜单）：
+   * 父 → [子…]，父的序号就是侧边栏排位；子项缩进显示、不占序号。
+   */
+  const sidebarTree = computed(() => {
+    const visible = sidebarItems.value
+    const byParent = new Map<string, AdminMenuItem[]>()
+    for (const m of visible) {
+      const p = m.parentKey || ''
+      if (!byParent.has(p)) byParent.set(p, [])
+      byParent.get(p)!.push(m)
+    }
+    const out: { parent?: AdminMenuItem; children: AdminMenuItem[]; ordinal?: number }[] = []
+    let ordinal = 0
+    for (const p of byParent.get('') || []) {
+      ordinal += 1
+      out.push({ parent: p, children: byParent.get(p.key) || [], ordinal })
+    }
+    // 孤儿（父不可见/父不存在）：不丢，单独列在最后
+    const parents = new Set((byParent.get('') || []).map((m) => m.key))
+    const orphans: AdminMenuItem[] = []
+    for (const [p, list] of byParent) {
+      if (p === '' || parents.has(p)) continue
+      orphans.push(...list)
+    }
+    if (orphans.length) out.push({ children: orphans })
+    return out
+  })
   /** 隐藏页：详情页 / 画像页这类 */
   const hiddenItems = computed(() => items.value.filter((m) => !!m.hidden).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)))
   /** 在侧边栏但被关掉显示的 */
   const offItems = computed(() => items.value.filter((m) => !m.visible && !m.hidden))
+
+  /** 侧边栏序号：只给父级编号，子项不占号 */
+  function ordinalOf(index: number) {
+    return sidebarItems.value.slice(0, index + 1).filter((m) => !m.parentKey).length
+  }
 
   const dialogVisible = ref(false)
   const editingKey = ref('')

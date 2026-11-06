@@ -538,8 +538,10 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', null, 60, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', null, 70, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
-      ['DouyinPermissionsMenus', '菜单管理', '/douyin/permissions/menus', 'ri:menu-line', null, 85, 1, 0],
-      ['DouyinPermissionsRoles', '角色管理', '/douyin/permissions/roles', 'ri:shield-user-line', null, 86, 1, 0],
+      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0],
+      ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0],
+      ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0],
+      ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0],
       ['UserCenter', '个人中心', '/user-center', 'ri:user-line', null, 900, 1, 0]
     ];
     const insMenu = d.prepare(
@@ -579,7 +581,7 @@ async function init() {
      * 这里删掉；个人中心是正常菜单（改 hidden=0）。
      */
     try {
-      d.prepare("DELETE FROM menu_items WHERE key IN ('DouyinDetail','DouyinProfile','DouyinPermissions')").run();
+      d.prepare("DELETE FROM menu_items WHERE key IN ('DouyinDetail','DouyinProfile','DouyinPermissions','DouyinPermissionsMenus','DouyinPermissionsRoles')").run();
       d.prepare("DELETE FROM role_menus WHERE menu_key IN ('DouyinDetail','DouyinProfile','DouyinPermissions')").run();
       d.prepare("UPDATE menu_items SET hidden = 0, visible = 1, icon = COALESCE(icon,'ri:user-line') WHERE key = 'UserCenter'").run();
     } catch (e) {

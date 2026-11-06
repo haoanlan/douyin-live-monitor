@@ -112,26 +112,48 @@ export const douyinRoutes: AppRouteRecord = {
       }
     },
     {
-      path: 'permissions/menus',
-      name: 'DouyinPermissionsMenus',
-      component: '/douyin/permissions/menus',
+      path: 'system',
+      name: 'SystemManage',
       meta: {
-        title: 'menus.douyin.menuManage',
-        icon: 'ri:menu-line',
-        keepAlive: true,
+        title: 'menus.douyin.system',
+        icon: 'ri:settings-3-line',
         roles: ['R_SUPER']
-      }
-    },
-    {
-      path: 'permissions/roles',
-      name: 'DouyinPermissionsRoles',
-      component: '/douyin/permissions/roles',
-      meta: {
-        title: 'menus.douyin.roleManage',
-        icon: 'ri:shield-user-line',
-        keepAlive: true,
-        roles: ['R_SUPER']
-      }
+      },
+      children: [
+        {
+          path: 'users',
+          name: 'SystemUsers',
+          component: '/system/user-manage',
+          meta: {
+            title: 'menus.douyin.systemUsers',
+            icon: 'ri:user-settings-line',
+            keepAlive: true,
+            roles: ['R_SUPER']
+          }
+        },
+        {
+          path: 'roles',
+          name: 'SystemRoles',
+          component: '/douyin/permissions/roles',
+          meta: {
+            title: 'menus.douyin.systemRoles',
+            icon: 'ri:shield-user-line',
+            keepAlive: true,
+            roles: ['R_SUPER']
+          }
+        },
+        {
+          path: 'menus',
+          name: 'SystemMenus',
+          component: '/douyin/permissions/menus',
+          meta: {
+            title: 'menus.douyin.systemMenus',
+            icon: 'ri:menu-line',
+            keepAlive: true,
+            roles: ['R_SUPER']
+          }
+        }
+      ]
     },
     {
       path: 'detail/:sessionId',
