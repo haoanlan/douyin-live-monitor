@@ -14,136 +14,107 @@
   注意：这一页改的是**配置表**，目前还不影响登录鉴权（auth-guard 仍硬编码超管）。
 -->
 <template>
-  <div class="douyin-page art-full-height">
+  <div class="art-full-height">
+    <ArtSearchBar
+      v-model="formFilters"
+      :items="formItems"
+      :showExpand="false"
+      @reset="handleReset"
+      @search="handleSearch"
+    />
+
     <ElCard class="art-table-card">
-      <ArtTableHeader :loading="loading" @refresh="loadAll">
+      <ArtTableHeader :loading="loading" @refresh="loadRoles">
         <template #left>
-          <span class="text-sm font-medium text-g-800">角色管理</span>
-          <span class="ml-3 text-xs text-g-500">
-            给每个角色勾选能看的页面与能做的操作；改动<b class="text-g-700">尚未接管登录鉴权</b>
-          </span>
+          <ElButton type="primary" @click="showDialog('add')">新增角色</ElButton>
         </template>
       </ArtTableHeader>
 
-      <div class="flex flex-col gap-4 p-4 lg:flex-row">
-        <!-- 左：角色 -->
-        <aside class="w-full shrink-0 lg:w-[240px]">
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-xs font-medium text-g-600">角色（{{ roles.length }}）</span>
-            <el-button size="small" text type="primary" @click="openCreateRole">新增角色</el-button>
-          </div>
+      <ArtTable rowKey="key" :loading="loading" :columns="columns" :data="filtered" />
 
-          <button
-            v-for="r in roles"
-            :key="r.key"
-            type="button"
-            class="mb-1.5 flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors"
-            :class="activeRole === r.key ? 'bg-theme/10 text-theme' : 'hover:bg-g-100 text-g-700'"
-            @click="selectRole(r.key)"
+      <!-- 新增 / 编辑 -->
+      <el-dialog
+        v-model="editVisible"
+        :title="dialogType === 'add' ? '新增角色' : '编辑角色'"
+        width="30%"
+        align-center
+        :close-on-click-modal="false"
+      >
+        <el-form ref="editRef" :model="editForm" :rules="editRules" label-width="96px">
+          <el-form-item label="角色名称" prop="name">
+            <el-input v-model="editForm.name" placeholder="请输入角色名称" />
+          </el-form-item>
+          <el-form-item label="角色编码" prop="key">
+            <el-input v-model="editForm.key" :disabled="dialogType === 'edit'" placeholder="如：R_VIEWER" />
+          </el-form-item>
+          <el-form-item label="描述" prop="note">
+            <el-input v-model="editForm.note" type="textarea" :rows="3" placeholder="请输入角色描述" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="editVisible = false">取消</el-button>
+          <el-button type="primary" :loading="saving" @click="submitEdit">提交</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 菜单权限（原版是弹窗，不是常驻右栏） -->
+      <el-dialog
+        v-model="permVisible"
+        title="菜单权限"
+        width="520px"
+        align-center
+        :close-on-click-modal="false"
+        @close="handlePermClose"
+      >
+        <div v-if="permLocked" class="mb-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-g-600">
+          超级管理员拥有全部权限且<b class="text-warning">不可修改</b>。
+        </div>
+        <div class="mb-2 text-xs text-g-500">
+          {{ permRoleName }} · 已选 <b class="text-g-700">{{ checkedCount }}</b> 个页面
+        </div>
+
+        <el-scrollbar height="50vh">
+          <el-tree
+            ref="treeRef"
+            :data="treeData"
+            show-checkbox
+            node-key="key"
+            :default-expand-all="isExpandAll"
+            :props="{ label: 'title', children: 'children' }"
+            :disabled="permLocked"
+            @check="onTreeCheck"
           >
-            <span class="flex min-w-0 items-center gap-1.5">
-              <ArtSvgIcon v-if="r.key === 'R_SUPER'" icon="ri:lock-line" class="shrink-0 text-[13px] text-g-400" />
-              <span class="truncate">{{ r.name || r.key }}</span>
-            </span>
-            <span class="shrink-0 text-xs text-g-400">{{ r.menu_count }} 页</span>
-          </button>
-        </aside>
+            <template #default="{ data }">
+              <span class="text-sm text-g-700">{{ data.title }}</span>
+              <span class="ml-1.5 font-mono text-[11px] text-g-400">{{ data.key }}</span>
+            </template>
+          </el-tree>
+        </el-scrollbar>
 
-        <!-- 右：权限 -->
-        <section class="min-w-0 flex-1" v-loading="roleLoading">
-          <div v-if="!activeRole" class="py-16 text-center text-sm text-g-400">选择左侧角色查看权限</div>
+        <div class="mt-3 rounded-lg border border-g-200">
+          <div class="border-b border-g-100 bg-g-50/60 px-3 py-1.5 text-xs font-medium text-g-600">操作权限</div>
+          <el-checkbox-group v-model="actionSel" class="flex flex-wrap gap-x-5 gap-y-2 p-3">
+            <el-checkbox v-for="a in allActions" :key="a.key" :value="a.key" :disabled="permLocked">
+              {{ a.label }}
+            </el-checkbox>
+          </el-checkbox-group>
+        </div>
 
-          <template v-else>
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div class="text-sm text-g-700">
-                <b class="text-g-900">{{ detail.role?.name || activeRole }}</b>
-                <span class="ml-2 text-xs text-g-500">
-                  勾选 {{ checkedCount }} / {{ menuLeaves.length }} 个页面 ·
-                  {{ actionSel.length }} 个操作
-                </span>
-              </div>
-              <div class="flex items-center gap-2">
-                <el-button size="small" :disabled="locked" @click="checkAll(true)">全选</el-button>
-                <el-button size="small" :disabled="locked" @click="checkAll(false)">清空</el-button>
-                <el-button size="small" type="primary" :loading="saving" :disabled="locked" @click="save">
-                  保存
-                </el-button>
-              </div>
-            </div>
-
-            <div v-if="locked" class="mb-3 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-g-600">
-              超级管理员拥有全部权限且<b class="text-warning">不可修改</b> —— 否则一次误操作就会把所有人锁在系统外面。
-            </div>
-
-            <!-- 菜单权限树 -->
-            <div class="rounded-lg border border-g-200">
-              <div class="border-b border-g-100 bg-g-50/60 px-3 py-2 text-xs font-medium text-g-600">页面访问</div>
-              <div class="max-h-[380px] overflow-y-auto p-2">
-                <el-tree
-                  ref="treeRef"
-                  :data="treeData"
-                  node-key="key"
-                  show-checkbox
-                  :props="{ label: 'title', children: 'children' }"
-                  :default-expanded-keys="expandedKeys"
-                  :check-strictly="false"
-                  :disabled="locked"
-                  @check="onTreeCheck"
-                >
-                  <template #default="{ data }">
-                    <span class="text-sm text-g-700">{{ data.title }}</span>
-                    <span class="ml-1.5 font-mono text-[11px] text-g-400">{{ data.key }}</span>
-                  </template>
-                </el-tree>
-              </div>
-            </div>
-
-            <!-- 操作权限 -->
-            <div class="mt-3 rounded-lg border border-g-200">
-              <div class="border-b border-g-100 bg-g-50/60 px-3 py-2 text-xs font-medium text-g-600">操作权限</div>
-              <div class="flex flex-wrap gap-x-5 gap-y-2 p-3">
-                <el-checkbox
-                  v-for="a in allActions"
-                  :key="a.key"
-                  v-model="actionSel"
-                  :value="a.key"
-                  :disabled="locked"
-                >
-                  {{ a.label }}
-                  <span class="ml-1 font-mono text-[11px] text-g-400">{{ a.key }}</span>
-                </el-checkbox>
-              </div>
-            </div>
-          </template>
-        </section>
-      </div>
+        <template #footer>
+          <el-button @click="toggleExpandAll">{{ isExpandAll ? '全部收起' : '全部展开' }}</el-button>
+          <el-button :disabled="permLocked" @click="toggleSelectAll">{{ isSelectAll ? '取消全选' : '全部选择' }}</el-button>
+          <el-button type="primary" :loading="saving" :disabled="permLocked" @click="savePermission">保存</el-button>
+        </template>
+      </el-dialog>
     </ElCard>
-
-    <!-- 新增角色 -->
-    <el-dialog v-model="createVisible" title="新增角色" width="460px" :close-on-click-modal="false">
-      <el-form ref="createRef" :model="createForm" :rules="createRules" label-width="90px">
-        <el-form-item label="角色编码" prop="key">
-          <el-input v-model="createForm.key" placeholder="如 R_VIEWER" />
-          <div class="mt-1 text-xs text-g-400">大写字母和下划线，代码里会用它判断权限</div>
-        </el-form-item>
-        <el-form-item label="角色名称" prop="name">
-          <el-input v-model="createForm.name" placeholder="如 只读用户" />
-        </el-form-item>
-        <el-form-item label="说明">
-          <el-input v-model="createForm.note" type="textarea" :rows="2" placeholder="这个角色能做什么" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="submitCreateRole">创建</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-  import { ElMessage } from 'element-plus'
+  import { computed, h, nextTick, onMounted, reactive, ref } from 'vue'
+  import { ElMessage, ElMessageBox, ElTag } from 'element-plus'
+  import ArtButtonMore, { type ButtonMoreItem } from '@/components/core/forms/art-button-more/index.vue'
+  import { useTableColumns } from '@/hooks/core/useTableColumns'
   import {
     adminMenus,
     adminRoles,
@@ -155,7 +126,6 @@
 
   defineOptions({ name: 'SystemRole' })
 
-  /** 操作权限的中文名（后端存的是 action_key） */
   const ACTION_LABELS: Record<string, string> = {
     'gift_price.write': '修改礼物价格',
     'manual_gift.add': '补录礼物',
@@ -167,6 +137,13 @@
     'account.manage': '账号管理'
   }
 
+  interface RoleRow {
+    key: string
+    name: string
+    note?: string
+    menu_count: number
+    action_count: number
+  }
   interface TreeNode {
     key: string
     title: string
@@ -174,23 +151,178 @@
   }
 
   const loading = ref(false)
-  const roleLoading = ref(false)
   const saving = ref(false)
-  const creating = ref(false)
+  const roles = ref<RoleRow[]>([])
+  const allMenus = ref<{ key: string; title: string; parentKey?: string | null }[]>([])
 
-  const roles = ref<{ key: string; name: string; menu_count: number; action_count: number }[]>([])
-  const allMenus = ref<{ key: string; title: string; parentKey?: string | null; hidden?: number }[]>([])
+  // ---------- 搜索 ----------
+  const initialSearch = { name: '', key: '', note: '' }
+  const formFilters = reactive({ ...initialSearch })
+  const appliedFilters = reactive({ ...initialSearch })
+
+  const formItems = computed(() => [
+    { label: '角色名称', key: 'name', type: 'input', props: { clearable: true } },
+    { label: '角色编码', key: 'key', type: 'input', props: { clearable: true } },
+    { label: '角色描述', key: 'note', type: 'input', props: { clearable: true } }
+  ])
+
+  const filtered = computed(() => {
+    const name = (appliedFilters.name || '').toLowerCase().trim()
+    const key = (appliedFilters.key || '').toLowerCase().trim()
+    const note = (appliedFilters.note || '').toLowerCase().trim()
+    return roles.value.filter((r) => {
+      if (name && !(r.name || '').toLowerCase().includes(name)) return false
+      if (key && !(r.key || '').toLowerCase().includes(key)) return false
+      if (note && !(r.note || '').toLowerCase().includes(note)) return false
+      return true
+    })
+  })
+
+  function handleReset() {
+    Object.assign(formFilters, { ...initialSearch })
+    Object.assign(appliedFilters, { ...initialSearch })
+    loadRoles()
+  }
+  function handleSearch() {
+    Object.assign(appliedFilters, { ...formFilters })
+  }
+
+  // ---------- 数据 ----------
+  async function loadRoles() {
+    loading.value = true
+    try {
+      const [r, m] = await Promise.all([adminRoles(), adminMenus()])
+      roles.value = (r as any)?.roles || []
+      allMenus.value = (m as any)?.items || []
+    } catch (e: any) {
+      ElMessage.error(e?.message || '获取角色失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ---------- 表格列（照原版：编码/名称/描述/数量/状态/操作）----------
+  const { columnChecks, columns } = useTableColumns(() => [
+    { prop: 'key', label: '角色编码', width: 150 },
+    { prop: 'name', label: '角色名称', minWidth: 140 },
+    {
+      prop: 'note',
+      label: '角色描述',
+      minWidth: 220,
+      showOverflowTooltip: true,
+      formatter: (row: RoleRow) => row.note || '—'
+    },
+    {
+      prop: 'counts',
+      label: '权限数量',
+      width: 170,
+      formatter: (row: RoleRow) => row.menu_count + ' 个页面 · ' + row.action_count + ' 个操作'
+    },
+    {
+      prop: 'enabled',
+      label: '角色状态',
+      width: 110,
+      formatter: () => h(ElTag, { type: 'success' }, () => '启用')
+    },
+    {
+      prop: 'operation',
+      label: '操作',
+      width: 90,
+      fixed: 'right',
+      formatter: (row: RoleRow) =>
+        h('div', [
+          h(ArtButtonMore, {
+            list: [
+              { key: 'permission', label: '菜单权限', icon: 'ri:user-3-line' },
+              { key: 'edit', label: '编辑角色', icon: 'ri:edit-2-line' },
+              { key: 'delete', label: '删除角色', icon: 'ri:delete-bin-4-line', color: '#f56c6c' }
+            ],
+            onClick: (item: ButtonMoreItem) => onMore(item, row)
+          })
+        ])
+    }
+  ])
+  void columnChecks
+
+  function onMore(item: ButtonMoreItem, row: RoleRow) {
+    if (item.key === 'permission') openPermission(row)
+    else if (item.key === 'edit') showDialog('edit', row)
+    else if (item.key === 'delete') deleteRole(row)
+  }
+
+  // ---------- 新增/编辑 ----------
+  const editVisible = ref(false)
+  const dialogType = ref<'add' | 'edit'>('add')
+  const editRef = ref()
+  const editForm = reactive({ key: '', name: '', note: '' })
+  const editRules = {
+    name: [
+      { required: true, message: '请输入角色名称', trigger: 'blur' },
+      { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+    ],
+    key: [
+      { required: true, message: '请输入角色编码', trigger: 'blur' },
+      { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+    ],
+    note: [{ required: true, message: '请输入角色描述', trigger: 'blur' }]
+  }
+
+  function showDialog(type: 'add' | 'edit', row?: RoleRow) {
+    dialogType.value = type
+    Object.assign(
+      editForm,
+      type === 'edit' && row ? { key: row.key, name: row.name, note: row.note || '' } : { key: '', name: '', note: '' }
+    )
+    editVisible.value = true
+  }
+
+  async function submitEdit() {
+    try {
+      await editRef.value?.validate()
+    } catch {
+      return
+    }
+    if (dialogType.value === 'edit') {
+      ElMessage.warning('编辑角色的接口还没做（后端目前只有新建角色），先用「菜单权限」调整权限')
+      return
+    }
+    saving.value = true
+    try {
+      await adminRoleCreate({ key: editForm.key, name: editForm.name, note: editForm.note })
+      ElMessage.success('新增成功')
+      editVisible.value = false
+      await loadRoles()
+    } catch (e: any) {
+      ElMessage.error(e?.message || '提交失败')
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteRole(row: RoleRow) {
+    try {
+      await ElMessageBox.confirm('确定删除角色「' + (row.name || row.key) + '」吗？', '删除确认', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      })
+    } catch {
+      return
+    }
+    ElMessage.warning('删除角色的接口还没做，当前只做提示')
+  }
+
+  // ---------- 菜单权限弹窗 ----------
+  const permVisible = ref(false)
+  const permLocked = ref(false)
+  const permRoleKey = ref('')
+  const permRoleName = ref('')
+  const treeRef = ref()
+  const isExpandAll = ref(true)
+  const isSelectAll = ref(false)
+  const actionSel = ref<string[]>([])
   const allActions = Object.keys(ACTION_LABELS).map((key) => ({ key, label: ACTION_LABELS[key] }))
 
-  const activeRole = ref('')
-  const detail = reactive<{ role?: any; menus?: any[]; actions?: string[] }>({})
-
-  const treeRef = ref()
-  const actionSel = ref<string[]>([])
-
-  const locked = computed(() => activeRole.value === 'R_SUPER')
-
-  /** 菜单树（只取能在侧边栏出现的 + 其父级） */
   const treeData = computed<TreeNode[]>(() => {
     const byParent = new Map<string, TreeNode[]>()
     for (const m of allMenus.value) {
@@ -206,80 +338,70 @@
     return build('')
   })
 
-  /** 叶子数 = 可独立勾选的页面数（父级由子级联动） */
   const menuLeaves = computed(() => {
     const out: string[] = []
-    const walk = (nodes: TreeNode[]) =>
-      nodes.forEach((n) => (n.children?.length ? walk(n.children) : out.push(n.key)))
+    const walk = (nodes: TreeNode[]) => nodes.forEach((n) => (n.children?.length ? walk(n.children) : out.push(n.key)))
     walk(treeData.value)
     return out
   })
 
-  const expandedKeys = computed(() => treeData.value.filter((n) => n.children?.length).map((n) => n.key))
+  const checkedCount = computed(() => (treeRef.value?.getCheckedKeys(false) as string[])?.length || 0)
 
-  const checkedCount = computed(() => {
-    const el = treeRef.value
-    if (!el) return detail.menus?.filter((m: any) => m.canView).length || 0
-    return (el.getCheckedKeys(false) as string[]).length
-  })
-
-  async function loadAll() {
-    loading.value = true
+  async function openPermission(row: RoleRow) {
+    permRoleKey.value = row.key
+    permRoleName.value = row.name || row.key
+    permLocked.value = row.key === 'R_SUPER'
+    permVisible.value = true
     try {
-      const [r, m] = await Promise.all([adminRoles(), adminMenus()])
-      roles.value = (r as any)?.roles || []
-      allMenus.value = (m as any)?.items || []
-      if (!activeRole.value && roles.value.length) await selectRole(roles.value[0].key)
-      else if (activeRole.value) await selectRole(activeRole.value)
+      const d: any = await adminRoleMenus(row.key)
+      actionSel.value = [...(d?.actions || [])]
+      await nextTick()
+      const granted = new Set((d?.menus || []).filter((m: any) => m.canView).map((m: any) => m.key))
+      treeRef.value?.setCheckedKeys(menuLeaves.value.filter((k) => granted.has(k)))
+      isSelectAll.value = menuLeaves.value.every((k) => granted.has(k))
     } catch (e: any) {
-      ElMessage.error(e?.message || '加载失败')
-    } finally {
-      loading.value = false
+      ElMessage.error(e?.message || '读取权限失败')
     }
   }
 
-  async function selectRole(key: string) {
-    activeRole.value = key
-    roleLoading.value = true
-    try {
-      const d: any = await adminRoleMenus(key)
-      detail.role = d?.role
-      detail.menus = d?.menus || []
-      detail.actions = d?.actions || []
-      actionSel.value = [...(d?.actions || [])]
-      await nextTick()
-      // 只勾叶子，父级自动半选
-      const granted = new Set((d?.menus || []).filter((m: any) => m.canView).map((m: any) => m.key))
-      treeRef.value?.setCheckedKeys(menuLeaves.value.filter((k) => granted.has(k)))
-    } catch (e: any) {
-      ElMessage.error(e?.message || '读取角色权限失败')
-    } finally {
-      roleLoading.value = false
-    }
+  function handlePermClose() {
+    treeRef.value?.setCheckedKeys([])
+    actionSel.value = []
   }
 
   function onTreeCheck() {
-    // 触发重新计算 checkedCount
-    detail.menus = detail.menus ? [...detail.menus] : []
+    isSelectAll.value = (treeRef.value?.getCheckedKeys(false) as string[])?.length === menuLeaves.value.length
   }
 
-  function checkAll(on: boolean) {
-    treeRef.value?.setCheckedKeys(on ? menuLeaves.value : [])
+  function toggleExpandAll() {
+    const tree = treeRef.value
+    if (!tree) return
+    const nodes = tree.store.nodesMap
+    Object.values(nodes).forEach((node: any) => {
+      node.expanded = !isExpandAll.value
+    })
+    isExpandAll.value = !isExpandAll.value
   }
 
-  async function save() {
-    if (locked.value) return
+  function toggleSelectAll() {
+    if (!isSelectAll.value) treeRef.value?.setCheckedKeys(menuLeaves.value)
+    else treeRef.value?.setCheckedKeys([])
+    isSelectAll.value = !isSelectAll.value
+  }
+
+  async function savePermission() {
+    if (permLocked.value) return
     saving.value = true
     try {
       const keys = (treeRef.value?.getCheckedKeys(false) as string[]) || []
-      // 父级也要写进去（否则侧边栏二级菜单不显示）
       const parents = treeData.value
         .filter((n) => n.children?.length && n.children.some((c) => keys.includes(c.key)))
         .map((n) => n.key)
-      await adminRoleMenusSave(activeRole.value, [...new Set([...keys, ...parents])])
-      await adminRoleActionsSave(activeRole.value, actionSel.value)
-      ElMessage.success('已保存')
-      await loadAll()
+      await adminRoleMenusSave(permRoleKey.value, [...new Set([...keys, ...parents])])
+      await adminRoleActionsSave(permRoleKey.value, actionSel.value)
+      ElMessage.success('权限保存成功')
+      permVisible.value = false
+      await loadRoles()
     } catch (e: any) {
       ElMessage.error(e?.message || '保存失败')
     } finally {
@@ -287,38 +409,5 @@
     }
   }
 
-  // ---------- 新增角色 ----------
-  const createVisible = ref(false)
-  const createRef = ref()
-  const createForm = reactive({ key: '', name: '', note: '' })
-  const createRules = {
-    key: [{ required: true, message: '请输入角色编码', trigger: 'blur' }],
-    name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }]
-  }
-
-  function openCreateRole() {
-    Object.assign(createForm, { key: '', name: '', note: '' })
-    createVisible.value = true
-  }
-
-  async function submitCreateRole() {
-    try {
-      await createRef.value?.validate()
-    } catch {
-      return
-    }
-    creating.value = true
-    try {
-      await adminRoleCreate({ ...createForm })
-      ElMessage.success('已创建')
-      createVisible.value = false
-      await loadAll()
-    } catch (e: any) {
-      ElMessage.error(e?.message || '创建失败')
-    } finally {
-      creating.value = false
-    }
-  }
-
-  onMounted(loadAll)
+  onMounted(loadRoles)
 </script>
