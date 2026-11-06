@@ -505,7 +505,10 @@ async function init() {
         parent_key TEXT,
         sort       INTEGER DEFAULT 100,
         visible    INTEGER DEFAULT 1,
-        hidden     INTEGER DEFAULT 0
+        hidden     INTEGER DEFAULT 0,
+        menu_type  TEXT DEFAULT 'menu',   -- directory / menu / button
+        perms      TEXT,                  -- 权限标识，如 system:menu:add
+        updated_at TEXT
       );
 
       CREATE TABLE IF NOT EXISTS roles (
@@ -528,6 +531,29 @@ async function init() {
       );
     `);
 
+    /*
+     * 补列：ar td.pro 的菜单表有「菜单类型 / 权限标识 / 编辑时间」，
+     * 我们第一版没有。这里给老库 ALTER 补上（幂等），并回填类型：
+     *   有子级的 = directory（目录），没有子级的 = menu（菜单）。
+     */
+    try {
+      const cols = d.prepare('PRAGMA table_info(menu_items)').all().map((c) => c.name);
+      for (const [name, ddl] of [
+        ['menu_type', "ALTER TABLE menu_items ADD COLUMN menu_type TEXT DEFAULT 'menu'"],
+        ['perms', 'ALTER TABLE menu_items ADD COLUMN perms TEXT'],
+        ['updated_at', 'ALTER TABLE menu_items ADD COLUMN updated_at TEXT']
+      ]) {
+        if (!cols.includes(name)) d.exec(ddl);
+      }
+      d.exec(`
+        UPDATE menu_items SET menu_type = 'directory'
+         WHERE key IN (SELECT DISTINCT parent_key FROM menu_items WHERE IFNULL(parent_key,'') <> '');
+        UPDATE menu_items SET updated_at = datetime('now','localtime') WHERE IFNULL(updated_at,'') = '';
+      `);
+    } catch (e) {
+      console.warn('[db] 菜单表补列失败（不影响使用）:', e.message);
+    }
+
     // ---- 灌基础数据（INSERT OR IGNORE：用户改过就不覆盖）----
     const seedMenus = [
       ['DouyinDashboard', '总览', '/douyin/dashboard', 'ri:pie-chart-2-line', null, 10, 1, 0],
@@ -538,10 +564,10 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', null, 60, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', null, 70, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
-      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0],
-      ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0],
-      ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0],
-      ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0],
+      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
+      ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
+      ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
+      ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
       ['UserCenter', '个人中心', '/user-center', 'ri:user-line', null, 900, 1, 0]
     ];
     const insMenu = d.prepare(

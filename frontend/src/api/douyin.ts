@@ -1384,6 +1384,12 @@ export interface AdminMenuItem {
   sort?: number
   visible?: number
   hidden?: number
+  /** directory / menu / button */
+  menuType?: string | null
+  /** 权限标识，如 system:menu:list */
+  perms?: string | null
+  /** 编辑时间 */
+  updatedAt?: string | null
 }
 
 export interface AdminRole {

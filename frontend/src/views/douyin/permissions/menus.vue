@@ -1,181 +1,130 @@
 <!--
-  菜单管理
+  菜单管理 —— **移植自 Art Design Pro 原版** `src/views/system/menu/index.vue`
 
-  **骨架照抄本项目模板**（`views/system/user-manage/index.vue`），不自己发明版式：
-    .douyin-page > article.art-card.p-5
-      ├ 标题行：h3.text-lg + p.text-sm + [主按钮]
-      ├ 工具条：el-input 搜索 + [刷新] + 「共 N 个」
-      ├ div.dy-table-scroll > el-table（v-loading / empty-text）
-      └ el-dialog（表单项 label-position=top）
+  ## 为什么是这一版
+  前四版都是我自己排的版式，和 ar td.pro 的菜单管理页差得远。原因很简单：
+  原版页面在开发时被删掉了，我只能照着"被改过的" user-manage 猜。
+  这一版直接按原版的结构复刻：
 
-  说明：前两版自己排列表/两栏，用户反馈"没按模板重构"。模板已经有一套被全站接受的外壳，
-  这里直接复用它 —— 页面之间长得一样，才是后台该有的样子。
+    ArtSearchBar（菜单名称 / 路由地址 / 重置 / 查询）
+    ElCard.art-table-card
+      ├ ArtTableHeader（左侧：添加菜单 / 展开；右侧：刷新 / 列设置）
+      └ ArtTable（树形：菜单名称 / 菜单类型 / 路由 / 权限标识 / 编辑时间 / 状态 / 操作）
+      └ MenuDialog（新增 / 编辑）
+
+  用的是项目里**现成**的组件（ArtSearchBar / ArtTableHeader / ArtTable / ArtButtonTable /
+  useTableColumns 都还在），所以外观和 ar td.pro 一致，不需要我另造样式。
+
+  ## 数据映射（我们的表 → 原版的行结构）
+    menu_items.parent_key  → 树形 children
+    menu_items.menu_type   → 「菜单类型」目录/菜单/按钮
+    menu_items.perms       → 「权限标识」
+    menu_items.updated_at  → 「编辑时间」
+    menu_items.visible     → 「状态」启用/停用
 -->
 <template>
-  <div class="douyin-page dy-stagger p-4">
-    <article class="art-card p-5">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h3 class="m-0 text-lg font-semibold text-g-900">菜单管理</h3>
-          <p class="mt-1 text-sm leading-6 text-g-600">
-            这里是侧边栏的清单：<b class="text-g-800">排序号小的在上面</b>，
-            父级展开成二级菜单。<code class="pc-code">/douyin/detail/:id</code> 这类带参数的页面
-            不会出现在这里（它们只能从别的页面点进去）。
-          </p>
-        </div>
-        <el-button type="primary" @click="openCreate">
-          <ArtSvgIcon icon="ri:add-line" class="mr-1" />
-          新增菜单
-        </el-button>
-      </div>
+  <div class="menu-page art-full-height">
+    <ArtSearchBar
+      v-model="formFilters"
+      :items="formItems"
+      :showExpand="false"
+      @reset="handleReset"
+      @search="handleSearch"
+    />
 
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <el-input
-          v-model="keyword"
-          placeholder="按名称 / 标识 / 路径搜索"
-          clearable
-          class="!w-[260px]"
-        >
-          <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
-        </el-input>
-        <el-button :loading="loading" @click="reload">
-          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
-          刷新
-        </el-button>
-        <span class="text-xs text-g-500">
-          共 {{ items.length }} 个菜单 · 侧边栏 {{ sidebarCount }} 项 · 隐藏页 {{ hiddenCount }} 项
-        </span>
-      </div>
+    <ElCard class="art-table-card">
+      <ArtTableHeader
+        :showZebra="false"
+        :loading="loading"
+        v-model:columns="columnChecks"
+        @refresh="getMenuList"
+      >
+        <template #left>
+          <ElButton type="primary" @click="handleAddMenu">添加菜单</ElButton>
+          <ElButton @click="toggleExpand">{{ isExpanded ? '收起' : '展开' }}</ElButton>
+        </template>
+      </ArtTableHeader>
 
-      <div class="dy-table-scroll dy-table-scroll--wide">
-        <el-table :data="filtered" class="mt-4" v-loading="loading" empty-text="没有匹配的菜单">
-          <el-table-column label="排序" width="120" align="center">
-            <template #default="{ row, $index }">
-              <div class="flex items-center justify-center gap-1">
-                <el-button size="small" text :disabled="$index === 0 || busy" title="上移" @click="move($index, -1)">
-                  <ArtSvgIcon icon="ri:arrow-up-s-line" />
-                </el-button>
-                <span class="tabular-nums text-xs text-g-500">{{ row.sort }}</span>
-                <el-button
-                  size="small"
-                  text
-                  :disabled="$index === filtered.length - 1 || busy"
-                  title="下移"
-                  @click="move($index, 1)"
-                >
-                  <ArtSvgIcon icon="ri:arrow-down-s-line" />
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
+      <ArtTable
+        ref="tableRef"
+        rowKey="key"
+        :loading="loading"
+        :columns="columns"
+        :data="filteredTableData"
+        :stripe="false"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        :default-expand-all="false"
+      />
 
-          <el-table-column label="名称" min-width="180">
-            <template #default="{ row }">
-              <div class="flex items-center gap-1.5">
-                <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="shrink-0 text-g-500" />
-                <span class="text-sm" :class="row.parentKey ? 'text-g-700' : 'font-medium text-g-900'">
-                  {{ row.parentKey ? '└ ' : '' }}{{ row.title }}
-                </span>
-                <el-tag v-if="row.hidden" size="small" type="info" effect="plain">隐藏页</el-tag>
-                <el-tag v-else-if="!row.visible" size="small" type="warning" effect="plain">不显示</el-tag>
-              </div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="标识" min-width="190">
-            <template #default="{ row }">
-              <code class="pc-code">{{ row.key }}</code>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="路径" min-width="200">
-            <template #default="{ row }">
-              <span class="text-xs text-g-600">{{ row.path || '—' }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="上级" width="150">
-            <template #default="{ row }">
-              <span class="text-xs text-g-600">{{ row.parentKey || '—' }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="侧边栏显示" width="120" align="center">
-            <template #default="{ row }">
-              <el-switch
-                :model-value="!!row.visible"
-                :disabled="!!row.hidden || busy"
-                @change="(v: any) => toggleVisible(row, v)"
-              />
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作" width="160" align="right">
-            <template #default="{ row }">
-              <el-button size="small" plain @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" plain type="danger" @click="remove(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </article>
-
-    <!-- 新增 / 编辑 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="editingKey ? '编辑菜单' : '新增菜单'"
-      width="500px"
-      :close-on-click-modal="false"
-    >
-      <el-form :model="form" label-position="top">
-        <el-form-item label="标识（路由 name）">
-          <el-input v-model="form.key" :disabled="!!editingKey" placeholder="DouyinSearch" />
-          <div class="mt-1 text-xs text-g-400">
-            必须是代码里真实存在的路由 name；创建后不可改（否则和代码对不上）
+      <!-- 新增 / 编辑 -->
+      <el-dialog
+        v-model="dialogVisible"
+        :title="editingKey ? '编辑菜单' : '添加菜单'"
+        width="520px"
+        :close-on-click-modal="false"
+      >
+        <el-form :model="form" label-position="top">
+          <el-form-item label="标识（路由 name）">
+            <el-input v-model="form.key" :disabled="!!editingKey" placeholder="SystemMenus" />
+          </el-form-item>
+          <el-form-item label="菜单名称">
+            <el-input v-model="form.title" placeholder="菜单管理" />
+          </el-form-item>
+          <div class="grid grid-cols-2 gap-3">
+            <el-form-item label="菜单类型">
+              <el-select v-model="form.menuType" class="w-full">
+                <el-option label="目录" value="directory" />
+                <el-option label="菜单" value="menu" />
+                <el-option label="按钮" value="button" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="上级菜单">
+              <el-select v-model="form.parentKey" clearable placeholder="无（一级）" class="w-full">
+                <el-option
+                  v-for="m in topLevelOptions"
+                  :key="m.key"
+                  :label="m.title"
+                  :value="m.key"
+                  :disabled="m.key === editingKey"
+                />
+              </el-select>
+            </el-form-item>
           </div>
-        </el-form-item>
-        <el-form-item label="名称">
-          <el-input v-model="form.title" placeholder="侧边栏显示的名字" />
-        </el-form-item>
-        <el-form-item label="路径">
-          <el-input v-model="form.path" placeholder="/douyin/xxx" />
-        </el-form-item>
-        <el-form-item label="上级菜单">
-          <el-select v-model="form.parentKey" clearable placeholder="无（一级菜单）" class="w-full">
-            <el-option
-              v-for="m in items.filter((x) => !x.parentKey)"
-              :key="m.key"
-              :label="m.title"
-              :value="m.key"
-              :disabled="m.key === editingKey"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="排序号">
-          <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-[140px]" />
-          <span class="ml-2 text-xs text-g-400">越小越靠上</span>
-        </el-form-item>
-        <el-form-item label="侧边栏显示">
-          <el-switch v-model="form.visible" />
-          <span class="ml-2 text-xs text-g-400">关掉后仍在库里，但侧边栏不显示</span>
-        </el-form-item>
-        <el-form-item label="隐藏页">
-          <el-switch v-model="form.hidden" />
-          <span class="ml-2 text-xs text-g-400">详情页/画像页这类，本来就不进侧边栏</span>
-        </el-form-item>
-      </el-form>
+          <el-form-item label="路由地址">
+            <el-input v-model="form.path" placeholder="/douyin/system/menus" />
+          </el-form-item>
+          <div class="grid grid-cols-2 gap-3">
+            <el-form-item label="权限标识">
+              <el-input v-model="form.perms" placeholder="system:menu:list" />
+            </el-form-item>
+            <el-form-item label="排序">
+              <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-full" />
+            </el-form-item>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <el-form-item label="状态">
+              <el-switch v-model="form.visible" active-text="启用" inactive-text="停用" />
+            </el-form-item>
+            <el-form-item label="隐藏页">
+              <el-switch v-model="form.hidden" />
+            </el-form-item>
+          </div>
+        </el-form>
 
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
-      </template>
-    </el-dialog>
+        <template #footer>
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="saving" @click="submit">确定</el-button>
+        </template>
+      </el-dialog>
+    </ElCard>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, reactive, ref } from 'vue'
-  import { ElMessage, ElMessageBox } from 'element-plus'
+  import { computed, h, nextTick, onMounted, reactive, ref } from 'vue'
+  import { ElButton, ElMessage, ElMessageBox, ElTag } from 'element-plus'
+  import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
+  import { useTableColumns } from '@/hooks/core/useTableColumns'
   import {
     adminMenus,
     adminMenuCreate,
@@ -187,30 +136,159 @@
 
   defineOptions({ name: 'SystemMenus' })
 
-  const loading = ref(false)
-  const busy = ref(false)
-  const items = ref<AdminMenuItem[]>([])
-  const keyword = ref('')
+  interface Row extends AdminMenuItem {
+    children?: Row[]
+    hasChildren?: boolean
+  }
 
-  const filtered = computed(() => {
-    const k = keyword.value.trim().toLowerCase()
-    const list = items.value.slice().sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
-    if (!k) return list
-    return list.filter(
-      (m) =>
-        (m.title || '').toLowerCase().includes(k) ||
-        (m.key || '').toLowerCase().includes(k) ||
-        (m.path || '').toLowerCase().includes(k)
-    )
+  const loading = ref(false)
+  const saving = ref(false)
+  const isExpanded = ref(false)
+  const tableRef = ref()
+  const items = ref<AdminMenuItem[]>([])
+
+  // ---------- 搜索 ----------
+  const initialSearchState = { name: '', route: '' }
+  const formFilters = reactive({ ...initialSearchState })
+  const appliedFilters = reactive({ ...initialSearchState })
+
+  const formItems = computed(() => [
+    { label: '菜单名称', key: 'name', type: 'input', props: { clearable: true } },
+    { label: '路由地址', key: 'route', type: 'input', props: { clearable: true } }
+  ])
+
+  function handleReset() {
+    Object.assign(formFilters, { ...initialSearchState })
+    Object.assign(appliedFilters, { ...initialSearchState })
+    getMenuList()
+  }
+
+  function handleSearch() {
+    Object.assign(appliedFilters, { ...formFilters })
+    getMenuList()
+  }
+
+  // ---------- 数据 ----------
+  async function getMenuList() {
+    loading.value = true
+    try {
+      const r: any = await adminMenus()
+      items.value = r?.items || []
+    } catch (e: any) {
+      ElMessage.error(e?.message || '获取菜单失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** 菜单类型文本 / 标签色（照原版的三类：目录 / 菜单 / 按钮） */
+  function typeText(row: Row): string {
+    if (row.menuType === 'button') return '按钮'
+    if (row.children?.length) return '目录'
+    if (row.menuType === 'directory') return '目录'
+    return '菜单'
+  }
+  function typeTag(row: Row): 'primary' | 'success' | 'warning' | 'info' | 'danger' {
+    if (row.menuType === 'button') return 'danger'
+    if (row.children?.length) return 'info'
+    return 'primary'
+  }
+
+  /** 把平铺的 menu_items 组装成树，再按搜索条件过滤 */
+  const treeData = computed<Row[]>(() => {
+    const byParent = new Map<string, AdminMenuItem[]>()
+    for (const m of items.value) {
+      const p = m.parentKey || ''
+      if (!byParent.has(p)) byParent.set(p, [])
+      byParent.get(p)!.push(m)
+    }
+    const build = (parent: string): Row[] =>
+      (byParent.get(parent) || [])
+        .slice()
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+        .map((m) => {
+          const children = build(m.key)
+          return { ...m, children, hasChildren: children.length > 0 }
+        })
+    return build('')
   })
 
-  const sidebarCount = computed(() => items.value.filter((m) => !!m.visible && !m.hidden).length)
-  const hiddenCount = computed(() => items.value.filter((m) => !!m.hidden).length)
+  function searchMenu(rows: Row[]): Row[] {
+    const name = (appliedFilters.name || '').toLowerCase().trim()
+    const route = (appliedFilters.route || '').toLowerCase().trim()
+    const out: Row[] = []
+    for (const row of rows) {
+      const children = row.children?.length ? searchMenu(row.children) : []
+      const nameMatch = !name || (row.title || '').toLowerCase().includes(name)
+      const routeMatch = !route || (row.path || '').toLowerCase().includes(route)
+      if (children.length) {
+        out.push({ ...row, children, hasChildren: true })
+      } else if (nameMatch && routeMatch) {
+        out.push({ ...row, children: [] })
+      }
+    }
+    return out
+  }
 
+  const filteredTableData = computed(() => searchMenu(treeData.value))
+
+  // ---------- 列（照原版）----------
+  const { columnChecks, columns } = useTableColumns(() => [
+    {
+      prop: 'title',
+      label: '菜单名称',
+      minWidth: 180,
+      formatter: (row: Row) =>
+        h('span', { class: row.parentKey ? 'text-g-700' : 'font-medium text-g-900' }, row.title)
+    },
+    {
+      prop: 'menuType',
+      label: '菜单类型',
+      width: 110,
+      formatter: (row: Row) => h(ElTag, { type: typeTag(row) }, () => typeText(row))
+    },
+    {
+      prop: 'path',
+      label: '路由',
+      minWidth: 200,
+      formatter: (row: Row) => row.path || ''
+    },
+    {
+      prop: 'perms',
+      label: '权限标识',
+      minWidth: 170,
+      formatter: (row: Row) => row.perms || ''
+    },
+    {
+      prop: 'updatedAt',
+      label: '编辑时间',
+      width: 170,
+      formatter: (row: Row) => row.updatedAt || '—'
+    },
+    {
+      prop: 'visible',
+      label: '状态',
+      width: 100,
+      formatter: (row: Row) =>
+        h(ElTag, { type: row.visible ? 'success' : 'info' }, () => (row.visible ? '启用' : '停用'))
+    },
+    {
+      prop: 'operation',
+      label: '操作',
+      width: 160,
+      align: 'right',
+      formatter: (row: Row) =>
+        h('div', { style: 'text-align:right' }, [
+          h(ArtButtonTable, { type: 'add', title: '新增子菜单', onClick: () => handleAddChild(row) }),
+          h(ArtButtonTable, { type: 'edit', onClick: () => handleEditMenu(row) }),
+          h(ArtButtonTable, { type: 'delete', onClick: () => handleDeleteMenu(row) })
+        ])
+    }
+  ])
+
+  // ---------- 弹窗 ----------
   const dialogVisible = ref(false)
   const editingKey = ref('')
-  const saving = ref(false)
-
   const form = reactive({
     key: '',
     title: '',
@@ -218,28 +296,42 @@
     parentKey: '' as string | undefined,
     sort: 100,
     visible: true,
-    hidden: false
+    hidden: false,
+    menuType: 'menu' as 'directory' | 'menu' | 'button',
+    perms: ''
   })
 
-  async function reload() {
-    loading.value = true
-    try {
-      const r: any = await adminMenus()
-      items.value = r?.items || []
-    } catch (e: any) {
-      ElMessage.error(e?.message || '读取失败')
-    } finally {
-      loading.value = false
-    }
+  const topLevelOptions = computed(() => items.value.filter((m) => !m.parentKey))
+
+  function resetForm() {
+    Object.assign(form, {
+      key: '',
+      title: '',
+      path: '',
+      parentKey: undefined,
+      sort: 100,
+      visible: true,
+      hidden: false,
+      menuType: 'menu',
+      perms: ''
+    })
   }
 
-  function openCreate() {
+  function handleAddMenu() {
     editingKey.value = ''
-    Object.assign(form, { key: '', title: '', path: '', parentKey: undefined, sort: 100, visible: true, hidden: false })
+    resetForm()
     dialogVisible.value = true
   }
 
-  function openEdit(row: any) {
+  function handleAddChild(row: Row) {
+    editingKey.value = ''
+    resetForm()
+    form.parentKey = row.key
+    form.sort = (row.sort ?? 0) + 1
+    dialogVisible.value = true
+  }
+
+  function handleEditMenu(row: Row) {
     editingKey.value = row.key
     Object.assign(form, {
       key: row.key,
@@ -248,14 +340,16 @@
       parentKey: row.parentKey || undefined,
       sort: row.sort ?? 100,
       visible: !!row.visible,
-      hidden: !!row.hidden
+      hidden: !!row.hidden,
+      menuType: (row.menuType as any) || 'menu',
+      perms: row.perms || ''
     })
     dialogVisible.value = true
   }
 
   async function submit() {
-    if (!form.key.trim()) return ElMessage.warning('标识不能为空')
-    if (!form.title.trim()) return ElMessage.warning('名称不能为空')
+    if (!form.title.trim()) return ElMessage.warning('菜单名称不能为空')
+    if (!editingKey.value && !form.key.trim()) return ElMessage.warning('标识不能为空')
     saving.value = true
     try {
       const payload = {
@@ -264,17 +358,18 @@
         parentKey: form.parentKey || '',
         sort: form.sort,
         visible: form.visible ? 1 : 0,
-        hidden: form.hidden ? 1 : 0
+        hidden: form.hidden ? 1 : 0,
+        menuType: form.menuType,
+        perms: form.perms.trim()
       }
       if (editingKey.value) {
-        await adminMenuUpdate(editingKey.value, payload)
-        ElMessage.success('已保存')
+        await adminMenuUpdate(editingKey.value, payload as any)
       } else {
-        await adminMenuCreate({ key: form.key.trim(), ...payload })
-        ElMessage.success('已新增')
+        await adminMenuCreate({ key: form.key.trim(), ...payload } as any)
       }
+      ElMessage.success('已保存')
       dialogVisible.value = false
-      await reload()
+      await getMenuList()
     } catch (e: any) {
       ElMessage.error(e?.message || '保存失败')
     } finally {
@@ -282,54 +377,45 @@
     }
   }
 
-  async function toggleVisible(row: any, v: any) {
-    busy.value = true
-    try {
-      await adminMenuUpdate(row.key, { visible: !!v ? 1 : 0 })
-      await reload()
-    } catch (e: any) {
-      ElMessage.error(e?.message || '切换失败')
-    } finally {
-      busy.value = false
-    }
-  }
-
-  async function move(index: number, delta: number) {
-    const list = filtered.value.slice()
-    const to = index + delta
-    if (to < 0 || to >= list.length) return
-    const [moved] = list.splice(index, 1)
-    list.splice(to, 0, moved)
-    busy.value = true
-    try {
-      await adminMenuReorder(list.map((m) => m.key))
-      await reload()
-    } catch (e: any) {
-      ElMessage.error(e?.message || '排序保存失败')
-      await reload()
-    } finally {
-      busy.value = false
-    }
-  }
-
-  async function remove(row: any) {
+  async function handleDeleteMenu(row: Row) {
     try {
       await ElMessageBox.confirm(
-        '删除菜单「' + row.title + '」？只删表里的记录，代码里的路由仍可直接访问。',
-        '确认删除',
-        { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+        '确定要删除菜单「' + row.title + '」吗？删除后侧边栏不再显示，但代码里的路由仍可直接访问。',
+        '提示',
+        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
       )
     } catch {
       return
     }
     try {
       await adminMenuDelete(row.key)
-      ElMessage.success('已删除')
-      await reload()
+      ElMessage.success('删除成功')
+      await getMenuList()
     } catch (e: any) {
       ElMessage.error(e?.message || '删除失败')
     }
   }
 
-  onMounted(reload)
+  /** 展开 / 收起全部：照原版用 el-table 的 toggleRowExpansion */
+  function toggleExpand() {
+    isExpanded.value = !isExpanded.value
+    nextTick(() => {
+      const el = tableRef.value?.elTableRef
+      if (!el || !filteredTableData.value) return
+      const walk = (rows: Row[]) => {
+        rows.forEach((row) => {
+          if (row.children?.length) {
+            el.toggleRowExpansion(row, isExpanded.value)
+            walk(row.children)
+          }
+        })
+      }
+      walk(filteredTableData.value)
+    })
+  }
+
+  /** 拖拽式重排没有做：用「排序号」字段，编辑里改数字即可（原版这里也是排序号） */
+  void adminMenuReorder
+
+  onMounted(getMenuList)
 </script>
