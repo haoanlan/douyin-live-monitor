@@ -339,7 +339,7 @@
       "status": "Status",
       "detail": "Session Detail",
       "profile": "User Profile",
-      "giftPrices": "Gift Prices", "permissions": "Menus & Permissions"
+      "giftPrices": "Gift Prices", "permissions": "Menus & Permissions", "menuManage": "Menus", "roleManage": "Roles"
     },
     "plan": {
       "title": "Version Plan",

@@ -1413,3 +1413,38 @@ export function adminRoleMenus(roleKey: string) {
     actions: string[]
   }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/menus", showErrorMessage: false })
 }
+
+/** 新增菜单 */
+export function adminMenuCreate(body: Partial<AdminMenuItem> & { key: string; title: string }) {
+  return request.post<{ ok: boolean; key: string }>({ url: "/api/admin/menus", data: body, showErrorMessage: false })
+}
+
+/** 修改菜单（只传要改的字段） */
+export function adminMenuUpdate(key: string, body: Partial<AdminMenuItem>) {
+  return request.put<{ ok: boolean }>({ url: "/api/admin/menus/" + encodeURIComponent(key), data: body, showErrorMessage: false })
+}
+
+/** 删除菜单（只删表记录，不删代码路由） */
+export function adminMenuDelete(key: string) {
+  return request.del<{ ok: boolean }>({ url: "/api/admin/menus/" + encodeURIComponent(key), showErrorMessage: false })
+}
+
+/** 批量重排序（按数组顺序写 sort = (i+1)*10） */
+export function adminMenuReorder(keys: string[]) {
+  return request.post<{ ok: boolean; count: number }>({ url: "/api/admin/menus/reorder", data: { keys }, showErrorMessage: false })
+}
+
+/** 整份替换某角色的菜单权限（超管会被后端拒绝） */
+export function adminRoleMenusSave(roleKey: string, keys: string[]) {
+  return request.put<{ ok: boolean; count: number }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/menus", data: { keys }, showErrorMessage: false })
+}
+
+/** 整份替换某角色的操作权限 */
+export function adminRoleActionsSave(roleKey: string, keys: string[]) {
+  return request.put<{ ok: boolean; count: number }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/actions", data: { keys }, showErrorMessage: false })
+}
+
+/** 新建角色 */
+export function adminRoleCreate(body: { key: string; name: string; note?: string }) {
+  return request.post<{ ok: boolean; key: string }>({ url: "/api/admin/roles", data: body, showErrorMessage: false })
+}

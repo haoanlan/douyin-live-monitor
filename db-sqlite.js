@@ -538,7 +538,8 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', null, 60, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', null, 70, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
-      ['DouyinPermissions', '菜单与权限', '/douyin/permissions', 'ri:shield-keyhole-line', null, 85, 1, 0],
+      ['DouyinPermissionsMenus', '菜单管理', '/douyin/permissions/menus', 'ri:menu-line', null, 85, 1, 0],
+      ['DouyinPermissionsRoles', '角色管理', '/douyin/permissions/roles', 'ri:shield-user-line', null, 86, 1, 0],
       ['DouyinDetail', '场次明细页', '/douyin/detail/:sessionId', null, 'DouyinSessions', 31, 1, 1],
       ['DouyinProfile', '用户画像页', '/douyin/profile/:secUid', null, 'DouyinSearch', 71, 1, 1],
       ['UserCenter', '个人中心', '/user-center', null, null, 900, 1, 1]
