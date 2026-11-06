@@ -540,9 +540,7 @@ async function init() {
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
       ['DouyinPermissionsMenus', '菜单管理', '/douyin/permissions/menus', 'ri:menu-line', null, 85, 1, 0],
       ['DouyinPermissionsRoles', '角色管理', '/douyin/permissions/roles', 'ri:shield-user-line', null, 86, 1, 0],
-      ['DouyinDetail', '场次明细页', '/douyin/detail/:sessionId', null, 'DouyinSessions', 31, 1, 1],
-      ['DouyinProfile', '用户画像页', '/douyin/profile/:secUid', null, 'DouyinSearch', 71, 1, 1],
-      ['UserCenter', '个人中心', '/user-center', null, null, 900, 1, 1]
+      ['UserCenter', '个人中心', '/user-center', 'ri:user-line', null, 900, 1, 0]
     ];
     const insMenu = d.prepare(
       'INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden) VALUES (?,?,?,?,?,?,?,?)'
@@ -574,6 +572,19 @@ async function init() {
       'account.manage'       // 账号管理
     ];
     for (const a of actions) insRA.run('R_SUPER', a);
+
+    /*
+     * 清理：场次明细页 / 用户画像页 是**带参数的路由**（/douyin/detail/:id、/douyin/profile/:uid），
+     * 只能从别的页面点进去，不可能作为菜单项存在。早期种子把它们当"隐藏页"灌进了表，
+     * 这里删掉；个人中心是正常菜单（改 hidden=0）。
+     */
+    try {
+      d.prepare("DELETE FROM menu_items WHERE key IN ('DouyinDetail','DouyinProfile','DouyinPermissions')").run();
+      d.prepare("DELETE FROM role_menus WHERE menu_key IN ('DouyinDetail','DouyinProfile','DouyinPermissions')").run();
+      d.prepare("UPDATE menu_items SET hidden = 0, visible = 1, icon = COALESCE(icon,'ri:user-line') WHERE key = 'UserCenter'").run();
+    } catch (e) {
+      console.warn('[db] 清理参数页菜单失败（不影响使用）:', e.message);
+    }
 
     const n = d.prepare('SELECT COUNT(*) c FROM menu_items').get().c;
     const r2 = d.prepare('SELECT COUNT(*) c FROM roles').get().c;
