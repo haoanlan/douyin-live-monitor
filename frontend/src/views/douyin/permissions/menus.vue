@@ -1,175 +1,225 @@
 <!--
   菜单管理（阶段三：可编辑，但**还不影响登录鉴权**）
 
-  编辑只写 menu_items 表；auth-guard.js 仍然硬编码 `role === 'R_SUPER'`，
-  所以这里改了什么，谁能访问哪个页面**不会变**。真生效在阶段四。
+  ## 为什么不用 el-table
+  第一版直接用了 el-table，用户反馈"丑"。原因不是表格本身，是**默认表格的视觉是组装感**：
+  表头灰底 + 逐行分割线 + 六列等宽 —— 它把"菜单"这个有图标、有层级、有可见性状态的东西，
+  压成了一堆等价的文本框。craft-floor 也明确把"同尺寸卡片/默认表格当页面结构"列为要拒绝的默认。
 
-  设计取舍（照 impeccable 的 craft-floor）：
-  · 不做树形 —— 只有 12 个菜单，树是过度设计；「上级」用一列小字表达
-  · 不用卡片墙 —— 一列数据，表格最省眼
-  · 标识用等宽字体（它是路由 name，是"代码"）
-  · 隐藏页整行降透明度 + 一个 tag，不靠颜色单独区分
-  · 加载给骨架行，失败在表格区域内联重试（不弹窗）
-  · 排序用「上移/下移」而不是拖拽：手机上没有拖拽习惯，也少一个依赖
+  ## 这一版的结构
+  不用表格，用**列表行**：
+    [图标]  名称 ······  标识（等宽）          状态      排序    ⋯
+            路径（小字）
+  · 图标是真实的路由图标（菜单本来就有 icon 字段）→ 它是身份，不是装饰
+  · 名称 14px 中黑，标识/路径 11-12px 等宽浅灰 → 一眼分出主次
+  · 状态用「点 + 文字」而不是 switch → 12 行里 12 个开关全是噪音
+  · 排序只在悬停/聚焦时露出上移下移 → 静态时不占注意力
+  · 隐藏页整组下沉并降透明度，带「隐藏页」小字 → 靠结构区分，不靠颜色硬染
 -->
 <template>
   <div class="douyin-page dy-stagger p-4">
-    <!-- 一行的阶段说明，不抢注意力 -->
-    <div class="mb-3 text-xs text-g-500">
-      可编辑，但<b class="text-g-700">尚未接管登录鉴权</b> —— 改动不影响任何人现在能看到什么（生效在阶段四）。
-    </div>
-
-    <div class="art-card p-5">
-      <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="art-card overflow-hidden">
+      <!-- 头：标题 + 一句阶段说明 + 动作 -->
+      <div class="flex flex-wrap items-end justify-between gap-3 px-6 pb-4 pt-5">
         <div class="min-w-0">
-          <h3 class="m-0 text-lg font-semibold text-g-900">菜单管理</h3>
-          <p class="mb-0 mt-1 text-sm text-g-600">
-            {{ items.length }} 个菜单 ·
-            <span class="text-g-500">{{ visibleCount }} 个在侧边栏显示</span> ·
-            <span class="text-g-500">{{ hiddenCount }} 个隐藏页</span>
+          <h3 class="m-0 text-[17px] font-semibold tracking-[-0.01em] text-g-900">菜单管理</h3>
+          <p class="mb-0 mt-1 text-[13px] leading-5 text-g-600">
+            <span class="tabular-nums text-g-800">{{ items.length }}</span> 个菜单 ·
+            <span class="tabular-nums text-g-800">{{ visibleCount }}</span> 个显示 ·
+            <span class="tabular-nums text-g-800">{{ hiddenCount }}</span> 个隐藏页
+            <span class="mx-1.5 text-g-300">|</span>
+            改这里不影响谁能访问 —— 鉴权仍是硬编码超管（生效在阶段四）
           </p>
         </div>
         <div class="flex shrink-0 items-center gap-2">
-          <el-button :loading="loading" @click="reload">
-            <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
-          </el-button>
-          <el-button type="primary" @click="openCreate">
-            <ArtSvgIcon icon="ri:add-line" class="mr-1" />新增菜单
-          </el-button>
+          <el-button size="small" :loading="loading" @click="reload">刷新</el-button>
+          <el-button size="small" type="primary" @click="openCreate">新增菜单</el-button>
         </div>
+      </div>
+
+      <!-- 列头（比表头轻：只要一条极淡的底 + 10px 字） -->
+      <div
+        class="grid items-center gap-3 bg-g-50/70 px-6 py-2 text-[10px] font-medium uppercase tracking-[0.08em] text-g-400"
+        style="grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 1fr) 96px 68px 44px"
+      >
+        <span />
+        <span>菜单</span>
+        <span>标识 / 路径</span>
+        <span class="text-center">状态</span>
+        <span class="text-center">顺序</span>
+        <span />
       </div>
 
       <!-- 加载骨架 -->
-      <div v-if="loading && !items.length" class="mt-4 flex flex-col gap-2">
-        <div v-for="i in 6" :key="i" class="flex items-center gap-3 rounded-lg bg-g-50 px-3 py-2.5">
-          <el-skeleton-item variant="text" style="width: 28px" />
-          <el-skeleton-item variant="text" style="flex: 1; max-width: 160px" />
-          <el-skeleton-item variant="text" style="flex: 1; max-width: 220px" />
-          <el-skeleton-item variant="text" style="width: 60px" />
+      <div v-if="loading && !items.length" class="divide-y divide-g-100">
+        <div v-for="i in 6" :key="i" class="flex items-center gap-3 px-6 py-3.5">
+          <el-skeleton-item variant="text" style="width: 22px; height: 22px" />
+          <el-skeleton-item variant="text" style="flex: 1; max-width: 180px" />
+          <el-skeleton-item variant="text" style="width: 120px" />
         </div>
       </div>
 
-      <!-- 失败：区域内联重试 -->
-      <div v-else-if="loadError" class="mt-6 py-10 text-center">
+      <!-- 失败 -->
+      <div v-else-if="loadError" class="px-6 py-14 text-center">
         <p class="mb-3 text-sm text-danger">{{ loadError }}</p>
-        <el-button @click="reload">重试</el-button>
+        <el-button size="small" @click="reload">重试</el-button>
       </div>
 
       <!-- 空 -->
-      <el-empty v-else-if="!items.length" description="还没有菜单记录" :image-size="70" class="mt-4" />
+      <div v-else-if="!items.length" class="px-6 py-14 text-center text-sm text-g-400">还没有菜单记录</div>
 
-      <!-- 表格 -->
-      <div v-else class="mt-4 overflow-x-auto">
-        <el-table :data="items" size="small" class="w-full" row-key="key">
-          <el-table-column label="排序" width="96">
-            <template #default="{ row, $index }">
-              <div class="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  class="flex h-6 w-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-700 disabled:opacity-30"
-                  :disabled="$index === 0 || reordering"
-                  title="上移"
-                  @click="move($index, -1)"
-                >
-                  <ArtSvgIcon icon="ri:arrow-up-s-line" />
-                </button>
-                <button
-                  type="button"
-                  class="flex h-6 w-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-700 disabled:opacity-30"
-                  :disabled="$index === items.length - 1 || reordering"
-                  title="下移"
-                  @click="move($index, 1)"
-                >
-                  <ArtSvgIcon icon="ri:arrow-down-s-line" />
-                </button>
-                <span class="ml-1 tabular-nums text-xs text-g-400">{{ row.sort }}</span>
-              </div>
-            </template>
-          </el-table-column>
+      <!-- 列表 -->
+      <div v-else>
+        <div
+          v-for="(row, i) in items"
+          :key="row.key"
+          class="group grid items-center gap-3 border-t border-g-100 px-6 py-3 transition-colors hover:bg-g-50/60"
+          style="grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 1fr) 96px 68px 44px"
+          :class="row.hidden ? 'opacity-70' : ''"
+        >
+          <!-- 图标：真实的路由图标 -->
+          <span class="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-g-100 text-g-600">
+            <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[13px]" />
+          </span>
 
-          <el-table-column label="名称" min-width="150">
-            <template #default="{ row }">
-              <span class="text-sm" :class="row.hidden ? 'text-g-500' : 'text-g-800'">{{ row.title }}</span>
-              <el-tag v-if="row.hidden" size="small" type="info" effect="plain" class="ml-1.5">隐藏页</el-tag>
-            </template>
-          </el-table-column>
+          <!-- 名称 + 路径 -->
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span
+                class="truncate text-[14px] leading-5"
+                :class="row.hidden ? 'text-g-600' : 'font-medium text-g-900'"
+              >{{ row.title }}</span>
+              <span
+                v-if="row.hidden"
+                class="shrink-0 rounded bg-g-100 px-1.5 py-px text-[10px] leading-4 text-g-500"
+              >隐藏页</span>
+            </div>
+            <div class="mt-0.5 truncate text-[11px] leading-4 text-g-400">
+              {{ row.parentKey ? '属于 ' + row.parentKey : '一级菜单' }}
+            </div>
+          </div>
 
-          <el-table-column label="标识（路由 name）" min-width="180">
-            <template #default="{ row }">
-              <code class="rounded bg-g-50 px-1.5 py-0.5 text-xs text-g-600">{{ row.key }}</code>
-            </template>
-          </el-table-column>
+          <!-- 标识 / 路径 -->
+          <div class="min-w-0">
+            <div class="truncate font-mono text-[11px] leading-4 text-g-600">{{ row.key }}</div>
+            <div class="truncate font-mono text-[11px] leading-4 text-g-400">{{ row.path || '—' }}</div>
+          </div>
 
-          <el-table-column label="路径" min-width="190">
-            <template #default="{ row }">
-              <span class="text-xs text-g-500">{{ row.path || '—' }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="上级" width="130">
-            <template #default="{ row }">
-              <span class="text-xs text-g-500">{{ row.parentKey || '—' }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="侧边栏显示" width="110" align="center">
-            <template #default="{ row }">
-              <el-switch
-                :model-value="!!row.visible"
-                :loading="switching === row.key"
-                :disabled="!!row.hidden"
-                @change="(v: any) => toggleVisible(row, v)"
+          <!-- 状态：点 + 文字（不是 switch，12 个开关太吵） -->
+          <div class="flex justify-center">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] leading-4 transition-colors disabled:opacity-50"
+              :class="row.hidden
+                ? 'text-g-400'
+                : row.visible
+                  ? 'text-success hover:bg-success/10'
+                  : 'text-g-500 hover:bg-g-100'"
+              :disabled="!!row.hidden || switching === row.key"
+              :title="row.hidden ? '隐藏页不进侧边栏' : (row.visible ? '点击隐藏' : '点击显示')"
+              @click="toggleVisible(row, !row.visible)"
+            >
+              <span
+                class="size-1.5 rounded-full"
+                :class="row.hidden ? 'bg-g-300' : row.visible ? 'bg-success' : 'bg-g-300'"
               />
-            </template>
-          </el-table-column>
+              {{ row.hidden ? '隐藏' : row.visible ? '显示' : '已隐藏' }}
+            </button>
+          </div>
 
-          <el-table-column label="操作" width="130" align="right">
-            <template #default="{ row }">
-              <el-button size="small" text type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" text type="danger" @click="remove(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          <!-- 顺序：静态只显示数字，悬停露出箭头 -->
+          <div class="flex items-center justify-center gap-0.5">
+            <span class="tabular-nums text-[11px] text-g-400 group-hover:hidden">{{ row.sort }}</span>
+            <div class="hidden items-center gap-0.5 group-hover:flex group-focus-within:flex">
+              <button
+                type="button"
+                class="flex size-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
+                :disabled="i === 0 || reordering"
+                title="上移"
+                @click="move(i, -1)"
+              >
+                <ArtSvgIcon icon="ri:arrow-up-s-line" class="text-[13px]" />
+              </button>
+              <button
+                type="button"
+                class="flex size-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
+                :disabled="i === items.length - 1 || reordering"
+                title="下移"
+                @click="move(i, 1)"
+              >
+                <ArtSvgIcon icon="ri:arrow-down-s-line" class="text-[13px]" />
+              </button>
+            </div>
+          </div>
+
+          <!-- 操作：悬停才出现，避免 12 行 × 2 个按钮的噪音 -->
+          <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              class="flex size-6 items-center justify-center rounded text-g-500 hover:bg-g-100 hover:text-g-900"
+              title="编辑"
+              @click="openEdit(row)"
+            >
+              <ArtSvgIcon icon="ri:edit-line" class="text-[13px]" />
+            </button>
+            <button
+              type="button"
+              class="flex size-6 items-center justify-center rounded text-g-500 hover:bg-danger/10 hover:text-danger"
+              title="删除"
+              @click="remove(row)"
+            >
+              <ArtSvgIcon icon="ri:delete-bin-line" class="text-[13px]" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 新增/编辑：字段少，弹窗比行内编辑稳 -->
+    <!-- 新增/编辑 -->
     <el-dialog
       v-model="dialogVisible"
       :title="editingKey ? '编辑菜单' : '新增菜单'"
-      width="520px"
+      width="500px"
       :close-on-click-modal="false"
+      class="perm-dialog"
     >
-      <el-form :model="form" label-width="96px" label-position="right">
+      <el-form :model="form" label-width="88px" label-position="right" class="pt-1">
         <el-form-item label="标识" required>
-          <el-input v-model="form.key" :disabled="!!editingKey" placeholder="路由 name，如 DouyinSearch" />
-          <div class="mt-1 text-xs text-g-400">必须是代码里真实存在的路由 name，否则只会在表里多一条无用的记录</div>
+          <el-input v-model="form.key" :disabled="!!editingKey" placeholder="DouyinSearch" class="font-mono" />
+          <div class="mt-1 text-[11px] leading-4 text-g-400">路由 name，必须是代码里真实存在的；创建后不可改</div>
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="form.title" placeholder="侧边栏显示的名字" />
         </el-form-item>
         <el-form-item label="路径">
-          <el-input v-model="form.path" placeholder="/douyin/xxx" />
+          <el-input v-model="form.path" placeholder="/douyin/xxx" class="font-mono" />
         </el-form-item>
-        <el-form-item label="上级菜单">
+        <el-form-item label="上级">
           <el-select v-model="form.parentKey" clearable placeholder="无（一级菜单）" class="w-full">
-            <el-option v-for="m in items" :key="m.key" :label="m.title + '  ' + m.key" :value="m.key" :disabled="m.key === editingKey" />
+            <el-option
+              v-for="m in items"
+              :key="m.key"
+              :label="m.title"
+              :value="m.key"
+              :disabled="m.key === editingKey"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-[140px]" />
+        <el-form-item label="顺序">
+          <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-[120px]" />
+          <span class="ml-2 text-[11px] text-g-400">越小越靠上</span>
         </el-form-item>
-        <el-form-item label="侧边栏显示">
-          <el-switch v-model="form.visible" />
+        <el-form-item label="侧边栏">
+          <el-switch v-model="form.visible" active-text="显示" inactive-text="隐藏" />
         </el-form-item>
         <el-form-item label="隐藏页">
           <el-switch v-model="form.hidden" />
-          <span class="ml-2 text-xs text-g-400">隐藏页不进侧边栏（如详情页、画像页）</span>
+          <span class="ml-2 text-[11px] text-g-400">详情页/画像页这类不进侧边栏的页面</span>
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <div class="flex items-center justify-end gap-3">
+        <div class="flex items-center justify-end gap-2.5">
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
         </div>
@@ -280,8 +330,8 @@
   async function toggleVisible(row: any, v: any) {
     switching.value = row.key
     try {
-      await adminMenuUpdate(row.key, { visible: v ? 1 : 0 })
-      row.visible = v ? 1 : 0
+      await adminMenuUpdate(row.key, { visible: !!v ? 1 : 0 })
+      row.visible = !!v ? 1 : 0
     } catch (e: any) {
       ElMessage.error(e?.message || '切换失败')
     } finally {
@@ -299,7 +349,6 @@
     reordering.value = true
     try {
       await adminMenuReorder(list.map((m) => m.key))
-      ElMessage.success('顺序已保存')
       await reload()
     } catch (e: any) {
       ElMessage.error(e?.message || '排序保存失败')
@@ -312,7 +361,7 @@
   async function remove(row: any) {
     try {
       await ElMessageBox.confirm(
-        `删除菜单「${row.title}」？只会删表里的记录，代码里的路由仍然可以直接访问。`,
+        '删除菜单「' + row.title + '」？只删表里的记录，代码里的路由仍可直接访问。',
         '确认删除',
         { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
       )
