@@ -56,64 +56,118 @@
         :default-expand-all="false"
       />
 
-      <!-- 新增 / 编辑 -->
+      <!-- 新增 / 编辑（结构照原版 menu-dialog.vue：类型 radio → 菜单/按钮两套字段） -->
       <el-dialog
         v-model="dialogVisible"
-        :title="editingKey ? '编辑菜单' : '添加菜单'"
-        width="520px"
+        :title="dialogTitle"
+        width="820px"
+        align-center
         :close-on-click-modal="false"
+        @closed="handleDialogClosed"
       >
-        <el-form :model="form" label-position="top">
-          <el-form-item label="标识（路由 name）">
-            <el-input v-model="form.key" :disabled="!!editingKey" placeholder="SystemMenus" />
-          </el-form-item>
-          <el-form-item label="菜单名称">
-            <el-input v-model="form.title" placeholder="菜单管理" />
-          </el-form-item>
-          <div class="grid grid-cols-2 gap-3">
-            <el-form-item label="菜单类型">
-              <el-select v-model="form.menuType" class="w-full">
-                <el-option label="目录" value="directory" />
-                <el-option label="菜单" value="menu" />
-                <el-option label="按钮" value="button" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="上级菜单">
-              <el-select v-model="form.parentKey" clearable placeholder="无（一级）" class="w-full">
-                <el-option
-                  v-for="m in topLevelOptions"
-                  :key="m.key"
-                  :label="m.title"
-                  :value="m.key"
-                  :disabled="m.key === editingKey"
-                />
-              </el-select>
-            </el-form-item>
-          </div>
-          <el-form-item label="路由地址">
-            <el-input v-model="form.path" placeholder="/douyin/system/menus" />
-          </el-form-item>
-          <div class="grid grid-cols-2 gap-3">
-            <el-form-item label="权限标识">
-              <el-input v-model="form.perms" placeholder="system:menu:list" />
-            </el-form-item>
-            <el-form-item label="排序">
-              <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-full" />
-            </el-form-item>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <el-form-item label="状态">
-              <el-switch v-model="form.visible" active-text="启用" inactive-text="停用" />
-            </el-form-item>
-            <el-form-item label="隐藏页">
-              <el-switch v-model="form.hidden" />
-            </el-form-item>
-          </div>
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="96px" label-position="right">
+          <el-row :gutter="20">
+            <el-col :span="24">
+              <el-form-item label="菜单类型">
+                <el-radio-group v-model="form.menuType" :disabled="typeLocked">
+                  <el-radio-button value="menu">菜单</el-radio-button>
+                  <el-radio-button value="button">按钮</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+            </el-col>
+
+            <!-- 菜单 -->
+            <template v-if="form.menuType === 'menu'">
+              <el-col :span="12">
+                <el-form-item label="菜单名称" prop="title">
+                  <el-input v-model="form.title" placeholder="如：菜单管理" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="路由地址" prop="path">
+                  <el-input v-model="form.path" placeholder="如：/douyin/system/menus" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="标识（name）">
+                  <el-input v-model="form.key" :disabled="!!editingKey" placeholder="如：SystemMenus" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="图标">
+                  <el-input v-model="form.icon" placeholder="如：ri:menu-line" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="权限标识">
+                  <el-input v-model="form.perms" placeholder="如：system:menu:list" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="上级菜单">
+                  <el-select v-model="form.parentKey" clearable placeholder="无（一级）" class="w-full">
+                    <el-option
+                      v-for="m in items.filter((x) => !x.parentKey && x.key !== editingKey)"
+                      :key="m.key"
+                      :label="m.title"
+                      :value="m.key"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="排序">
+                  <el-input-number v-model="form.sort" :min="1" controls-position="right" class="!w-full" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="6">
+                <el-form-item label="是否启用" label-width="80px">
+                  <el-switch v-model="form.visible" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="6">
+                <el-form-item label="隐藏菜单" label-width="80px">
+                  <el-switch v-model="form.hidden" />
+                </el-form-item>
+              </el-col>
+            </template>
+
+            <!-- 按钮 -->
+            <template v-else>
+              <el-col :span="12">
+                <el-form-item label="权限名称" prop="title">
+                  <el-input v-model="form.title" placeholder="如：新增、编辑、删除" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="权限标识" prop="perms">
+                  <el-input v-model="form.perms" placeholder="如：system:menu:add" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="上级菜单">
+                  <el-select v-model="form.parentKey" clearable placeholder="无（一级）" class="w-full">
+                    <el-option
+                      v-for="m in items.filter((x) => x.key !== editingKey)"
+                      :key="m.key"
+                      :label="m.title"
+                      :value="m.key"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="排序">
+                  <el-input-number v-model="form.sort" :min="1" controls-position="right" class="!w-full" />
+                </el-form-item>
+              </el-col>
+            </template>
+          </el-row>
         </el-form>
 
         <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="submit">确定</el-button>
+          <el-button @click="dialogVisible = false">取 消</el-button>
+          <el-button type="primary" :loading="saving" @click="submit">确 定</el-button>
         </template>
       </el-dialog>
     </ElCard>
@@ -287,6 +341,22 @@
   ])
 
   // ---------- 弹窗 ----------
+  const formRef = ref()
+  const rules = {
+    title: [
+      { required: true, message: '请输入名称', trigger: 'blur' },
+      { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+    ],
+    path: [{ required: true, message: '请输入路由地址', trigger: 'blur' }],
+    perms: [{ required: true, message: '请输入权限标识', trigger: 'blur' }]
+  }
+  const dialogTitle = computed(() => {
+    const t = form.menuType === 'button' ? '按钮' : '菜单'
+    return editingKey.value ? '编辑' + t : '新建' + t
+  })
+  /** 编辑时不允许改类型；从"添加菜单"进来时锁定为菜单 */
+  const typeLocked = computed(() => !!editingKey.value)
+
   const dialogVisible = ref(false)
   const editingKey = ref('')
   const form = reactive({
@@ -297,8 +367,9 @@
     sort: 100,
     visible: true,
     hidden: false,
-    menuType: 'menu' as 'directory' | 'menu' | 'button',
-    perms: ''
+    menuType: 'menu' as 'menu' | 'button' | 'directory',
+    perms: '',
+    icon: ''
   })
 
   const topLevelOptions = computed(() => items.value.filter((m) => !m.parentKey))
@@ -313,7 +384,8 @@
       visible: true,
       hidden: false,
       menuType: 'menu',
-      perms: ''
+      perms: '',
+      icon: ''
     })
   }
 
@@ -348,8 +420,12 @@
   }
 
   async function submit() {
-    if (!form.title.trim()) return ElMessage.warning('菜单名称不能为空')
-    if (!editingKey.value && !form.key.trim()) return ElMessage.warning('标识不能为空')
+    try {
+      await formRef.value?.validate()
+    } catch {
+      ElMessage.error('表单校验失败，请检查输入')
+      return
+    }
     saving.value = true
     try {
       const payload = {
@@ -416,6 +492,12 @@
 
   /** 拖拽式重排没有做：用「排序号」字段，编辑里改数字即可（原版这里也是排序号） */
   void adminMenuReorder
+
+  function handleDialogClosed() {
+    formRef.value?.resetFields?.()
+    editingKey.value = ''
+    resetForm()
+  }
 
   onMounted(getMenuList)
 </script>
