@@ -556,15 +556,17 @@ async function init() {
 
     // ---- 灌基础数据（INSERT OR IGNORE：用户改过就不覆盖）----
     const seedMenus = [
-      ['DouyinDashboard', '总览', '/douyin/dashboard', 'ri:pie-chart-2-line', null, 10, 1, 0],
-      ['DouyinRooms', '房间管理', '/douyin/rooms', 'ri:live-line', null, 20, 1, 0],
-      ['DouyinSessions', '场次详情', '/douyin/sessions', 'ri:file-list-3-line', null, 30, 1, 0],
-      ['DouyinTrends', '趋势分析', '/douyin/trends', 'ri:line-chart-line', null, 40, 1, 0],
-      ['DouyinCombined', '数据合并查看', '/douyin/combined', 'ri:table-2', null, 50, 1, 0],
-      ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', null, 60, 1, 0],
-      ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', null, 70, 1, 0],
-      ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', null, 80, 1, 0],
-      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
+      ['DouyinLiveData', '抖音直播数据', '/douyin', 'ri:live-line', null, 10, 1, 0, 'directory', null],
+      ['DouyinDashboard', '总览', '/douyin/dashboard', 'ri:pie-chart-2-line', 'DouyinLiveData', 11, 1, 0],
+      ['DouyinRooms', '房间管理', '/douyin/rooms', 'ri:live-line', 'DouyinLiveData', 12, 1, 0],
+      ['DouyinSessions', '场次详情', '/douyin/sessions', 'ri:file-list-3-line', 'DouyinLiveData', 13, 1, 0],
+      ['DouyinTrends', '趋势分析', '/douyin/trends', 'ri:line-chart-line', 'DouyinLiveData', 14, 1, 0],
+      ['DouyinCombined', '数据合并查看', '/douyin/combined', 'ri:table-2', 'DouyinLiveData', 15, 1, 0],
+      ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', 'DouyinLiveData', 16, 1, 0],
+      ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', 'DouyinLiveData', 17, 1, 0],
+      ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', 'DouyinLiveData', 18, 1, 0],
+      ['AccountManage', '账号管理', '/douyin/system', 'ri:shield-user-line', null, 90, 1, 0, 'directory', null],
+      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', 'AccountManage', 91, 1, 0, 'directory', null],
       ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
       ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
       ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
@@ -612,6 +614,27 @@ async function init() {
       d.prepare("UPDATE menu_items SET hidden = 0, visible = 1, icon = COALESCE(icon,'ri:user-line') WHERE key = 'UserCenter'").run();
     } catch (e) {
       console.warn('[db] 清理参数页菜单失败（不影响使用）:', e.message);
+    }
+
+    /*
+     * 两个顶级（用户反馈"没有抖音直播数据和账号管理这两个顶级"）——
+     * 对**已有库**也要生效，所以这里做一次幂等重挂载；新库靠上面的种子即可。
+     */
+    try {
+      const insTop = d.prepare(
+        "INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden,menu_type,perms) VALUES (?,?,?,?,?,?,1,0,'directory',NULL)"
+      );
+      insTop.run('DouyinLiveData', '抖音直播数据', '/douyin', 'ri:live-line', null, 10);
+      insTop.run('AccountManage', '账号管理', '/douyin/system', 'ri:shield-user-line', null, 90);
+      d.exec("UPDATE menu_items SET parent_key = 'DouyinLiveData' WHERE key IN ('DouyinDashboard','DouyinRooms','DouyinSessions','DouyinTrends','DouyinCombined','DouyinGiftPrices','DouyinSearch','DouyinStatus')");
+      d.exec("UPDATE menu_items SET parent_key = 'AccountManage', sort = 91, menu_type = 'directory' WHERE key = 'SystemManage'");
+      d.exec("UPDATE menu_items SET parent_key = 'AccountManage', sort = 99 WHERE key = 'UserCenter'");
+      d.exec("UPDATE menu_items SET menu_type = 'menu' WHERE key = 'DouyinGiftPrices'");
+      d.exec("UPDATE menu_items SET perms = COALESCE(NULLIF(perms,''),'system:user:list') WHERE key = 'SystemUsers'");
+      d.exec("UPDATE menu_items SET perms = COALESCE(NULLIF(perms,''),'system:role:list') WHERE key = 'SystemRoles'");
+      d.exec("UPDATE menu_items SET perms = COALESCE(NULLIF(perms,''),'system:menu:list') WHERE key = 'SystemMenus'");
+    } catch (e) {
+      console.warn('[db] 菜单重挂载失败（不影响使用）:', e.message);
     }
 
     const n = d.prepare('SELECT COUNT(*) c FROM menu_items').get().c;
