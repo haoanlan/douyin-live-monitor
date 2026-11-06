@@ -565,8 +565,7 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', 'DouyinLiveData', 16, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', 'DouyinLiveData', 17, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', 'DouyinLiveData', 18, 1, 0],
-      ['AccountManage', '账号管理', '/douyin/system', 'ri:shield-user-line', null, 90, 1, 0, 'directory', null],
-      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', 'AccountManage', 91, 1, 0, 'directory', null],
+      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
       ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
       ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
       ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
@@ -625,10 +624,12 @@ async function init() {
         "INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden,menu_type,perms) VALUES (?,?,?,?,?,?,1,0,'directory',NULL)"
       );
       insTop.run('DouyinLiveData', '抖音直播数据', '/douyin', 'ri:live-line', null, 10);
-      insTop.run('AccountManage', '账号管理', '/douyin/system', 'ri:shield-user-line', null, 90);
       d.exec("UPDATE menu_items SET parent_key = 'DouyinLiveData' WHERE key IN ('DouyinDashboard','DouyinRooms','DouyinSessions','DouyinTrends','DouyinCombined','DouyinGiftPrices','DouyinSearch','DouyinStatus')");
-      d.exec("UPDATE menu_items SET parent_key = 'AccountManage', sort = 91, menu_type = 'directory' WHERE key = 'SystemManage'");
-      d.exec("UPDATE menu_items SET parent_key = 'AccountManage', sort = 99 WHERE key = 'UserCenter'");
+      d.exec("DELETE FROM menu_items WHERE key = 'AccountManage'");
+      d.exec("DELETE FROM role_menus WHERE menu_key = 'AccountManage'");
+      d.exec("UPDATE menu_items SET parent_key = NULL, sort = 90, menu_type = 'directory', title = '系统管理' WHERE key = 'SystemManage'");
+      d.exec("UPDATE menu_items SET title = '用户管理' WHERE key = 'SystemUsers'");
+      d.exec("UPDATE menu_items SET parent_key = NULL, sort = 99 WHERE key = 'UserCenter'");
       d.exec("UPDATE menu_items SET menu_type = 'menu' WHERE key = 'DouyinGiftPrices'");
       d.exec("UPDATE menu_items SET perms = COALESCE(NULLIF(perms,''),'system:user:list') WHERE key = 'SystemUsers'");
       d.exec("UPDATE menu_items SET perms = COALESCE(NULLIF(perms,''),'system:role:list') WHERE key = 'SystemRoles'");
