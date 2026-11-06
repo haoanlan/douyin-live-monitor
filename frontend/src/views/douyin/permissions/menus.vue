@@ -1,177 +1,210 @@
 <!--
-  菜单管理（阶段三：可编辑，但**还不影响登录鉴权**）
+  菜单管理 —— 按 frontend-design 的设计计划重做（第三版）
 
-  ## 为什么不用 el-table
-  第一版直接用了 el-table，用户反馈"丑"。原因不是表格本身，是**默认表格的视觉是组装感**：
-  表头灰底 + 逐行分割线 + 六列等宽 —— 它把"菜单"这个有图标、有层级、有可见性状态的东西，
-  压成了一堆等价的文本框。craft-floor 也明确把"同尺寸卡片/默认表格当页面结构"列为要拒绝的默认。
+  ## 这一版和前两版的差别
+  第一版：直接 el-table，被否"丑"—— 默认表格把菜单压成一堆等价文本框。
+  第二版：改成自定义列表行，仍然是"一个平铺列表"—— 结构没有传达任何信息。
+  第三版（这一版）：**按"进不进侧边栏"分两栏**。
+     用户脑子里存的不是 menu_items 表，是"侧边栏长什么样"。
+     把菜单按侧边栏顺序罗列，序号就是排位 —— 结构本身在传递信息。
+     隐藏页（详情页/画像页）单独一栏，因为它们本来就不进侧边栏。
 
-  ## 这一版的结构
-  不用表格，用**列表行**：
-    [图标]  名称 ······  标识（等宽）          状态      排序    ⋯
-            路径（小字）
-  · 图标是真实的路由图标（菜单本来就有 icon 字段）→ 它是身份，不是装饰
-  · 名称 14px 中黑，标识/路径 11-12px 等宽浅灰 → 一眼分出主次
-  · 状态用「点 + 文字」而不是 switch → 12 行里 12 个开关全是噪音
-  · 排序只在悬停/聚焦时露出上移下移 → 静态时不占注意力
-  · 隐藏页整组下沉并降透明度，带「隐藏页」小字 → 靠结构区分，不靠颜色硬染
+  ## 设计原则（frontend-design）
+  · 结构对应用户心智，不对应表字段
+  · 一行一个菜单：图标 + 名称 + 标识，三件套，不多
+  · 只"敢"一处：左栏的大字序号（= 侧边栏排位），其余全部安静
+  · 静时不吵：排序箭头 / 编辑 / 删除只在悬停时出现
+  · 三态齐全：骨架 / 失败内联重试 / 空
+  · 字只有两级：名称 14/500，元信息 11/400；等宽只用于标识和路径（它是代码，不是装饰）
 -->
 <template>
   <div class="douyin-page dy-stagger p-4">
-    <div class="art-card overflow-hidden">
-      <!-- 头：标题 + 一句阶段说明 + 动作 -->
-      <div class="flex flex-wrap items-end justify-between gap-3 px-6 pb-4 pt-5">
-        <div class="min-w-0">
-          <h3 class="m-0 text-[17px] font-semibold tracking-[-0.01em] text-g-900">菜单管理</h3>
-          <p class="mb-0 mt-1 text-[13px] leading-5 text-g-600">
-            <span class="tabular-nums text-g-800">{{ items.length }}</span> 个菜单 ·
-            <span class="tabular-nums text-g-800">{{ visibleCount }}</span> 个显示 ·
-            <span class="tabular-nums text-g-800">{{ hiddenCount }}</span> 个隐藏页
-            <span class="mx-1.5 text-g-300">|</span>
-            改这里不影响谁能访问 —— 鉴权仍是硬编码超管（生效在阶段四）
-          </p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
-          <el-button size="small" :loading="loading" @click="reload">刷新</el-button>
-          <el-button size="small" type="primary" @click="openCreate">新增菜单</el-button>
-        </div>
+    <!-- 头 -->
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div class="min-w-0">
+        <h3 class="m-0 text-[17px] font-semibold tracking-[-0.01em] text-g-900">菜单管理</h3>
+        <p class="mb-0 mt-1 text-[13px] leading-5 text-g-600">
+          侧边栏按左栏的顺序出现；右栏是不进侧边栏的页面。改动不影响谁能访问（生效在阶段四）。
+        </p>
       </div>
+      <el-button size="small" type="primary" class="shrink-0" @click="openCreate">新增菜单</el-button>
+    </div>
 
-      <!-- 列头（比表头轻：只要一条极淡的底 + 10px 字） -->
-      <div
-        class="grid items-center gap-3 bg-g-50/70 px-6 py-2 text-[10px] font-medium uppercase tracking-[0.08em] text-g-400"
-        style="grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 1fr) 96px 68px 44px"
-      >
-        <span />
-        <span>菜单</span>
-        <span>标识 / 路径</span>
-        <span class="text-center">状态</span>
-        <span class="text-center">顺序</span>
-        <span />
-      </div>
-
-      <!-- 加载骨架 -->
-      <div v-if="loading && !items.length" class="divide-y divide-g-100">
-        <div v-for="i in 6" :key="i" class="flex items-center gap-3 px-6 py-3.5">
-          <el-skeleton-item variant="text" style="width: 22px; height: 22px" />
-          <el-skeleton-item variant="text" style="flex: 1; max-width: 180px" />
-          <el-skeleton-item variant="text" style="width: 120px" />
+    <!-- 骨架 -->
+    <div v-if="loading && !items.length" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div class="art-card p-5">
+        <div v-for="i in 6" :key="i" class="mb-3 flex items-center gap-3">
+          <el-skeleton-item variant="text" style="width: 24px; height: 20px" />
+          <el-skeleton-item variant="text" style="width: 20px; height: 20px" />
+          <el-skeleton-item variant="text" style="flex: 1; max-width: 160px" />
         </div>
       </div>
-
-      <!-- 失败 -->
-      <div v-else-if="loadError" class="px-6 py-14 text-center">
-        <p class="mb-3 text-sm text-danger">{{ loadError }}</p>
-        <el-button size="small" @click="reload">重试</el-button>
+      <div class="art-card p-5">
+        <el-skeleton :rows="3" animated />
       </div>
+    </div>
 
-      <!-- 空 -->
-      <div v-else-if="!items.length" class="px-6 py-14 text-center text-sm text-g-400">还没有菜单记录</div>
+    <!-- 失败 -->
+    <div v-else-if="loadError" class="art-card px-6 py-14 text-center">
+      <p class="mb-3 text-sm text-danger">{{ loadError }}</p>
+      <el-button size="small" @click="reload">重试</el-button>
+    </div>
 
-      <!-- 列表 -->
-      <div v-else>
-        <div
-          v-for="(row, i) in items"
-          :key="row.key"
-          class="group grid items-center gap-3 border-t border-g-100 px-6 py-3 transition-colors hover:bg-g-50/60"
-          style="grid-template-columns: 22px minmax(0, 1.6fr) minmax(0, 1fr) 96px 68px 44px"
-          :class="row.hidden ? 'opacity-70' : ''"
-        >
-          <!-- 图标：真实的路由图标 -->
-          <span class="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-g-100 text-g-600">
-            <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[13px]" />
-          </span>
+    <!-- 空 -->
+    <div v-else-if="!items.length" class="art-card px-6 py-14 text-center text-sm text-g-400">
+      还没有菜单记录
+    </div>
 
-          <!-- 名称 + 路径 -->
-          <div class="min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span
-                class="truncate text-[14px] leading-5"
-                :class="row.hidden ? 'text-g-600' : 'font-medium text-g-900'"
-              >{{ row.title }}</span>
-              <span
-                v-if="row.hidden"
-                class="shrink-0 rounded bg-g-100 px-1.5 py-px text-[10px] leading-4 text-g-500"
-              >隐藏页</span>
+    <!-- 两栏 -->
+    <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <!-- 左：侧边栏 -->
+      <section class="art-card overflow-hidden">
+        <header class="flex items-baseline justify-between px-5 pb-3 pt-4">
+          <h4 class="m-0 text-[13px] font-medium text-g-700">侧边栏</h4>
+          <span class="tabular-nums text-[11px] text-g-400">{{ sidebarItems.length }} 项</span>
+        </header>
+
+        <div v-if="!sidebarItems.length" class="px-5 py-10 text-center text-[13px] text-g-400">
+          没有会显示在侧边栏的菜单
+        </div>
+
+        <div v-else>
+          <div
+            v-for="(row, i) in sidebarItems"
+            :key="row.key"
+            class="group relative flex items-center gap-3 border-t border-g-100 px-5 py-3 transition-colors hover:bg-g-50/70"
+          >
+            <!-- 序号 = 侧边栏排位（这一版唯一"敢"的地方） -->
+            <span
+              class="w-6 shrink-0 text-right text-[15px] font-semibold tabular-nums leading-none text-g-300 transition-colors group-hover:text-theme"
+            >{{ String(i + 1).padStart(2, '0') }}</span>
+
+            <!-- 图标 = 菜单身份 -->
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-g-100 text-g-600">
+              <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[14px]" />
+            </span>
+
+            <!-- 名称 + 路径 -->
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-[14px] font-medium leading-5 text-g-900">{{ row.title }}</div>
+              <div class="truncate font-mono text-[11px] leading-4 text-g-400">{{ row.path || row.key }}</div>
             </div>
-            <div class="mt-0.5 truncate text-[11px] leading-4 text-g-400">
-              {{ row.parentKey ? '属于 ' + row.parentKey : '一级菜单' }}
-            </div>
-          </div>
 
-          <!-- 标识 / 路径 -->
-          <div class="min-w-0">
-            <div class="truncate font-mono text-[11px] leading-4 text-g-600">{{ row.key }}</div>
-            <div class="truncate font-mono text-[11px] leading-4 text-g-400">{{ row.path || '—' }}</div>
-          </div>
+            <!-- 标识：小、等宽、安静 -->
+            <code class="hidden shrink-0 rounded bg-g-50 px-1.5 py-0.5 font-mono text-[11px] text-g-500 md:block">
+              {{ row.key }}
+            </code>
 
-          <!-- 状态：点 + 文字（不是 switch，12 个开关太吵） -->
-          <div class="flex justify-center">
-            <button
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] leading-4 transition-colors disabled:opacity-50"
-              :class="row.hidden
-                ? 'text-g-400'
-                : row.visible
-                  ? 'text-success hover:bg-success/10'
-                  : 'text-g-500 hover:bg-g-100'"
-              :disabled="!!row.hidden || switching === row.key"
-              :title="row.hidden ? '隐藏页不进侧边栏' : (row.visible ? '点击隐藏' : '点击显示')"
-              @click="toggleVisible(row, !row.visible)"
-            >
-              <span
-                class="size-1.5 rounded-full"
-                :class="row.hidden ? 'bg-g-300' : row.visible ? 'bg-success' : 'bg-g-300'"
-              />
-              {{ row.hidden ? '隐藏' : row.visible ? '显示' : '已隐藏' }}
-            </button>
-          </div>
-
-          <!-- 顺序：静态只显示数字，悬停露出箭头 -->
-          <div class="flex items-center justify-center gap-0.5">
-            <span class="tabular-nums text-[11px] text-g-400 group-hover:hidden">{{ row.sort }}</span>
-            <div class="hidden items-center gap-0.5 group-hover:flex group-focus-within:flex">
+            <!-- 悬停才出现的操作 -->
+            <div class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <button
                 type="button"
-                class="flex size-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
-                :disabled="i === 0 || reordering"
+                class="flex size-6 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
+                :disabled="i === 0 || busy"
                 title="上移"
                 @click="move(i, -1)"
               >
-                <ArtSvgIcon icon="ri:arrow-up-s-line" class="text-[13px]" />
+                <ArtSvgIcon icon="ri:arrow-up-s-line" class="text-[14px]" />
               </button>
               <button
                 type="button"
-                class="flex size-5 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
-                :disabled="i === items.length - 1 || reordering"
+                class="flex size-6 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800 disabled:opacity-25"
+                :disabled="i === sidebarItems.length - 1 || busy"
                 title="下移"
                 @click="move(i, 1)"
               >
-                <ArtSvgIcon icon="ri:arrow-down-s-line" class="text-[13px]" />
+                <ArtSvgIcon icon="ri:arrow-down-s-line" class="text-[14px]" />
+              </button>
+              <button
+                type="button"
+                class="flex size-6 items-center justify-center rounded text-g-400 hover:bg-g-100 hover:text-g-800"
+                title="编辑"
+                @click="openEdit(row)"
+              >
+                <ArtSvgIcon icon="ri:edit-line" class="text-[13px]" />
+              </button>
+              <button
+                type="button"
+                class="flex size-6 items-center justify-center rounded text-g-400 hover:bg-danger/10 hover:text-danger"
+                title="删除"
+                @click="remove(row)"
+              >
+                <ArtSvgIcon icon="ri:delete-bin-line" class="text-[13px]" />
               </button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- 操作：悬停才出现，避免 12 行 × 2 个按钮的噪音 -->
-          <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      <!-- 右：隐藏页 + 已隐藏 -->
+      <div class="flex flex-col gap-4">
+        <section class="art-card overflow-hidden">
+          <header class="flex items-baseline justify-between px-5 pb-3 pt-4">
+            <h4 class="m-0 text-[13px] font-medium text-g-700">隐藏页</h4>
+            <span class="tabular-nums text-[11px] text-g-400">{{ hiddenItems.length }} 项</span>
+          </header>
+          <p class="mx-5 mb-3 text-[11px] leading-4 text-g-400">
+            详情页、画像页这类，从别的页面点进去，不进侧边栏。
+          </p>
+
+          <div v-if="!hiddenItems.length" class="px-5 pb-6 text-[13px] text-g-400">没有隐藏页</div>
+
+          <div
+            v-for="row in hiddenItems"
+            :key="row.key"
+            class="group flex items-center gap-2.5 border-t border-g-100 px-5 py-2.5 hover:bg-g-50/70"
+          >
+            <span class="flex size-6 shrink-0 items-center justify-center rounded bg-g-100/70 text-g-500">
+              <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[12px]" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-[13px] leading-5 text-g-700">{{ row.title }}</div>
+              <div class="truncate text-[11px] leading-4 text-g-400">
+                属于 {{ row.parentKey || '—' }}
+              </div>
+            </div>
             <button
               type="button"
-              class="flex size-6 items-center justify-center rounded text-g-500 hover:bg-g-100 hover:text-g-900"
+              class="flex size-6 shrink-0 items-center justify-center rounded text-g-400 opacity-0 transition-opacity hover:bg-g-100 hover:text-g-800 group-hover:opacity-100 group-focus-within:opacity-100"
               title="编辑"
               @click="openEdit(row)"
             >
               <ArtSvgIcon icon="ri:edit-line" class="text-[13px]" />
             </button>
+          </div>
+        </section>
+
+        <!-- 已隐藏（visible=0 但不属于隐藏页）—— 很少见，单独一处免得找不到 -->
+        <section v-if="offItems.length" class="art-card overflow-hidden">
+          <header class="flex items-baseline justify-between px-5 pb-3 pt-4">
+            <h4 class="m-0 text-[13px] font-medium text-g-700">已隐藏</h4>
+            <span class="tabular-nums text-[11px] text-g-400">{{ offItems.length }} 项</span>
+          </header>
+          <p class="mx-5 mb-3 text-[11px] leading-4 text-g-400">在侧边栏里但被关掉了显示。</p>
+          <div
+            v-for="row in offItems"
+            :key="row.key"
+            class="group flex items-center gap-2.5 border-t border-g-100 px-5 py-2.5 hover:bg-g-50/70"
+          >
+            <span class="flex size-6 shrink-0 items-center justify-center rounded bg-g-100/70 text-g-400">
+              <ArtSvgIcon :icon="row.icon || 'ri:checkbox-blank-circle-line'" class="text-[12px]" />
+            </span>
+            <div class="min-w-0 flex-1 truncate text-[13px] leading-5 text-g-500">{{ row.title }}</div>
             <button
               type="button"
-              class="flex size-6 items-center justify-center rounded text-g-500 hover:bg-danger/10 hover:text-danger"
-              title="删除"
-              @click="remove(row)"
+              class="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-theme opacity-0 transition-opacity hover:bg-theme/10 group-hover:opacity-100 group-focus-within:opacity-100"
+              @click="toggleVisible(row, 1)"
+            >显示</button>
+            <button
+              type="button"
+              class="flex size-6 shrink-0 items-center justify-center rounded text-g-400 opacity-0 transition-opacity hover:bg-g-100 hover:text-g-800 group-hover:opacity-100 group-focus-within:opacity-100"
+              title="编辑"
+              @click="openEdit(row)"
             >
-              <ArtSvgIcon icon="ri:delete-bin-line" class="text-[13px]" />
+              <ArtSvgIcon icon="ri:edit-line" class="text-[13px]" />
             </button>
           </div>
-        </div>
+        </section>
       </div>
     </div>
 
@@ -181,9 +214,8 @@
       :title="editingKey ? '编辑菜单' : '新增菜单'"
       width="500px"
       :close-on-click-modal="false"
-      class="perm-dialog"
     >
-      <el-form :model="form" label-width="88px" label-position="right" class="pt-1">
+      <el-form :model="form" label-width="84px" label-position="right" class="pt-1">
         <el-form-item label="标识" required>
           <el-input v-model="form.key" :disabled="!!editingKey" placeholder="DouyinSearch" class="font-mono" />
           <div class="mt-1 text-[11px] leading-4 text-g-400">路由 name，必须是代码里真实存在的；创建后不可改</div>
@@ -209,12 +241,13 @@
           <el-input-number v-model="form.sort" :min="0" :step="10" :controls="false" class="!w-[120px]" />
           <span class="ml-2 text-[11px] text-g-400">越小越靠上</span>
         </el-form-item>
-        <el-form-item label="侧边栏">
-          <el-switch v-model="form.visible" active-text="显示" inactive-text="隐藏" />
+        <el-form-item label="进侧边栏">
+          <el-switch v-model="form.visible" />
+          <span class="ml-2 text-[11px] text-g-400">关掉后仍在库里，但侧边栏不显示</span>
         </el-form-item>
         <el-form-item label="隐藏页">
           <el-switch v-model="form.hidden" />
-          <span class="ml-2 text-[11px] text-g-400">详情页/画像页这类不进侧边栏的页面</span>
+          <span class="ml-2 text-[11px] text-g-400">详情页/画像页这类，本来就不进侧边栏</span>
         </el-form-item>
       </el-form>
 
@@ -245,15 +278,20 @@
   const loading = ref(false)
   const loadError = ref('')
   const items = ref<AdminMenuItem[]>([])
+  const busy = ref(false)
 
-  const visibleCount = computed(() => items.value.filter((m) => !!m.visible && !m.hidden).length)
-  const hiddenCount = computed(() => items.value.filter((m) => !!m.hidden).length)
+  /** 进侧边栏：visible 且不是隐藏页 */
+  const sidebarItems = computed(() =>
+    items.value.filter((m) => !!m.visible && !m.hidden).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+  )
+  /** 隐藏页：详情页 / 画像页这类 */
+  const hiddenItems = computed(() => items.value.filter((m) => !!m.hidden).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)))
+  /** 在侧边栏但被关掉显示的 */
+  const offItems = computed(() => items.value.filter((m) => !m.visible && !m.hidden))
 
   const dialogVisible = ref(false)
   const editingKey = ref('')
   const saving = ref(false)
-  const switching = ref('')
-  const reordering = ref(false)
 
   const form = reactive({
     key: '',
@@ -328,33 +366,37 @@
   }
 
   async function toggleVisible(row: any, v: any) {
-    switching.value = row.key
+    busy.value = true
     try {
       await adminMenuUpdate(row.key, { visible: !!v ? 1 : 0 })
-      row.visible = !!v ? 1 : 0
+      await reload()
     } catch (e: any) {
       ElMessage.error(e?.message || '切换失败')
     } finally {
-      switching.value = ''
+      busy.value = false
     }
   }
 
+  /** 在「侧边栏」这一栏内上下移动：只重排可见项，其余项的 sort 保持不变 */
   async function move(index: number, delta: number) {
+    const list = [...sidebarItems.value]
     const to = index + delta
-    if (to < 0 || to >= items.value.length) return
-    const list = [...items.value]
+    if (to < 0 || to >= list.length) return
     const [moved] = list.splice(index, 1)
     list.splice(to, 0, moved)
-    items.value = list
-    reordering.value = true
+
+    busy.value = true
     try {
-      await adminMenuReorder(list.map((m) => m.key))
+      // 重排后按 (i+1)*10 写，隐藏页和已隐藏的手工 sort 不被覆盖
+      const upd = adminMenuReorder
+      const keys = [...list.map((m) => m.key), ...hiddenItems.value.map((m) => m.key)]
+      await upd(keys)
       await reload()
     } catch (e: any) {
       ElMessage.error(e?.message || '排序保存失败')
       await reload()
     } finally {
-      reordering.value = false
+      busy.value = false
     }
   }
 
