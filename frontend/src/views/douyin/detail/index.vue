@@ -558,7 +558,7 @@
       <div
         v-loading="giftDialogLoading"
         element-loading-text="正在加载全场礼物明细…"
-        class="flex flex-col gap-2.5 max-h-80 overflow-y-auto"
+        class="flex min-h-[240px] flex-col gap-2.5 max-h-80 overflow-y-auto"
       >
           <div
             v-for="(g, i) in giftDialogList"
@@ -1042,8 +1042,45 @@
    * 原来这里只要拉过一次就直接 return，于是"场次详情直播中打开弹窗后人数不再变化，
    * 必须退出场次重进才会更新"（用户反馈）。
    */
+  /**
+   * 把最新的 giftFeed（最近 200 条）并进全量明细。
+   *
+   * 直播中每 15 秒重拉一次 /gift-details 是 3MB+ 的请求（实测 7024 条 / 3299KB），
+   * 之前轮询就是这么干的 —— 既慢又容易和用户的下载/补录操作打架。
+   * 现在轮询只把详情页已返回的 giftFeed 增量并进去，全量明细在打开弹窗时拉一次。
+   */
+  function mergeGiftFeedIntoFull() {
+    const full = giftDetailsFull.value
+    const feed = detail.value?.giftFeed
+    if (!full || !feed?.length) return
+    const key = (g: {
+      user_sec_uid?: string
+      nickname?: string
+      gift_name?: string
+      to_nickname?: string
+      count?: number
+      total_diamonds?: number
+      create_time?: number
+    }) =>
+      [
+        g.user_sec_uid || g.nickname,
+        g.gift_name || '',
+        g.to_nickname || '',
+        g.count ?? '',
+        g.total_diamonds ?? '',
+        g.create_time ?? ''
+      ].join('|')
+    const seen = new Set(full.map(key))
+    const add = feed.filter((g) => !seen.has(key(g)))
+    if (add.length) giftDetailsFull.value = [...full, ...add]
+  }
+
   async function ensureGiftDetails(force = false) {
-    if (!force && (giftDetailsFull.value || giftDetailsLoading.value)) return
+    if (!force && (giftDetailsFull.value || giftDetailsLoading.value)) {
+      // 已有全量数据时只做增量合并，不再整份重拉
+      if (giftDetailsFull.value) mergeGiftFeedIntoFull()
+      return
+    }
     giftDetailsLoading.value = true
     try {
       const r = await fetchSessionGiftDetails(String(sessionId))
@@ -1056,7 +1093,17 @@
       giftDetailsLoading.value = false
     }
   }
-  const giftDialogAvatar = computed(() => giftDialogList.value[0]?.avatar_url || '')
+  /**
+   * 榜单行的头像（弹窗标题用）。
+   *
+   * 原来取 `giftDialogList[0].avatar_url`，也就是**第一条明细**的头像 ——
+   * 同一场次里有人先用匿名、后用真名，第一条可能是匿名那条，头像是假的/旧的，
+   * 而榜单里那一行是按 sec_uid 聚合后拿到的最新头像，所以"排行对、展开不对"。
+   * 现在优先用榜单行自带的头像，其次才回退到明细里的头像。
+   */
+  const giftDialogAvatar = computed(
+    () => lastGiftDialogRow.value?.avatar_url || giftDialogList.value[0]?.avatar_url || ''
+  )
   const giftDialogTotal = computed(() =>
     giftDialogList.value.reduce((s, g) => s + (g.total_diamonds || 0), 0)
   )
@@ -1143,74 +1190,144 @@
   /** 全量明细还在拉（弹窗里显示加载态，避免看起来"卡住不动"） */
   const giftDialogLoading = ref(false)
 
-  async function openGiftDetail(gift: GiftRankItem, force = false) {
+  /**
+   * 判断两条记录是不是同一名用户。
+   *
+   * 同一个场次里，同一个人可能**先用匿名、后用真名**（或者中途改昵称），
+   * 于是明细里出现两条 nickname 不同、user_sec_uid 相同的数据。
+   * 榜单按 sec_uid 聚合是对的；弹窗如果只按昵称筛，就会漏行、头像也会取错。
+   *
+   * 规则：两边都有 sec_uid 就比 sec_uid；任一侧缺失才退回比昵称。
+   */
+  function isSameGiftUser(
+    gift: { user_sec_uid?: string; nickname?: string },
+    row: { user_sec_uid?: string; nickname?: string }
+  ) {
+    if (gift.user_sec_uid && row.user_sec_uid) return gift.user_sec_uid === row.user_sec_uid
+    return (gift.nickname || '').trim() === (row.nickname || '').trim()
+  }
+
+  /**
+   * @param force  重新拉全量明细（直播中用）
+   * @param silent 自动刷新触发：不显示 loading、列表空了也不清空 —— 避免弹窗忽高忽低
+   */
+  async function openGiftDetail(gift: GiftRankItem, force = false, silent = false) {
     const seq = ++giftDialogSeq
     lastGiftDialogRow.value = gift
-    giftDialogUser.value = gift.nickname
-    /*
-     * 按 **user_sec_uid** 筛，不要按昵称筛。
-     *
-     * 实测场次 301：同一个 sec_uid 的明细带着两个昵称（"dou7906155" 送 闪烁星河、
-     * "淩乱ぺ" 送 星光闪耀）—— 榜单按 sec_uid 聚合把两笔钻石都算上了，
-     * 而弹窗按昵称筛，于是 闪烁星河 整行消失（用户："弹窗只有星光闪耀，但钻石数计算上了"）。
-     * sec_uid 是稳定标识，昵称只是显示名，随时可能变。
-     */
-    const sameUser = (g: { user_sec_uid?: string; nickname?: string }) =>
-      gift.user_sec_uid
-        ? g.user_sec_uid === gift.user_sec_uid
-        : g.nickname === gift.nickname
+    // silent 刷新时不要动标题：auto refresh 拿的是同一行，改标题只会闪一下
+    if (!silent) giftDialogUser.value = gift.nickname
+    const sameUser = (g: { user_sec_uid?: string; nickname?: string }) => isSameGiftUser(gift, g)
     // 先用"最近若干条"里的即时结果把弹窗打开（有内容可看），再拉全量补齐
-    giftDialogList.value = (detail.value?.giftFeed || []).filter(sameUser)
-    giftDialogVisible.value = true
-    giftDialogLoading.value = true
+    const quick = (detail.value?.giftFeed || []).filter(sameUser).map((g) => ({
+      ...g,
+      nickname: gift.nickname || g.nickname,
+      avatar_url: gift.avatar_url || g.avatar_url
+    }))
+    if (!silent && quick.length) giftDialogList.value = quick
+    if (!silent) {
+      giftDialogVisible.value = true
+      giftDialogLoading.value = true
+    }
     try {
       await ensureGiftDetails(force)
     } finally {
-      if (seq === giftDialogSeq) giftDialogLoading.value = false
+      if (seq === giftDialogSeq && !silent) giftDialogLoading.value = false
     }
     // 已经点了别的人 → 这次的结果作废，不要覆盖
     if (seq !== giftDialogSeq) return
-    giftDialogList.value = (giftDetailsFull.value || []).filter(sameUser)
+    /*
+     * 命中后统一成**榜单行**的昵称和头像。
+     *
+     * 同一个人可能先用匿名、后用真名：明细里两条记录的 nickname / avatar 不同，
+     * 弹窗里就会一会儿匿名头像、一会儿真名头像，看起来"头像不对"。
+     * 榜单是按 sec_uid 聚合后的最新身份，以它为准，把明细行都标成同一个身份。
+     */
+    const rows = (giftDetailsFull.value || []).filter(sameUser).map((g) => ({
+      ...g,
+      nickname: gift.nickname || g.nickname,
+      avatar_url: gift.avatar_url || g.avatar_url
+    }))
+    /*
+     * 全量明细里一条都没匹配到（接口降级 / sec_uid 缺失）时，
+     * 不要把已经显示的内容清空 —— 以前这里直接赋值，于是弹窗变成空白（用户反馈"偶尔是空白"）。
+     */
+    if (rows.length || !silent) {
+      giftDialogList.value = rows.length ? rows : quick.length ? quick : giftDialogList.value
+    }
   }
 
   /**
    * 按当前弹窗里的主播，重新算「送礼人员」列表。
    * 单独抽出来是为了补录/撤销之后能**原地刷新列表**，
    * 又不会像 openAnchorPeopleList 那样把视图复位回榜单（撤销时用户还在补录面板里）。
+   *
+   * 聚合键用 **user_sec_uid**（没有才退回昵称）：
+   * 同一个人匿名 + 真名两条记录要合成一行，否则榜单里一个人、弹窗里两行，
+   * 而且两行的头像还各是各的（用户："一个场次内又用过匿名用过真名，头像会不对"）。
    */
   async function loadAnchorPeople(force = false) {
     const anchor = lastAnchorDialogRow.value
     if (!anchor) return
     await ensureGiftDetails(force)
-    const map = new Map<string, { nickname: string; avatar_url?: string; total_diamonds: number }>()
+    const map = new Map<
+      string,
+      { nickname: string; avatar_url?: string; total_diamonds: number; anon: boolean }
+    >()
+    const isAnon = (n?: string) => !n || /^匿名/.test(n) || /^dou\d+/.test(n)
     ;(giftDetailsFull.value || [])
-      .filter((g) => g.to_nickname === anchor.anchor_name)
+      .filter((g) => (g.to_nickname || '').trim() === (anchor.anchor_name || '').trim())
       .forEach((g) => {
-        const cur = map.get(g.nickname) || {
-          nickname: g.nickname,
+        const key = g.user_sec_uid || g.nickname || ''
+        if (!key) return
+        const cur = map.get(key) || {
+          nickname: g.nickname || '匿名用户',
           avatar_url: g.avatar_url,
-          total_diamonds: 0
+          total_diamonds: 0,
+          anon: isAnon(g.nickname)
         }
         cur.total_diamonds += g.total_diamonds || 0
         if (!cur.avatar_url && g.avatar_url) cur.avatar_url = g.avatar_url
-        map.set(g.nickname, cur)
+        // 真名优先于匿名/dou 号：显示更好认，头像也跟着用真名那条
+        if (cur.anon && !isAnon(g.nickname)) {
+          cur.nickname = g.nickname || cur.nickname
+          if (g.avatar_url) cur.avatar_url = g.avatar_url
+          cur.anon = false
+        }
+        map.set(key, cur)
       })
-    peopleDialogList.value = [...map.values()].sort((a, b) => b.total_diamonds - a.total_diamonds)
+    const list = [...map.values()]
+      .map(({ nickname, avatar_url, total_diamonds }) => ({ nickname, avatar_url, total_diamonds }))
+      .sort((a, b) => b.total_diamonds - a.total_diamonds)
+    /*
+     * 切分页/接口异常时可能算出空列表 —— 空列表不要覆盖已有内容，
+     * 否则直播中每 15 秒弹窗会闪成空白（"有时候点开弹窗是空白的"）。
+     */
+    if (list.length || !peopleDialogList.value.length) peopleDialogList.value = list
   }
 
-  async function openAnchorPeopleList(anchor: AnchorRankItem, force = false) {
+  /**
+   * @param force  重新拉全量明细（直播中用）
+   * @param silent 自动刷新触发：**不动视图状态**（不关补录面板、不关主题选择、不重开弹窗）
+   *
+   * 之前轮询无条件调 openAnchorPeopleList(row, true)，每 15 秒就把 manualGiftOpen 置回 false，
+   * 于是直播中刚点开的「补录礼物」面板立刻被关掉、下载榜单也被打断
+   * （用户反馈"自动刷新导致直播中没法下载感谢榜单、没法补录礼物"）。
+   */
+  async function openAnchorPeopleList(anchor: AnchorRankItem, force = false, silent = false) {
     const seq = ++peopleDialogSeq
-    // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
-    manualGiftOpen.value = false
-    rankPickerOpen.value = false
-    lastAnchorDialogRow.value = anchor
-    peopleAnchorName.value = anchor.anchor_name
-    peopleAnchorAvatar.value = anchor.anchor_avatar || ''
-    peopleDialogVisible.value = true
-    void ensureRankThemes()
+    if (!silent) {
+      // 每次打开都回到列表视图：否则上次停在「下载榜单/补录礼物」上，标题栏两个箭头会同时亮着
+      manualGiftOpen.value = false
+      rankPickerOpen.value = false
+      lastAnchorDialogRow.value = anchor
+      peopleAnchorName.value = anchor.anchor_name
+      peopleAnchorAvatar.value = anchor.anchor_avatar || ''
+      peopleDialogVisible.value = true
+      void ensureRankThemes()
+    }
     await loadAnchorPeople(force)
     if (seq !== peopleDialogSeq) return
-    peopleDialogVisible.value = true
+    if (!silent) peopleDialogVisible.value = true
   }
 
   /**
@@ -1431,14 +1548,20 @@
       if (!detail.value?.session?.is_live) return
       await refresh({ silent: true })
       /*
+       * 用户正在操作弹窗时，轮询只刷新页面数据，**不碰弹窗**。
+       * 否则正在补录礼物 / 选下载主题 / 等下载的过程中，列表会被重新算一遍，
+       * 面板被关掉、下载被打断（用户："自动刷新导致直播中没法下载感谢榜单，没法补录礼物"）。
+       */
+      if (manualGiftOpen.value || rankPickerOpen.value || rankDownloading.value) return
+      /*
        * 弹窗开着时也要跟着刷：原来弹窗里的列表只在"打开那一刻"取一次全量明细，
        * 直播中人数/金额就一直停在旧数字，必须退出场次重进才更新（用户反馈）。
        */
       if (giftDialogVisible.value && lastGiftDialogRow.value) {
-        await openGiftDetail(lastGiftDialogRow.value, true)
+        await openGiftDetail(lastGiftDialogRow.value, false, true)
       }
       if (peopleDialogVisible.value && lastAnchorDialogRow.value) {
-        await openAnchorPeopleList(lastAnchorDialogRow.value, true)
+        await openAnchorPeopleList(lastAnchorDialogRow.value, false, true)
       }
     }, 15000)
   })
@@ -1484,7 +1607,8 @@
     manualGiftOpen.value = false
     await loadManualGiftList()
     // 弹窗里那份"送礼人榜单"也要重取，否则数字和总览不一致（用户反馈刷新不及时）
-    if (lastAnchorDialogRow.value) await openAnchorPeopleList(lastAnchorDialogRow.value, true)
+    // 原地刷新列表（不要走 openAnchorPeopleList，否则会把刚关掉的视图状态又重置一遍）
+    if (lastAnchorDialogRow.value) await loadAnchorPeople(true)
     await refresh({ silent: true })
   }
 
