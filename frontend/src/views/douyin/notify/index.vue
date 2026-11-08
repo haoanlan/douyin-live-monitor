@@ -119,15 +119,9 @@
         </template>
         <template #actions="{ row }">
           <div class="flex items-center justify-end gap-1">
-            <el-button
-              v-if="can('notify.test')"
-              link
-              type="primary"
-              :loading="testingId === row.id"
-              @click="testChannel(row as NotifyChannel)"
-            >
-              测试
-            </el-button>
+            <el-tooltip v-if="can('notify.test')" content="测试发送" placement="top">
+              <ArtButtonTable type="view" @click="testChannel(row as NotifyChannel)" />
+            </el-tooltip>
             <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
             <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
           </div>
@@ -192,8 +186,9 @@
             <div class="mb-1 text-[11px] text-g-400">房间号（web_rid，直播间地址里的那串数字）</div>
             <el-input v-model="upWebRid" placeholder="例如 65209552987" style="width: 200px" @change="loadUpstage" />
           </div>
-          <el-button :loading="upLoadingMembers" @click="loadMembers">拉团员榜</el-button>
+          <el-button :loading="upLoadingMembers" @click="loadMembers">刷新名单</el-button>
           <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
+          <span class="text-[11px] text-success">● 自动模式：开启的主播命中即推送，名单每 60 秒自动维护</span>
           <span class="text-[11px] text-g-400">
             映射 {{ upStatus?.rank?.mappedUsers || 0 }} 人 · 最近帧
             {{ upStatus?.runtime?.lastFrameAt ? fmtGap(upStatus.runtime.streamGapSecs) : '无' }}
@@ -212,7 +207,20 @@
               </div>
             </template>
           </ArtTableHeader>
+          <div v-if="seenList.length" class="mb-2 flex flex-wrap gap-1 px-1">
+            <span class="text-[11px] text-g-400 mr-1">现场识别到：</span>
+            <button
+              v-for="s in seenList.filter((x) => !watchUids.includes(x.uid))"
+              :key="s.uid"
+              type="button"
+              class="dy-quick-host"
+              @click="addWatch({ uid: s.uid, nickname: s.nickname || s.uid })"
+            >
+              + {{ s.nickname || s.uid }}
+            </button>
+          </div>
           <div v-if="members.length" class="mb-2 flex flex-wrap gap-1 px-1">
+            <span class="text-[11px] text-g-400 mr-1">团员榜：</span>
             <button
               v-for="m in members.filter((x) => !watchUids.includes(x.uid))"
               :key="m.uid"
@@ -235,6 +243,15 @@
             </template>
             <template #uid="{ row }">
               <span class="text-xs text-g-500">{{ row.uid }}</span>
+            </template>
+            <!-- 每个主播单独的推送开关：用户要求"能设定哪个主播推、哪个不推" -->
+            <template #enabled="{ row }">
+              <el-switch
+                :model-value="!!row.enabled"
+                :disabled="!can('upstage.manage')"
+                size="small"
+                @change="(v: any) => toggleWatch(row as UpstageWatch, !!v)"
+              />
             </template>
             <template #actions="{ row }">
               <ArtButtonTable v-if="can('upstage.manage')" type="delete" @click="removeWatch(row as UpstageWatch)" />
@@ -375,10 +392,13 @@
     deleteUpstageWatch,
     fetchUpstageEvents,
     fetchUpstageMembers,
+    fetchUpstageSeen,
     fetchUpstageStatus,
     fetchUpstageWatch,
     resetUpstage,
+    setUpstageWatchEnabled,
     type UpstageEvent,
+    type UpstageSeen,
     type UpstageStatus,
     type UpstageWatch
   } from '@/api/upstage'
@@ -448,6 +468,7 @@
   const watchColumns: ColumnOption[] = [
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
     { prop: 'uid', label: 'UID', minWidth: 150, useSlot: true, slotName: 'uid' },
+    { prop: 'enabled', label: '推送', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
     { prop: 'actions', label: '', width: 70, align: 'right', useSlot: true, slotName: 'actions' }
   ]
 
@@ -691,6 +712,7 @@
   const watchList = ref<UpstageWatch[]>([])
   const upStatus = ref<UpstageStatus | null>(null)
   const upEvents = ref<UpstageEvent[]>([])
+  const seenList = ref<UpstageSeen[]>([])
   const upEventTotal = ref(0)
 
   const watchUids = computed(() => watchList.value.map((w) => String(w.uid)))
@@ -751,6 +773,22 @@
       ElMessage.success(`已关注 ${m.nickname}`)
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '添加失败'))
+    }
+  }
+
+  /** 单个主播的推送开关 */
+  async function toggleWatch(row: UpstageWatch, enabled: boolean) {
+    try {
+      const r = await setUpstageWatchEnabled({
+        web_rid: row.web_rid || upWebRid.value.trim(),
+        uid: row.uid,
+        nickname: row.nickname,
+        enabled: enabled ? 1 : 0
+      })
+      const rid = upWebRid.value.trim()
+      watchList.value = (r.items || []).filter((x: UpstageWatch) => x.web_rid === rid)
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '更新推送开关失败'))
     }
   }
 

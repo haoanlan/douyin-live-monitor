@@ -68,3 +68,20 @@ export function resetUpstage(webRid: string) {
 export function fetchUpstageEvents(params: { webRid?: string; page?: number; size?: number } = {}) {
   return request.get<{ total: number; items: UpstageEvent[] }>({ url: '/api/upstage/events', params })
 }
+
+export interface UpstageSeen {
+  web_rid: string
+  uid: string
+  nickname?: string
+  source?: string
+  last_seen_at: number
+}
+
+export function fetchUpstageSeen(params: { webRid: string }) {
+  return request.get<{ items: UpstageSeen[] }>({ url: '/api/upstage/seen', params })
+}
+
+/** 切换某个主播的推送开关（enabled 0/1） */
+export function setUpstageWatchEnabled(data: { web_rid: string; uid: string; nickname?: string; enabled: number }) {
+  return request.post<{ items: UpstageWatch[] }>({ url: '/api/upstage/watch', data })
+}

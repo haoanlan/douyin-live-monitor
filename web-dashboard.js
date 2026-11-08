@@ -435,6 +435,16 @@ async function start() {
         try { upstageEngine.tick(db.getDb()); } catch (e) { console.warn('[upstage] tick 失败:', e.message); }
       }, 10000);
       if (typeof upstageTimer.unref === 'function') upstageTimer.unref();
+
+      /*
+       * 自动模式：每 60 秒把「关注名单里的房间」的团员榜预热一遍。
+       * 用户明确说过「不需要每次自己去拉接口 —— 只要是开启状态就自动推送」，
+       * 所以映射在后台维护，命中时直接有名字，不用等。
+       */
+      const warmTimer = setInterval(() => {
+        try { upstageEngine.warmRankMaps(db.getDb()); } catch (e) { console.warn('[upstage] 预热失败:', e.message); }
+      }, 60 * 1000);
+      if (typeof warmTimer.unref === 'function') warmTimer.unref();
     } catch (e) {
       console.warn('[upstage] 启动心跳失败:', e.message);
     }
