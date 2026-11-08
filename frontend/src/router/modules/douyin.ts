@@ -112,6 +112,18 @@ export const douyinRoutes: AppRouteRecord = {
       }
     },
     {
+      /* 通知管理：开播通知 / 下播战报 / 推送渠道 / 发送记录 都在这一页 */
+      path: 'notify',
+      name: 'DouyinNotify',
+      component: '/douyin/notify',
+      meta: {
+        title: '通知管理',
+        icon: 'ri:notification-3-line',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_GUEST']
+      }
+    },
+    {
       path: 'detail/:sessionId',
       name: 'DouyinDetail',
       component: '/douyin/detail',

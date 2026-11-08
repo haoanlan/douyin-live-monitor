@@ -576,6 +576,7 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', 'DouyinLiveData', 16, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', 'DouyinLiveData', 17, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', 'DouyinLiveData', 18, 1, 0],
+      ['DouyinNotify', '通知管理', '/douyin/notify', 'ri:notification-3-line', 'DouyinLiveData', 19, 1, 0],
       ['SystemManage', '系统管理', '/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
       ['SystemUsers', '用户管理', '/system/user', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
       ['SystemRoles', '角色管理', '/system/role', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],

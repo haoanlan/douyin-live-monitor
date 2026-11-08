@@ -31,6 +31,7 @@ const routeHandlers = [
   require('./lib/routes/douyin-login'),
   require('./lib/routes/gift-prices'),
   require('./lib/routes/misc'),
+  require('./lib/routes/notify'),
 ];
 
 // ====== 连击去重（使用共享模块 lib/gift-utils.js）======
@@ -408,6 +409,8 @@ async function start() {
      * 启动时后台先算一次，之后每 5 分钟刷一次（缓存 TTL 10 分钟，基本永远命中）——
      * 用户打开页面拿到的是已经算好的结果。
      */
+    // 通知表在这里建一次，路由里就不用每次判存在
+    try { require('./lib/notify/store').ensure(db.getDb()); } catch (e) { console.warn('[notify] 建表失败:', e.message); }
     warmGiftPrices();
     const warmTimer = setInterval(warmGiftPrices, 5 * 60 * 1000);
     if (typeof warmTimer.unref === 'function') warmTimer.unref();
