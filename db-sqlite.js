@@ -536,6 +536,17 @@ async function init() {
      * 我们第一版没有。这里给老库 ALTER 补上（幂等），并回填类型：
      *   有子级的 = directory（目录），没有子级的 = menu（菜单）。
      */
+    /*
+     * 礼物价格页要按 gift_name 做聚合（45 万行）——没有这个索引时是
+     * => SCAN gifts + USE TEMP B-TREE FOR GROUP BY，接口 2.7 秒。
+     * 建了之后走 COVERING INDEX，降到 ~1.8 秒；再配合 /api/gift-prices 的 60 秒缓存，
+     * 二次访问是毫秒级。CREATE INDEX IF NOT EXISTS 幂等，老库首次启动会自动补。
+     */
+    try {
+      d.exec('CREATE INDEX IF NOT EXISTS idx_gifts_gift_name ON gifts(gift_name)');
+    } catch (e) {
+      console.warn('[db] 建 gift_name 索引失败（不影响使用）:', e.message);
+    }
     try {
       const cols = d.prepare('PRAGMA table_info(menu_items)').all().map((c) => c.name);
       for (const [name, ddl] of [

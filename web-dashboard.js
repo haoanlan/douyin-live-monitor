@@ -186,6 +186,35 @@ async function handleAPI(req, res) {
   }
 }
 
+/**
+ * 在进程内"自己请求一次" /api/gift-prices，把结果灌进 response-cache。
+ * 用 authToken.issue('admin') 造一个合法的内部令牌，不依赖任何人在线。
+ */
+async function warmGiftPrices() {
+  try {
+    const authToken = require('./lib/auth-token');
+    const token = authToken.issue('admin', 10 * 60 * 1000);
+    const t0 = Date.now();
+    const fakeReq = { method: 'GET', url: '/api/gift-prices', headers: { authorization: 'Bearer ' + token }, on() {}, resume() {} };
+    let payload = null;
+    const fakeRes = {
+      _status: 200,
+      setHeader() {},
+      writeHead() {},
+      end(body) {
+        try { payload = JSON.parse(String(body)); } catch { /* ignore */ }
+      }
+    };
+    await handleAPI(fakeReq, fakeRes);
+    const ms = Date.now() - t0;
+    if (payload && Array.isArray(payload.items)) {
+      console.log(`[warm] 礼物价格缓存已预热：${payload.items.length} 条 / ${ms}ms`);
+    }
+  } catch (e) {
+    console.warn('[warm] 预热礼物价格失败（不影响使用）:', e.message);
+  }
+}
+
 // ====== 静态文件服务 ======
 async function serveStatic(req, res) {
   const { pathname } = parseQuery(req.url);
@@ -371,6 +400,17 @@ async function start() {
     if (HOST === '0.0.0.0') {
       console.warn('[dashboard] ⚠️ 警告: 绑定 0.0.0.0，仪表盘可被外部网络访问');
     }
+    /*
+     * 预热礼物价格缓存。
+     *
+     * 这个接口要扫 45 万行做聚合（冷算 3~4 秒）。模板演示页是 mock 数据所以"秒开"，
+     * 我们这边如果等用户点进去才算，第一屏必然要转几秒。
+     * 启动时后台先算一次，之后每 5 分钟刷一次（缓存 TTL 10 分钟，基本永远命中）——
+     * 用户打开页面拿到的是已经算好的结果。
+     */
+    warmGiftPrices();
+    const warmTimer = setInterval(warmGiftPrices, 5 * 60 * 1000);
+    if (typeof warmTimer.unref === 'function') warmTimer.unref();
   });
 }
 
