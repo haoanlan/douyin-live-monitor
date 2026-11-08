@@ -190,8 +190,20 @@
       <div class="art-card p-4 mb-4">
         <div class="flex flex-wrap items-end gap-2">
           <div>
-            <div class="mb-1 text-[11px] text-g-400">房间号（web_rid，直播间地址里的那串数字）</div>
-            <el-input v-model="upWebRid" placeholder="例如 65209552987" style="width: 200px" @change="loadUpstage" />
+            <div class="mb-1 text-[11px] text-g-400">直播间</div>
+            <!-- 从已添加的房间选，不用再手填 web_rid -->
+            <el-select
+              v-model="upWebRid"
+              filterable
+              placeholder="选择已添加的直播间"
+              style="width: 220px"
+              @change="loadUpstage"
+            >
+              <el-option v-for="r in roomOptions" :key="r.room_id" :label="r.name" :value="r.room_id">
+                <span class="truncate">{{ r.name }}</span>
+                <span class="ml-2 text-xs text-g-400">{{ r.room_id }}</span>
+              </el-option>
+            </el-select>
           </div>
           <el-button :loading="upLoadingMembers" @click="loadMembers">刷新名单</el-button>
           <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
@@ -214,7 +226,7 @@
               </div>
             </template>
           </ArtTableHeader>
-          <div v-if="seenList.length" class="mb-2 flex flex-wrap gap-1 px-1">
+          <div v-if="seenList.length" class="mb-2 flex flex-wrap items-center gap-1 border-b border-g-200/60 px-3 pb-2">
             <span class="text-[11px] text-g-400 mr-1">现场识别到：</span>
             <button
               v-for="s in seenList.filter((x) => !watchUids.includes(x.uid))"
@@ -226,7 +238,7 @@
               + {{ s.nickname || s.uid }}
             </button>
           </div>
-          <div v-if="members.length" class="mb-2 flex flex-wrap gap-1 px-1">
+          <div v-if="members.length" class="mb-2 flex flex-wrap items-center gap-1 border-b border-g-200/60 px-3 pb-2">
             <span class="text-[11px] text-g-400 mr-1">团员榜：</span>
             <button
               v-for="m in members.filter((x) => !watchUids.includes(x.uid))"
@@ -297,20 +309,29 @@
         </ElCard>
       </div>
 
-      <div class="art-card mt-3 shrink-0 p-3">
-        <div class="mb-1 text-[11px] text-g-600">
-          人脸识别通道的帧从这里进来（Go 代理没有这个 proto，需要外部采集进程解码后提交）：
-        </div>
-        <div class="flex items-center gap-2">
-          <code class="min-w-0 flex-1 truncate rounded bg-g-100 px-2 py-1 text-[11px] text-g-700">
-            POST /api/upstage/frames  X-Upstage-Token: {{ upStatus?.frameToken || '…' }}
-          </code>
-          <el-button size="small" @click="copyToken">复制令牌</el-button>
-        </div>
-        <div class="mt-1 text-[11px] text-g-400">
-          请求体：{"webRid":"65209552987","source":"face","frames":[{"uid":"2203876772819496","conf":0.62}]}
-        </div>
+      <!-- 底部只留一个入口：接入细节收进弹窗，别在页面上占一大块 -->
+      <div class="mt-2 shrink-0 text-right">
+        <el-button link @click="frameHelpVisible = true">外部采集接入说明</el-button>
       </div>
+
+      <el-dialog v-model="frameHelpVisible" title="外部采集接入说明" width="620">
+        <p class="m-0 mb-2 text-xs text-g-600">
+          人脸识别消息（OnCamRecognition）在 Go 代理里没有 proto 定义，需要外部采集进程解码后提交到这个接口：
+        </p>
+        <div class="break-all rounded bg-g-100 p-2 font-mono text-[11px] text-g-700">
+          POST /api/upstage/frames<br />
+          X-Upstage-Token: {{ upStatus?.frameToken || '（打开本页后自动获取）' }}
+        </div>
+        <p class="m-0 mt-2 text-xs text-g-600">请求体：</p>
+        <div class="rounded bg-g-100 p-2 font-mono text-[11px] text-g-700">
+          {"webRid":"65209552987","source":"face","frames":[{"uid":"2203876772819496","conf":0.62}]}
+        </div>
+        <p class="m-0 mt-2 text-[11px] text-g-400">令牌每次服务重启都会变，脚本里要留成配置项。</p>
+        <template #footer>
+          <el-button @click="copyToken">复制令牌</el-button>
+          <el-button type="primary" @click="frameHelpVisible = false">知道了</el-button>
+        </template>
+      </el-dialog>
     </template>
 
     <!-- ============ 规则弹窗 ============ -->
@@ -409,6 +430,7 @@
     type UpstageStatus,
     type UpstageWatch
   } from '@/api/upstage'
+  import { fetchRooms } from '@/api/douyin'
   import { usePermissionStore } from '@/store/modules/permission'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtTime } from '@/utils/format'
@@ -481,7 +503,7 @@
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
     { prop: 'uid', label: 'UID', minWidth: 150, useSlot: true, slotName: 'uid' },
     { prop: 'enabled', label: '推送', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '', width: 70, align: 'right', useSlot: true, slotName: 'actions' }
+    { prop: 'actions', label: '操作', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
   ]
 
   const upEventColumns: ColumnOption[] = [
@@ -720,6 +742,9 @@
 
   /* ---------------- 主播上场 ---------------- */
   const upWebRid = ref('')
+  const frameHelpVisible = ref(false)
+  /** 已添加的直播间（下拉用，不再手填 web_rid） */
+  const roomOptions = ref<{ room_id: string; name: string }[]>([])
   const upLoadingMembers = ref(false)
   const members = ref<{ uid: string; nickname: string }[]>([])
   const watchList = ref<UpstageWatch[]>([])
@@ -858,6 +883,17 @@
   }
 
   onMounted(async () => {
+    // 已添加的直播间：上场提醒的直播间下拉直接用它们，不再让用户手填 web_rid
+    try {
+      const rooms = await fetchRooms()
+      const list = Array.isArray(rooms) ? rooms : (rooms as any)?.rooms || []
+      roomOptions.value = list
+        .map((r: any) => ({ room_id: String(r.room_id || r.roomId || ''), name: r.name || String(r.room_id || '') }))
+        .filter((r: { room_id: string }) => r.room_id)
+      if (!upWebRid.value && roomOptions.value.length) upWebRid.value = roomOptions.value[0].room_id
+    } catch {
+      /* 房间列表失败不阻塞页面 */
+    }
     try {
       const meta = await fetchNotifyMeta()
       events.value = meta.events || []
@@ -873,10 +909,15 @@
   /* 表格里的图标按钮（和模板 ArtButtonTable 同一尺寸/圆角，但不套 tooltip，避免被裁切） */
   .dy-act-btn {
     display: inline-flex;
+    flex: 0 0 auto;
     width: 32px;
+    min-width: 32px;
     height: 32px;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    border: 0;
+    line-height: 0;
     border-radius: 8px;
     background: var(--art-gray-100, #f4f5f7);
     color: var(--art-gray-600, #5b6068);
