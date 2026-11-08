@@ -243,3 +243,44 @@ SKIP_DEPS=1 bash deploy/container-entry.sh
 ```
 
 （`DY_RUNTIME_IMAGE=1` 由自定义镜像自动带上，效果相同。）
+
+### 为什么 npm 依赖只装一次，字体却每次重装？
+
+差别不在"装一次"这个动作，而在**装到哪**：
+
+| 依赖 | 装在哪 | 容器重建后 |
+| --- | --- | --- |
+| `node_modules`（npm 包） | 项目目录（**挂载盘**） | 保留 ✅ |
+| `chromium` | `.pw-browsers`（**挂载盘**） | 保留 ✅ |
+| 字体 / `libnss3` / `xvfb`（apt） | **容器层**（`/usr/share/fonts`、`/usr/lib`） | 丢失 ❌ |
+
+所以 npm 一次装完就再没提示，而 apt 装的东西每次重建都要重来。
+
+### 现在改成"永远只装一次"
+
+`container-entry.sh` 装成功后会写一个标记文件，**放在项目目录里**（挂载盘）：
+
+```
+/opt/douyin-monitor/.runtime-deps-ok
+```
+
+下次启动看到这个文件就直接跳过全部依赖检查，只打印一行：
+
+```
+[entry] 依赖已装过（xvfb + fonts + libs ok @ 2026-11-08 22:30:11），跳过安装检查
+```
+
+即便容器被重建，标记也在，所以**真正只装一次**。
+
+排查用：
+
+```bash
+ls -l /opt/douyin-monitor/.runtime-deps-ok        # 标记是否存在
+cat /opt/douyin-monitor/.runtime-deps-ok          # 什么时候装的
+```
+
+如果怀疑依赖被破坏（比如换了基础镜像），删掉标记再重启即可重新检查：
+
+```bash
+rm -f /opt/douyin-monitor/.runtime-deps-ok
+```

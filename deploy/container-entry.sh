@@ -47,16 +47,25 @@ fi
 # 判断依据：字体 + Xvfb + 关键库都在，就说明是自定义运行镜像；
 # 也可以显式设 SKIP_DEPS=1 强制跳过（离线环境很有用）。
 # ---------------------------------------------------------------------------
+# 依赖标记：装成功一次就写这个文件。它在**项目目录**（挂载盘）里，
+# 所以容器重建也不会丢 —— 这是"只装一次"的关键，
+# 而不是像 apt 那样每次重建都重新判定缺失。
+DEPS_MARKER="$(pwd)/.runtime-deps-ok"
+
 DEPS_READY=0
 if [ "${SKIP_DEPS:-0}" = "1" ] || [ "${DY_RUNTIME_IMAGE:-0}" = "1" ]; then
   DEPS_READY=1
   info "依赖由镜像提供（SKIP_DEPS/DY_RUNTIME_IMAGE），跳过安装检查"
+elif [ -f "$DEPS_MARKER" ]; then
+  DEPS_READY=1
+  info "依赖已装过（$(cat "$DEPS_MARKER" 2>/dev/null)），跳过安装检查"
 fi
 
 # ---------------------------------------------------------------------------
 # 1) Xvfb（系统包，只能 apt —— 这里只在缺失时装一次）
 # ---------------------------------------------------------------------------
 if [ "$DEPS_READY" = "0" ] && ! command -v Xvfb >/dev/null 2>&1; then
+  info "检测到缺少 Xvfb"
   info "首次启动：安装 xvfb（约 10 秒）..."
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update -qq >/dev/null 2>&1 || true
@@ -134,6 +143,7 @@ NEED_FONT=0
 ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || NEED_FONT=1
 ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || NEED_FONT=1
 if [ "$DEPS_READY" = "0" ] && [ "$NEED_FONT" = "1" ]; then
+  info "检测到缺少中文字体（noto-cjk / hanazono）"
   info "安装中日韩字体（含生僻字，约 1-2 分钟，只需一次）..."
   if command -v apt-get >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk fonts-hanazono >>/tmp/pw-deps.log 2>&1 \
@@ -144,6 +154,19 @@ if [ "$DEPS_READY" = "0" ] && [ "$NEED_FONT" = "1" ]; then
   fi
 else
   info "中日韩字体已就绪 ✓"
+fi
+
+# 三段都过了就落标记：下次启动直接跳过（容器重建也不丢，因为文件在挂载盘）
+if [ "$DEPS_READY" = "0" ]; then
+  FONT_OK=1
+  ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || FONT_OK=0
+  ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || FONT_OK=0
+  if command -v Xvfb >/dev/null 2>&1 && [ "$FONT_OK" = "1" ]; then
+    printf 'xvfb + fonts + libs ok @ %s\n' "$(date '+%F %T')" > "$DEPS_MARKER" 2>/dev/null || true
+    info "依赖已就绪并记录标记：$DEPS_MARKER（下次启动直接跳过）"
+  else
+    warn "依赖还不完整（Xvfb 或字体），不写标记，下次启动会重试"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
