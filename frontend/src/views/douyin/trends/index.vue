@@ -121,9 +121,9 @@
             </button>
           </div>
 
-          <el-button :loading="loading" class="!h-8 !px-3" @click="refresh">
-            <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
-            刷新
+          <el-button class="dy-refresh-btn" :loading="loading" @click="refresh">
+            <ArtSvgIcon v-if="!loading" icon="ri:refresh-line" class="mr-1" />
+            <span>刷新</span>
           </el-button>
         </div>
       </div>
@@ -209,6 +209,11 @@
     <template v-else-if="hasData">
       <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
+      <!-- 明确写一句：下面这些数字统计的是谁 -->
+      <div class="mb-2 flex items-center gap-1.5 text-[11px] text-g-400">
+        <ArtSvgIcon icon="ri:information-line" />
+        以下数据统计范围：<b class="text-g-600">{{ scopeLabel }}</b> · {{ rangeLabel }} · {{ modeLabel }}口径
+      </div>
       <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">
           <div class="text-[11px] leading-none text-g-500">{{ k.label }}</div>
@@ -237,7 +242,7 @@
           <div class="title">
             <h4>开播时段表现</h4>
             <p>
-              横轴 0–23 点、纵轴周几，颜色是该时段的场均钻石<template v-if="bestSlot"> · 最佳 {{ bestSlot.weekday }} {{ bestSlot.hour }} 点，场均 {{ fmtNum(bestSlot.avg) }} 钻（{{ bestSlot.count }} 场）</template>
+              <b class="text-g-700">{{ scopeLabel }}</b> · 横轴 0–23 点、纵轴周几，颜色是该时段的场均钻石<template v-if="bestSlot"> · 最佳 {{ bestSlot.weekday }} {{ bestSlot.hour }} 点，场均 {{ fmtNum(bestSlot.avg) }} 钻（{{ bestSlot.count }} 场）</template>
             </p>
           </div>
         </div>
@@ -246,14 +251,14 @@
           heatmap 在"类目轴 + 坐标名"这套组合上试了三轮都画不出格子（下标/类目名都对不上），
           而这里只有 168 个格子，div + 背景色最稳，还自带响应式。
         -->
-        <div class="mt-2 flex gap-2">
+        <div class="dy-heat-wrap mt-2 flex gap-2 overflow-x-auto">
           <!-- 周几标签 -->
           <div class="flex shrink-0 flex-col gap-[3px] pt-[14px]">
             <div v-for="w in WEEK_LABELS" :key="w" class="flex h-4 items-center text-[10px] text-g-400">
               {{ w }}
             </div>
           </div>
-          <div class="min-w-0 flex-1">
+          <div class="dy-heat-inner min-w-0 flex-1">
             <!-- 小时刻度 -->
             <div class="mb-1 grid gap-[3px]" style="grid-template-columns: repeat(24, minmax(0, 1fr))">
               <div
@@ -269,8 +274,8 @@
                 <div
                   v-for="c in heatCellsFor(w)"
                   :key="w + c.hour"
-                  class="h-4 rounded-[3px] transition-colors"
-                  :style="{ background: c.bg }"
+                  class="dy-heat-cell h-4 rounded-[3px]"
+                  :style="{ background: c.bg, animationDelay: c.hour * 12 + 'ms' }"
                   :title="c.title"
                 />
               </div>
@@ -282,11 +287,13 @@
 
       <!-- 指标开关：自己选要看哪些 -->
       <div class="art-card p-4 mb-5">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-sm text-g-600 mr-1">显示指标</span>
+        <!-- 手机上指标多，横向滚动而不是换成三行（换行会把卡片撑高） -->
+        <div class="flex items-center gap-2 overflow-x-auto md:flex-wrap">
+          <span class="shrink-0 text-sm text-g-600 mr-1">显示指标</span>
           <el-check-tag
             v-for="m in allMetrics"
             :key="m.key"
+            class="shrink-0"
             :checked="activeMetrics.includes(m.key)"
             @change="(v: boolean) => toggleMetric(m.key, v)"
           >
@@ -325,7 +332,7 @@
           <ArtSvgIcon :icon="m.icon" class="text-theme shrink-0" />
           <h4 class="m-0 shrink-0 text-sm font-medium text-g-900">{{ m.label }}</h4>
           <span class="truncate text-[11px] text-g-400">{{ m.hint }}</span>
-          <span class="ml-auto shrink-0 text-[11px] text-g-400">{{ xAxisLabel }}</span>
+          <span class="ml-auto hidden shrink-0 text-[11px] text-g-400 md:inline">{{ xAxisLabel }}</span>
         </div>
         <!-- ref 用静态 key，配合下面的 chartRefs 记录 -->
         <div :ref="recordChart(m.key)" class="h-56"></div>
@@ -764,6 +771,11 @@ ext`，不能再按当前状态取反一次 ——
   const currentHosts = computed(() => (series.value.length ? series.value : hosts.value.filter((h) => selectedHosts.value.includes(h.hostId))))
   const rangeLabel = computed(() => RANGE_OPTIONS.find((r) => r.value === range.value)?.label || '')
   const modeLabel = computed(() => MODE_OPTIONS.find((m) => m.value === xMode.value)?.label || '')
+  /** 当前统计范围（直播间名字），给各区块标注"这批数据是谁的" */
+  const scopeLabel = computed(() =>
+    currentHosts.value.length ? currentHosts.value.map((h) => h.name).join(' / ') : '未选择直播间'
+  )
+
   const totalSessions = computed(() => series.value.reduce((a, s) => a + (s.summary.sessions || 0), 0))
 
   /** 选择/取消一个直播间（最多 4 个） */

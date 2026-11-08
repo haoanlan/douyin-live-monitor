@@ -1357,3 +1357,57 @@ html.dark .dy-host-row:hover {
     min-height: auto;
   }
 }
+
+/* ============================================================
+ * 趋势分析页：刷新按钮固定尺寸 / 热力图入场动画 / 移动端适配
+ * ============================================================ */
+
+/* 刷新按钮：固定宽高，loading 时只换图标，长度和高度都不跳 */
+.el-button.dy-refresh-btn {
+  width: 76px;
+  min-width: 76px;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* loading 时的转圈图标不额外撑高 */
+.el-button.dy-refresh-btn .el-icon {
+  height: 14px;
+}
+
+/* 热力图格子：从左往右错峰淡入 + 轻微放大 */
+@keyframes dy-heat-in {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.dy-heat-cell {
+  animation: dy-heat-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dy-heat-cell {
+    animation: none;
+  }
+}
+
+/* 移动端：热力图本身需要 24 列，横向滚动比压缩更可读 */
+@media (max-width: 767px) {
+  .dy-heat-inner {
+    min-width: 520px;
+  }
+
+  .dy-heat-wrap {
+    padding-bottom: 4px;
+  }
+}
