@@ -614,8 +614,13 @@
             点它 → 弹窗内容切成模板网格 → 选哪个用它下载并自动切回榜单。
             （曾试过放底部 footer，用户反馈"留白太多"，故回到标题栏。）
           -->
-          <!-- 补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播） -->
+          <!--
+            补录礼物：加号图标，紧挨着下载按钮左侧（主播排名弹窗里，收礼人自动锁定成当前主播）。
+            没有 manual_gift.add 权限的人**整个按钮都不出现**（用户要求：访客看不到补录入口）；
+            已经进了补录面板的人仍然显示返回箭头，否则出不来。
+          -->
           <button
+            v-if="manualGiftOpen || can('manual_gift.add')"
             class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme !right-[96px]"
             :title="manualGiftOpen ? '返回榜单' : '补录礼物'"
             :aria-label="manualGiftOpen ? '返回榜单' : '补录礼物'"
@@ -772,7 +777,7 @@
               >
                 <span class="truncate flex-1 min-w-0">{{ r.gift_name }} ×{{ r.repeat_count }} · {{ r.nickname }}</span>
                 <span class="tabular-nums text-theme shrink-0 w-[64px] text-right">{{ fmtNum(r.total_diamonds) }} 钻</span>
-                <el-button size="small" text type="danger" class="shrink-0 !px-1.5" @click="removeManualGift(r)">撤销</el-button>
+                <el-button v-if="can('manual_gift.delete')" size="small" text type="danger" class="shrink-0 !px-1.5" @click="removeManualGift(r)">撤销</el-button>
               </div>
             </div>
           </div>
@@ -858,6 +863,7 @@
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { rankThemeLabel } from '@/utils/rank-themes'
   import { useIsMobile } from '@/hooks/core/useIsMobile'
+  import { usePermissionStore } from '@/store/modules/permission'
 
   interface FeedItem {
     _type: 'danmaku' | 'gift'
@@ -884,6 +890,10 @@
 
   /* ---------- 手机端 tab（榜单 / 数据 / 动态） ---------- */
   const { isMobile } = useIsMobile()
+
+  /** 细粒度操作权限（超管恒真；未加载时放行） */
+  const permissionStore = usePermissionStore()
+  const can = (action: string) => permissionStore.hasPerm(action)
   const mobileTab = ref('gifts')
   const mobileTabs = [
     { key: 'gifts', label: '礼物榜单' },
