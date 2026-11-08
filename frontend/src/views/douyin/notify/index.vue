@@ -155,6 +155,98 @@
             />
           </div>
         </el-tab-pane>
+        <!-- ============ 主播上场提醒 ============ -->
+        <el-tab-pane label="主播上场" name="upstage">
+          <div class="mb-3 flex flex-wrap items-end gap-2">
+            <div>
+              <div class="mb-1 text-[11px] text-g-400">房间号（web_rid，直播间地址里的那串数字）</div>
+              <el-input v-model="upWebRid" placeholder="例如 65209552987" style="width: 200px" @change="loadUpstage" />
+            </div>
+            <el-button :loading="upLoadingMembers" @click="loadMembers">拉团员榜</el-button>
+            <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
+            <span class="text-[11px] text-g-400">
+              映射 {{ upStatus?.rank?.mappedUsers || 0 }} 人 · 最近帧
+              {{ upStatus?.runtime?.lastFrameAt ? fmtGap(upStatus.runtime.streamGapSecs) : '无' }}
+              · 来源 {{ upStatus?.runtime?.lastSource || '—' }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <!-- 关注名单 -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-medium text-g-800">关注名单</span>
+                <span class="text-[11px] text-g-400">按 uid 匹配，昵称只用于显示</span>
+              </div>
+              <div v-if="members.length" class="mb-2 flex flex-wrap gap-1">
+                <button
+                  v-for="m in members.filter((x) => !watchUids.includes(x.uid))"
+                  :key="m.uid"
+                  type="button"
+                  class="rounded-full bg-g-100 px-2 py-0.5 text-[11px] text-g-600 hover:bg-theme/10 hover:text-theme"
+                  @click="addWatch(m)"
+                >
+                  + {{ m.nickname }}
+                </button>
+              </div>
+              <el-table :data="watchList" size="small" empty-text="还没有关注的主播">
+                <el-table-column label="昵称" min-width="120">
+                  <template #default="{ row }">{{ row.nickname || '（待补）' }}</template>
+                </el-table-column>
+                <el-table-column label="uid" min-width="150">
+                  <template #default="{ row }"><span class="text-xs text-g-500">{{ row.uid }}</span></template>
+                </el-table-column>
+                <el-table-column label="操作" width="80" align="right">
+                  <template #default="{ row }">
+                    <el-button v-if="can('upstage.manage')" link type="danger" @click="removeWatch(row as UpstageWatch)">移除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+
+            <!-- 事件 -->
+            <div>
+              <div class="mb-2 flex items-center justify-between">
+                <span class="text-sm font-medium text-g-800">上场事件</span>
+                <span class="text-[11px] text-g-400">共 {{ upEventTotal }} 条 · 离场不推送</span>
+              </div>
+              <el-table :data="upEvents" size="small" empty-text="还没有事件">
+                <el-table-column label="时间" width="160">
+                  <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
+                </el-table-column>
+                <el-table-column label="事件" width="90">
+                  <template #default="{ row }">
+                    <el-tag size="small" :type="row.event === 'on_stage' ? 'success' : 'info'" effect="light">
+                      {{ upEventLabel(row.event) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="主播" min-width="100">
+                  <template #default="{ row }">{{ row.nickname || row.uid }}</template>
+                </el-table-column>
+                <el-table-column label="说明" min-width="120">
+                  <template #default="{ row }"><span class="text-xs text-g-500">{{ row.detail || '—' }}</span></template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+
+          <!-- 外部采集进程接入说明 -->
+          <div class="mt-4 rounded-lg bg-g-100/60 p-3">
+            <div class="mb-1 text-[11px] text-g-600">
+              人脸识别通道的帧从这里进来（Go 代理没有这个 proto，需要外部采集进程解码后提交）：
+            </div>
+            <div class="flex items-center gap-2">
+              <code class="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-g-700">
+                POST /api/upstage/frames  X-Upstage-Token: {{ upStatus?.frameToken || '…' }}
+              </code>
+              <el-button size="small" @click="copyToken">复制令牌</el-button>
+            </div>
+            <div class="mt-1 text-[11px] text-g-400">
+              请求体：{"webRid":"65209552987","source":"face","frames":[{"uid":"2203876772819496","conf":0.62}]}
+            </div>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -238,6 +330,18 @@
     type NotifyRule
   } from '@/api/notify'
   import { usePermissionStore } from '@/store/modules/permission'
+  import {
+    addUpstageWatch,
+    deleteUpstageWatch,
+    fetchUpstageEvents,
+    fetchUpstageMembers,
+    fetchUpstageStatus,
+    fetchUpstageWatch,
+    resetUpstage,
+    type UpstageEvent,
+    type UpstageStatus,
+    type UpstageWatch
+  } from '@/api/upstage'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtTime } from '@/utils/format'
 
@@ -246,7 +350,7 @@
   const permissionStore = usePermissionStore()
   const can = (key: string) => permissionStore.hasPerm(key)
 
-  const activeTab = ref<'rules' | 'channels' | 'logs'>('rules')
+  const activeTab = ref<'rules' | 'channels' | 'logs' | 'upstage'>('rules')
   const loading = ref(false)
   const saving = ref(false)
 
@@ -474,6 +578,95 @@
     }
   }
 
+  /* ---------------- 主播上场提醒 ---------------- */
+  const upWebRid = ref('')
+  const upLoadingMembers = ref(false)
+  const members = ref<{ uid: string; nickname: string }[]>([])
+  const watchList = ref<UpstageWatch[]>([])
+  const upStatus = ref<UpstageStatus | null>(null)
+  const upEvents = ref<UpstageEvent[]>([])
+  const upEventTotal = ref(0)
+
+  const watchUids = computed(() => watchList.value.map((w) => String(w.uid)))
+
+  const upEventLabel = (e: string) =>
+    ({ on_stage: '上场', on_stage_late: '补发', off_stage: '离场', pending: '挂起' } as Record<string, string>)[e] || e
+
+  const fmtGap = (secs: number | null | undefined) =>
+    secs == null ? '—' : secs < 60 ? `${secs} 秒前` : `${Math.round(secs / 60)} 分钟前`
+
+  async function loadUpstage() {
+    if (!upWebRid.value.trim()) return
+    const rid = upWebRid.value.trim()
+    try {
+      const [w, s, ev] = await Promise.all([
+        fetchUpstageWatch({ webRid: rid }),
+        fetchUpstageStatus({ webRid: rid }),
+        fetchUpstageEvents({ webRid: rid, page: 1, size: 10 })
+      ])
+      watchList.value = w.items || []
+      upStatus.value = s
+      upEvents.value = ev.items || []
+      upEventTotal.value = ev.total || 0
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '读取上场提醒失败'))
+    }
+  }
+
+  async function loadMembers() {
+    if (!upWebRid.value.trim()) return ElMessage.warning('先填房间号')
+    upLoadingMembers.value = true
+    try {
+      const r = await fetchUpstageMembers({ webRid: upWebRid.value.trim(), force: '1' })
+      members.value = r.items || []
+      if (!members.value.length) ElMessage.warning('团员榜暂时为空（可能没开播或该房间没有团员榜）')
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '拉团员榜失败'))
+    } finally {
+      upLoadingMembers.value = false
+    }
+  }
+
+  async function addWatch(m: { uid: string; nickname: string }) {
+    try {
+      const r = await addUpstageWatch({ web_rid: upWebRid.value.trim(), uid: m.uid, nickname: m.nickname, enabled: 1 })
+      watchList.value = r.items || []
+      ElMessage.success(`已关注 `)
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '添加失败'))
+    }
+  }
+
+  async function removeWatch(row: UpstageWatch) {
+    try {
+      const r = await deleteUpstageWatch(row.id)
+      watchList.value = (r.items || []).filter((x) => x.web_rid === upWebRid.value.trim())
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '移除失败'))
+    }
+  }
+
+  async function resetStates() {
+    if (!upWebRid.value.trim()) return
+    try {
+      await resetUpstage(upWebRid.value.trim())
+      ElMessage.success('本场状态已清空（不跨场记忆）')
+      await loadUpstage()
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '清空失败'))
+    }
+  }
+
+  async function copyToken() {
+    const token = upStatus.value?.frameToken || ''
+    if (!token) return
+    try {
+      await navigator.clipboard.writeText(token)
+      ElMessage.success('令牌已复制')
+    } catch {
+      ElMessage.warning('复制失败，请手动选择文本')
+    }
+  }
   /* ---------------- 记录 ---------------- */
   async function loadLogs(page = logPage.value) {
     logPage.value = page
@@ -502,6 +695,7 @@
 
   function onTabChange(name: string) {
     if (name === 'logs') loadLogs(1)
+    if (name === 'upstage') loadUpstage()
   }
 
   onMounted(async () => {

@@ -167,3 +167,37 @@ C 作为第二步，等核心粉丝榜做出来再合并成一页。
 - 主播上场通知需要"上场判定"，和团播主播排名用的是同一份 `anchorRanking` 数据
 - 观众档案 = `session_user_gift_totals` / `session_user_danmaku_totals` 已有的跨场次基础 + 新 `user_profiles`
 - CSV 导出、榜单图片下载保持不变
+
+---
+
+## 四、主播上场提醒：已实现部分（2026-11-08）
+
+按《主播上场提醒-完整文档》落地，代码在 `lib/upstage/`：
+
+| 文件 | 作用 |
+| --- | --- |
+| `store.js` | 关注名单 / 状态机 / 事件日志三张表 |
+| `rank-list.js` | 团员榜 uid→昵称（零 cookie），60s 缓存 + room_id 失效重解析 |
+| `engine.js` | 上升沿状态机：CONF_MIN 0.30 / NEED_HITS 2 / GONE 180s / 冷却 600s / 断流保护 60s |
+| `ingest.js` | worker 的进度条通道（ContainerChange → challenge_user_infos）喂帧 |
+| `token.js` | 外部采集进程的 X-Upstage-Token |
+| `lib/routes/upstage.js` | 名单 / 状态 / 事件 / 帧入口 |
+
+**通道现状**
+
+- 进度条通道（`WebcastGroupLiveContainerChangeMessage` 的 `challenge_user_infos`）：**已接**，公会赛房间靠它。
+- 人脸识别通道（`WebcastGroupLiveOnCamRecognitionMessage`）：**代理二进制里没有这个 proto**（已验证 `douyinLive-linux-amd64` 中不含该字符串），
+  所以留了 `POST /api/upstage/frames` 给外部采集进程（Python 旁路 dump 解码后提交），令牌在页面「通知管理 → 主播上场」里。
+
+**已实现的行为**
+
+- 只推上场，离场只记 `off_stage` 事件（文档 4.4）
+- 名字拿不到 → 挂起 `pending`，心跳每 10 秒重试，拿到后补发（文档 4.5 / 坑 2）
+- 一帧多人、名单外忽略（文档坑 1 / 坑 6）
+- 清空状态会把冷却一起清掉（否则"清空了还是不推"）
+
+**待补**
+
+- 脸部帧采集脚本（外部进程）—— 需要你确认用现有的 `watch_oncam.py` 还是我写一个 Node 版
+- 开播/下播时自动 `resetRoom`（现在靠页面按钮或手动 API）
+- 推送卡片用飞书 `lark_md` + @人（文档坑 14）

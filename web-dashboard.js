@@ -32,6 +32,7 @@ const routeHandlers = [
   require('./lib/routes/gift-prices'),
   require('./lib/routes/misc'),
   require('./lib/routes/notify'),
+  require('./lib/routes/upstage'),
 ];
 
 // ====== 连击去重（使用共享模块 lib/gift-utils.js）======
@@ -62,6 +63,13 @@ function checkAuth(req, res) {
   const { pathname } = parseQuery(req.url);
   // 只有登录入口免认证；用户列表现在也要登录（原来免认证，会把账号列表暴露出去）
   if (pathname === '/api/auth/login') return true;
+
+  /*
+   * 上场提醒的帧入口：外部采集进程（旁路 dump 解码 OnCamRecognition）没有登录态，
+   * 这里放行，由 lib/routes/upstage.js 用 X-Upstage-Token 做服务令牌校验。
+   * 注意只放行这一个路径，其它 /api/upstage/* 仍要登录。
+   */
+  if (pathname === '/api/upstage/frames' && req.method === 'POST') return true;
 
   const session = authToken.fromRequest(req);
   const user = session
@@ -411,6 +419,25 @@ async function start() {
      */
     // 通知表在这里建一次，路由里就不用每次判存在
     try { require('./lib/notify/store').ensure(db.getDb()); } catch (e) { console.warn('[notify] 建表失败:', e.message); }
+    try {
+      require('./lib/upstage/store').ensure(db.getDb());
+      require('./lib/upstage/ingest').setDb(db.getDb());
+    } catch (e) {
+      console.warn('[upstage] 建表失败:', e.message);
+    }
+    /*
+     * 上场提醒的心跳：10 秒一次，判离场 + 补发挂起项。
+     * 用 unref 让进程能正常退出。
+     */
+    try {
+      const upstageEngine = require('./lib/upstage/engine');
+      const upstageTimer = setInterval(() => {
+        try { upstageEngine.tick(db.getDb()); } catch (e) { console.warn('[upstage] tick 失败:', e.message); }
+      }, 10000);
+      if (typeof upstageTimer.unref === 'function') upstageTimer.unref();
+    } catch (e) {
+      console.warn('[upstage] 启动心跳失败:', e.message);
+    }
     warmGiftPrices();
     const warmTimer = setInterval(warmGiftPrices, 5 * 60 * 1000);
     if (typeof warmTimer.unref === 'function') warmTimer.unref();
