@@ -565,16 +565,40 @@ async function init() {
       ['DouyinGiftPrices', '礼物价格', '/douyin/gift-prices', 'ri:price-tag-3-line', 'DouyinLiveData', 16, 1, 0],
       ['DouyinSearch', '信息查询', '/douyin/search', 'ri:search-line', 'DouyinLiveData', 17, 1, 0],
       ['DouyinStatus', '状态监控', '/douyin/status', 'ri:heart-pulse-line', 'DouyinLiveData', 18, 1, 0],
-      ['SystemManage', '系统管理', '/douyin/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
-      ['SystemUsers', '账号管理', '/douyin/system/users', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
-      ['SystemRoles', '角色管理', '/douyin/system/roles', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
-      ['SystemMenus', '菜单管理', '/douyin/system/menus', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
+      ['SystemManage', '系统管理', '/system', 'ri:settings-3-line', null, 90, 1, 0, 'directory', null],
+      ['SystemUsers', '用户管理', '/system/user', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
+      ['SystemRoles', '角色管理', '/system/role', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
+      ['SystemMenus', '菜单管理', '/system/menu', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
       ['UserCenter', '个人中心', '/user-center', 'ri:user-line', null, 900, 1, 0]
     ];
+    /*
+     * 注意：seedMenus 里的行长度不一致 —— 目录/带权限的行是 10 列
+     * （多 menu_type、perms），普通菜单是 8 列。
+     * 原来 SQL 只写了 8 个占位符，喂 10 列的行时 better-sqlite3 直接抛
+     * "Too many parameter values were provided"，整个 try 被 catch 吞掉，
+     * 结果 menu_items / roles 一条都没灌进去（后端起得来，但菜单管理页全空）。
+     * 这里按 10 列展开，缺的用默认值补齐。
+     */
     const insMenu = d.prepare(
-      'INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden) VALUES (?,?,?,?,?,?,?,?)'
+      'INSERT OR IGNORE INTO menu_items (key,title,path,icon,parent_key,sort,visible,hidden,menu_type,perms) VALUES (?,?,?,?,?,?,?,?,?,?)'
     );
-    for (const m of seedMenus) insMenu.run(...m);
+    for (const m of seedMenus) {
+      const [key, title, p, icon, parent, sort, visible, hidden, type = 'menu', perms = null] = m;
+      insMenu.run(key, title, p, icon, parent, sort, visible, hidden, type, perms);
+    }
+
+    /*
+     * 老库修正：早期灌进去的是 `/douyin/system/...`（压根不存在的路由，
+     * 真正的路由是 /system、/system/user、/system/role、/system/menu）。
+     * INSERT OR IGNORE 改不了已有行，这里只在「还是那个错值」时才改，
+     * 用户自己改过的路径不会被覆盖。
+     */
+    d.exec(`
+      UPDATE menu_items SET path = '/system'      WHERE key = 'SystemManage' AND path = '/douyin/system';
+      UPDATE menu_items SET path = '/system/user' WHERE key = 'SystemUsers'  AND path = '/douyin/system/users';
+      UPDATE menu_items SET path = '/system/role' WHERE key = 'SystemRoles'  AND path = '/douyin/system/roles';
+      UPDATE menu_items SET path = '/system/menu' WHERE key = 'SystemMenus'  AND path = '/douyin/system/menus';
+    `);
 
     const insRole = d.prepare('INSERT OR IGNORE INTO roles (key,name,note) VALUES (?,?,?)');
     insRole.run('R_SUPER', '超级管理员', '全部菜单 + 全部操作');
