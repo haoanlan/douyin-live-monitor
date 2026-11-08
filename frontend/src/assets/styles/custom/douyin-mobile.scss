@@ -1222,3 +1222,102 @@ html.dark .dy-seg__item.is-active {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
+
+/* ============================================================
+ * 趋势分析页的直播间选择器 / 快捷入口
+ *
+ * 原来多选 el-select 是个大方框 + 标签 + 下拉，用户觉得"很难看"。
+ * 这里给按钮型选择器 + 弹层勾选列表配样式。
+ * ============================================================ */
+.dy-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--art-gray-100, #f4f5f7);
+  color: var(--art-gray-700, #4b5058);
+  font-size: 12px;
+  transition: all 0.18s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.dy-picker-btn:hover {
+  background: var(--theme-color, #3b82f6);
+  color: #fff;
+}
+
+.dy-picker-btn__count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--theme-color, #3b82f6);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.dy-picker-btn:hover .dy-picker-btn__count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.dy-picker-btn__caret {
+  opacity: 0.6;
+}
+
+/* 弹层里的一行：头像 + 名字 + 场次 */
+.dy-host-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.dy-host-row:hover {
+  background: var(--art-gray-100, #f4f5f7);
+}
+
+.dy-host-row.is-checked {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dy-host-row.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 空状态里的快捷入口 */
+.dy-quick-host {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--art-gray-100, #f4f5f7);
+  font-size: 12px;
+  color: var(--art-gray-700, #4b5058);
+  transition: all 0.18s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.dy-quick-host:hover {
+  background: var(--theme-color, #3b82f6);
+  color: #fff;
+}
+
+html.dark .dy-picker-btn,
+html.dark .dy-quick-host {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+html.dark .dy-host-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}

@@ -59,29 +59,41 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <el-select
-            v-model="selectedHosts"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            :multiple-limit="4"
-            placeholder="选择直播间（最多 4 个）"
-            style="width: 240px"
-            @change="refresh"
-          >
-            <el-option
-              v-for="h in hosts"
-              :key="h.hostId"
-              :label="h.name"
-              :value="h.hostId"
-              :disabled="h.sessionCount === 0"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <span class="truncate">{{ h.name }}</span>
-                <span class="text-xs text-g-500 shrink-0">{{ h.sessionCount }} 场</span>
-              </div>
-            </el-option>
-          </el-select>
+          <!--
+            直播间选择：原来是一个多选 el-select（大框 + 标签 + 下拉），
+            用户反馈"这个选择器很难看"。改成按钮 + 弹层勾选：
+            平时只占一个按钮，点开是一列带头像/场次的复选列表。
+          -->
+          <el-popover placement="bottom-end" :width="280" trigger="click" popper-class="dy-host-pop">
+            <template #reference>
+              <button type="button" class="dy-picker-btn">
+                <ArtSvgIcon icon="ri:live-line" />
+                <span>选择直播间</span>
+                <span v-if="selectedHosts.length" class="dy-picker-btn__count">{{ selectedHosts.length }}</span>
+                <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
+              </button>
+            </template>
+            <div class="max-h-[300px] overflow-y-auto">
+              <div class="px-1 pb-1 text-[11px] text-g-400">最多选 4 个直播间对比</div>
+              <label
+                v-for="h in hosts"
+                :key="h.hostId"
+                class="dy-host-row"
+                :class="{ 'is-disabled': h.sessionCount === 0, 'is-checked': selectedHosts.includes(h.hostId) }"
+                @click.prevent="toggleHost(h)"
+              >
+                <el-checkbox
+                  :model-value="selectedHosts.includes(h.hostId)"
+                  :disabled="h.sessionCount === 0 || (!selectedHosts.includes(h.hostId) && selectedHosts.length >= 4)"
+                  @click.stop
+                  @change="toggleHost(h)"
+                />
+                <el-avatar :size="20" :src="h.avatar || undefined" class="shrink-0">{{ h.name?.[0] }}</el-avatar>
+                <span class="min-w-0 flex-1 truncate text-sm text-g-800">{{ h.name }}</span>
+                <span class="shrink-0 text-[11px] text-g-400">{{ h.sessionCount }} 场</span>
+              </label>
+            </div>
+          </el-popover>
 
           <!-- 时间范围 / 粒度：自绘分段控件（el-radio-group 默认方角样式偏老气） -->
           <div class="dy-seg">
@@ -109,8 +121,9 @@
             </button>
           </div>
 
-          <el-button :loading="loading" circle @click="refresh">
-            <ArtSvgIcon icon="ri:refresh-line" />
+          <el-button :loading="loading" @click="refresh">
+            <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
+            刷新
           </el-button>
         </div>
       </div>
@@ -163,12 +176,34 @@
     </div>
 
     <!-- 没选房间：明确提示，而不是给一片空白 -->
+    <!--
+      空状态：没选直播间时给"直接点一个"的入口。
+      原来是一个 el-empty 插图 + 一行字，用户反馈"空状态也要优化"。
+    -->
     <div v-else-if="!selectedHosts.length" class="art-card p-10">
-      <el-empty description="请先在上方选择要分析的房间" :image-size="80">
-        <div class="text-xs text-g-500">
-          选一个房间看它自己的走势；多选几个可以把它们叠在同一张图上对比。
+      <div class="mx-auto max-w-[560px] text-center">
+        <div class="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-theme/10 text-theme">
+          <ArtSvgIcon icon="ri:line-chart-line" class="text-xl" />
         </div>
-      </el-empty>
+        <h4 class="m-0 text-base font-semibold text-g-900">先选一个直播间</h4>
+        <p class="m-0 mt-1.5 text-xs leading-6 text-g-500">
+          选定后会显示它的总量、开播时段表现和走势；多选可以叠加对比（最多 4 个）。
+        </p>
+        <div v-if="quickHosts.length" class="mt-4 flex flex-wrap justify-center gap-2">
+          <button
+            v-for="h in quickHosts"
+            :key="h.hostId"
+            type="button"
+            class="dy-quick-host"
+            @click="pickQuickHost(h)"
+          >
+            <el-avatar :size="18" :src="h.avatar || undefined" class="shrink-0">{{ h.name?.[0] }}</el-avatar>
+            <span class="max-w-[120px] truncate">{{ h.name }}</span>
+            <span class="text-[11px] text-g-400">{{ h.sessionCount }} 场</span>
+          </button>
+        </div>
+        <p v-else class="m-0 mt-4 text-xs text-g-400">还没有采集到场次数据，先去「房间管理」添加直播间。</p>
+      </div>
     </div>
 
     <template v-else-if="hasData">
@@ -730,6 +765,26 @@ ext`，不能再按当前状态取反一次 ——
   const rangeLabel = computed(() => RANGE_OPTIONS.find((r) => r.value === range.value)?.label || '')
   const modeLabel = computed(() => MODE_OPTIONS.find((m) => m.value === xMode.value)?.label || '')
   const totalSessions = computed(() => series.value.reduce((a, s) => a + (s.summary.sessions || 0), 0))
+
+  /** 选择/取消一个直播间（最多 4 个） */
+  function toggleHost(h: { hostId: number; sessionCount: number }) {
+    if (h.sessionCount === 0) return
+    const i = selectedHosts.value.indexOf(h.hostId)
+    if (i >= 0) selectedHosts.value.splice(i, 1)
+    else if (selectedHosts.value.length < 4) selectedHosts.value.push(h.hostId)
+    else return
+    refresh()
+  }
+
+  /** 空状态里"直接点一个"用：只显示有场次的，按场次排序取前 8 个 */
+  const quickHosts = computed(() =>
+    hosts.value.filter((h) => h.sessionCount > 0).sort((a, b) => b.sessionCount - a.sessionCount).slice(0, 8)
+  )
+
+  function pickQuickHost(h: { hostId: number }) {
+    selectedHosts.value = [h.hostId]
+    refresh()
+  }
 
   const RANGE_OPTIONS = [
     { value: '7d', label: '近 7 天' },
