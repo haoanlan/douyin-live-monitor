@@ -19,56 +19,99 @@
   <div class="douyin-page dy-stagger p-4">
     <!-- 面包屑统一由顶栏渲染（原来这里那份与顶栏内容一字不差地重复） -->
 
-    <!-- 页头：标题 + 说明 + 筛选（和模板分析页同一套 art-card / art-card-header） -->
+    <!--
+      页头：**先说清楚现在看的是谁**，再给筛选。
+      之前标题只写「趋势分析」，正文里看不出这堆数字属于哪个直播间（多选时更糊），
+      所以左上角直接放主播头像 + 名字，多选时把每个直播间列成一行。
+    -->
     <div class="art-card p-4 mb-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="art-card-header !mb-0">
-          <div class="title">
-            <h4>趋势分析</h4>
-            <p class="!text-[11px]">按场次 / 日 / 周 / 月看走势，并与上一个等长周期对比</p>
+        <div class="flex min-w-0 items-center gap-3">
+          <el-avatar
+            v-if="currentHosts.length === 1"
+            :size="34"
+            :src="currentHosts[0]?.avatar || undefined"
+            class="shrink-0"
+          >
+            {{ currentHosts[0]?.name?.[0] }}
+          </el-avatar>
+          <el-avatar v-else :size="34" class="shrink-0 !bg-theme/10 !text-theme">
+            {{ currentHosts.length }}
+          </el-avatar>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <h4 class="m-0 text-base font-semibold text-g-900">
+                {{ currentHosts.length === 1 ? currentHosts[0]?.name : '已选 ' + currentHosts.length + ' 个直播间' }}
+              </h4>
+              <span class="rounded bg-g-100 px-1.5 py-0.5 text-[10px] text-g-500">
+                {{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场
+              </span>
+            </div>
+            <p class="m-0 mt-0.5 truncate text-[11px] text-g-500">
+              <template v-if="currentHosts.length > 1">
+                {{ currentHosts.map((h) => h.name).join(' / ') }}
+              </template>
+              <template v-else>
+                与上一个等长周期对比 · 改价 / 补录后自动重建
+              </template>
+            </p>
           </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-        <el-select
-          v-model="selectedHosts"
-          multiple
-          collapse-tags
-          collapse-tags-tooltip
-          :multiple-limit="4"
-          placeholder="选择房间（可多选对比，最多 4 个）"
-          style="width: 340px"
-          @change="refresh"
-        >
-          <el-option
-            v-for="h in hosts"
-            :key="h.hostId"
-            :label="h.name"
-            :value="h.hostId"
-            :disabled="h.sessionCount === 0"
+
+        <div class="flex flex-wrap items-center gap-2">
+          <el-select
+            v-model="selectedHosts"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            :multiple-limit="4"
+            placeholder="选择直播间（最多 4 个）"
+            style="width: 240px"
+            @change="refresh"
           >
-            <div class="flex items-center justify-between gap-3">
-              <span class="truncate">{{ h.name }}</span>
-              <span class="text-xs text-g-500 shrink-0">{{ h.sessionCount }} 场</span>
-            </div>
-          </el-option>
-        </el-select>
-        </div>
-        <div class="dy-toolbar-actions">
-        <el-radio-group v-model="range" @change="refresh">
-          <el-radio-button value="7d">7天</el-radio-button>
-          <el-radio-button value="30d">30天</el-radio-button>
-          <el-radio-button value="90d">90天</el-radio-button>
-          <el-radio-button value="all">全部</el-radio-button>
-        </el-radio-group>
-        <el-radio-group v-model="xMode" @change="redraw">
-          <el-radio-button value="session">按场次</el-radio-button>
-          <el-radio-button value="day">按日</el-radio-button>
-          <el-radio-button value="week">按周</el-radio-button>
-          <el-radio-button value="month">按月</el-radio-button>
-        </el-radio-group>
-        <el-button :loading="loading" @click="refresh">
-          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
-        </el-button>
+            <el-option
+              v-for="h in hosts"
+              :key="h.hostId"
+              :label="h.name"
+              :value="h.hostId"
+              :disabled="h.sessionCount === 0"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <span class="truncate">{{ h.name }}</span>
+                <span class="text-xs text-g-500 shrink-0">{{ h.sessionCount }} 场</span>
+              </div>
+            </el-option>
+          </el-select>
+
+          <!-- 时间范围 / 粒度：自绘分段控件（el-radio-group 默认方角样式偏老气） -->
+          <div class="dy-seg">
+            <button
+              v-for="r in RANGE_OPTIONS"
+              :key="r.value"
+              type="button"
+              class="dy-seg__item"
+              :class="{ 'is-active': range === r.value }"
+              @click="range = r.value; refresh()"
+            >
+              {{ r.label }}
+            </button>
+          </div>
+          <div class="dy-seg">
+            <button
+              v-for="m in MODE_OPTIONS"
+              :key="m.value"
+              type="button"
+              class="dy-seg__item"
+              :class="{ 'is-active': xMode === m.value }"
+              @click="xMode = m.value; redraw()"
+            >
+              {{ m.label }}
+            </button>
+          </div>
+
+          <el-button :loading="loading" circle @click="refresh">
+            <ArtSvgIcon icon="ri:refresh-line" />
+          </el-button>
         </div>
       </div>
     </div>
@@ -151,13 +194,13 @@
 
 
       <!--
-        ③ 什么时候播效果最好：24 小时 × 周几 的「场均钻石」热力图
+        ③ 开播时段表现：24 小时 × 周几 的「场均钻石」热力图
         用"场均"而不是"总量"：黄金时段播一场顶三场，看总量只会奖励播得多的人。
       -->
       <div class="art-card p-5 mb-5">
         <div class="art-card-header">
           <div class="title">
-            <h4>什么时候播效果最好</h4>
+            <h4>开播时段表现</h4>
             <p>
               横轴 0–23 点、纵轴周几，颜色是该时段的场均钻石<template v-if="bestSlot"> · 最佳 {{ bestSlot.weekday }} {{ bestSlot.hour }} 点，场均 {{ fmtNum(bestSlot.avg) }} 钻（{{ bestSlot.count }} 场）</template>
             </p>
@@ -242,15 +285,12 @@
         :data-metric="m.key"
         class="art-card p-5"
       >
-        <div class="art-card-header">
-          <div class="title flex items-center gap-2">
-            <ArtSvgIcon :icon="m.icon" class="text-theme" />
-            <div>
-              <h4>{{ m.label }}</h4>
-              <p>{{ m.hint }}</p>
-            </div>
-          </div>
-          <span class="text-[11px] text-g-400">{{ xAxisLabel }}</span>
+        <!-- 卡片标题改成一行：图标 + 标题 +（灰字）说明，X 轴提示靠右 -->
+        <div class="mb-3 flex items-center gap-2 min-w-0">
+          <ArtSvgIcon :icon="m.icon" class="text-theme shrink-0" />
+          <h4 class="m-0 shrink-0 text-sm font-medium text-g-900">{{ m.label }}</h4>
+          <span class="truncate text-[11px] text-g-400">{{ m.hint }}</span>
+          <span class="ml-auto shrink-0 text-[11px] text-g-400">{{ xAxisLabel }}</span>
         </div>
         <!-- ref 用静态 key，配合下面的 chartRefs 记录 -->
         <div :ref="recordChart(m.key)" class="h-56"></div>
@@ -683,8 +723,27 @@ ext`，不能再按当前状态取反一次 ——
     }
   }
 
-  /* ===== ③ 什么时候播效果最好：24×7 热力图 ===== */
+  /* ===== ③ 开播时段表现：24×7 热力图 ===== */
 
+  /** 当前选中的直播间（头部展示用） */
+  const currentHosts = computed(() => (series.value.length ? series.value : hosts.value.filter((h) => selectedHosts.value.includes(h.hostId))))
+  const rangeLabel = computed(() => RANGE_OPTIONS.find((r) => r.value === range.value)?.label || '')
+  const modeLabel = computed(() => MODE_OPTIONS.find((m) => m.value === xMode.value)?.label || '')
+  const totalSessions = computed(() => series.value.reduce((a, s) => a + (s.summary.sessions || 0), 0))
+
+  const RANGE_OPTIONS = [
+    { value: '7d', label: '近 7 天' },
+    { value: '30d', label: '近 30 天' },
+    { value: '90d', label: '近 90 天' },
+    { value: 'all', label: '全部' }
+  ]
+
+  const MODE_OPTIONS = [
+    { value: 'session', label: '按场次' },
+    { value: 'day', label: '按日' },
+    { value: 'week', label: '按周' },
+    { value: 'month', label: '按月' }
+  ]
   const WEEK_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
   /** 每格累计：钻石之和 / 场次数（点里没有直播时长的，用场次做分母就是"场均"） */

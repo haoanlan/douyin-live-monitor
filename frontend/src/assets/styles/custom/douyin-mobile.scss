@@ -1173,3 +1173,52 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* ============================================================
+ * 分段控件（趋势分析页的时间范围 / 粒度）
+ *
+ * 原来的 el-radio-group 是 Element 默认方角按钮，和这套圆角卡片不搭，
+ * 用户反馈"筛选器很土"。这里自绘一个胶囊型分段控件：
+ * 外层浅底、选中项白底 + 主色文字 + 轻阴影。
+ * ============================================================ */
+.dy-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--art-gray-100, #f4f5f7);
+}
+
+.dy-seg__item {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--art-gray-600, #5b6068);
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.dy-seg__item:hover {
+  color: var(--theme-color, #3b82f6);
+}
+
+.dy-seg__item.is-active {
+  background: var(--art-main-bg-color, #fff);
+  color: var(--theme-color, #3b82f6);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+html.dark .dy-seg {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html.dark .dy-seg__item.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
