@@ -39,13 +39,18 @@
           · dy-fade-lift（自造）→ css=false，交给下面的 WAAPI 钩子（CSS 类名有已知坑，见注释）
           · fade / slide-*（模板原版）→ css=true，就是纯 CSS 类过渡，和原版完全一致
         之前写死 :css="false"，等于把模板那套 CSS 过渡彻底废掉了，只剩自造那一种。
+
+        JS 钩子也必须**只在自造过渡时挂**：CSS 模式下挂了钩子，Vue 会等 done()，
+        而我们的钩子在 CSS 模式下直接 return（不调 done）→ 离开页永远停在
+        -leave-active（position:absolute、opacity:0）不被移除，越切越多，
+        它们还在文档流里贡献高度 → 页面能一直往下滚到全空白（用户实测）。
       -->
       <Transition
         :css="!isCustomAnim"
         :name="showTransitionMask ? '' : actualTransition"
-        @enter="onPageEnter"
-        @leave="onPageLeave"
-        @leave-cancelled="onPageLeaveCancelled"
+        @enter="isCustomAnim ? onPageEnter : undefined"
+        @leave="isCustomAnim ? onPageLeave : undefined"
+        @leave-cancelled="isCustomAnim ? onPageLeaveCancelled : undefined"
       >
         <KeepAlive :max="10" :include="keepAliveInclude" :exclude="keepAliveExclude">
           <component class="art-page-view" :is="Component" :key="route.path" />
