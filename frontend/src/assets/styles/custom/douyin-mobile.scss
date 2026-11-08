@@ -1084,3 +1084,20 @@
 .douyin-page .dy-recent-meta > .dy-recent-time::before {
   content: ' · ';
 }
+
+/* ============================================================
+ * 系统管理（角色 / 菜单）表格：比卡片宽时**在卡片内横滚**
+ *
+ * 症状：窗口窄一点（或缩放后）时表格会比 .art-table-card 宽，
+ * ArtTable 外层没有滚动容器 → 表格直接画到卡片外面，
+ * 固定列（操作）会"飘"在卡片右侧，看起来像按钮跑出去了。
+ * 这里给 ArtTable 容器兜一个横向滚动，让它始终留在卡片里。
+ * ============================================================ */
+.art-table-card {
+  overflow: hidden;
+}
+
+.art-table-card > .art-table {
+  overflow-x: auto;
+  overflow-y: hidden;
+}

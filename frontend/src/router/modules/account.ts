@@ -22,7 +22,7 @@ export const accountRoutes: AppRouteRecord = {
     {
       path: 'user',
       name: 'SystemUser',
-      component: '/system/user-manage',
+      component: '/system/user',
       meta: {
         title: '用户管理',
         icon: 'ri:user-settings-line',
@@ -33,7 +33,7 @@ export const accountRoutes: AppRouteRecord = {
     {
       path: 'role',
       name: 'SystemRole',
-      component: '/douyin/permissions/roles',
+      component: '/system/role',
       meta: {
         title: '角色管理',
         icon: 'ri:shield-user-line',
@@ -44,7 +44,7 @@ export const accountRoutes: AppRouteRecord = {
     {
       path: 'menu',
       name: 'SystemMenu',
-      component: '/douyin/permissions/menus',
+      component: '/system/menu',
       meta: {
         title: '菜单管理',
         icon: 'ri:menu-line',
