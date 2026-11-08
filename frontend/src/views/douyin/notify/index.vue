@@ -396,7 +396,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, h, onMounted, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import type { ColumnOption } from '@/types'
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
@@ -475,7 +475,22 @@
     { prop: 'channels', label: '推送渠道', useSlot: true, slotName: 'channels' },
     { prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' },
     { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '操作', width: 130, align: 'right', useSlot: true, slotName: 'actions' }
+    {
+      // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
+      prop: 'operation',
+      label: '操作',
+      width: 120,
+      fixed: 'right',
+      formatter: (row: NotifyRule) =>
+        h('div', { class: 'flex-c gap-1' }, [
+          ...(can('notify.manage')
+            ? [
+                h(ArtButtonTable, { type: 'edit', onClick: () => openRuleDialog(row) }),
+                h(ArtButtonTable, { type: 'delete', onClick: () => removeRule(row) })
+              ]
+            : [])
+        ])
+    }
   ]
 
   /*
@@ -488,7 +503,31 @@
     { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' },
     { prop: 'url', label: '地址', useSlot: true, slotName: 'url' },
     { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
+    {
+      // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
+      prop: 'operation',
+      label: '操作',
+      width: 160,
+      fixed: 'right',
+      formatter: (row: NotifyChannel) =>
+        h('div', { class: 'flex-c gap-1' }, [
+          ...(can('notify.test')
+            ? [
+                h(ArtButtonTable, {
+                  icon: 'ri:send-plane-line',
+                  iconClass: 'bg-primary/12 text-primary',
+                  onClick: () => testChannel(row)
+                })
+              ]
+            : []),
+          ...(can('notify.manage')
+            ? [
+                h(ArtButtonTable, { type: 'edit', onClick: () => openChannelDialog(row) }),
+                h(ArtButtonTable, { type: 'delete', onClick: () => removeChannel(row) })
+              ]
+            : [])
+        ])
+    }
   ]
 
   const logColumns: ColumnOption[] = [
@@ -503,7 +542,18 @@
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
     { prop: 'uid', label: 'UID', minWidth: 150, useSlot: true, slotName: 'uid' },
     { prop: 'enabled', label: '推送', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '操作', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
+    {
+      prop: 'operation',
+      label: '操作',
+      width: 90,
+      fixed: 'right',
+      formatter: (row: UpstageWatch) =>
+        h('div', { class: 'flex-c gap-1' }, [
+          ...(can('upstage.manage')
+            ? [h(ArtButtonTable, { type: 'delete', onClick: () => removeWatch(row) })]
+            : [])
+        ])
+    }
   ]
 
   const upEventColumns: ColumnOption[] = [
@@ -906,36 +956,6 @@
 </script>
 
 <style scoped>
-  /* 表格里的图标按钮（和模板 ArtButtonTable 同一尺寸/圆角，但不套 tooltip，避免被裁切） */
-  .dy-act-btn {
-    display: inline-flex;
-    flex: 0 0 auto;
-    width: 32px;
-    min-width: 32px;
-    height: 32px;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    line-height: 0;
-    border-radius: 8px;
-    background: var(--art-gray-100, #f4f5f7);
-    color: var(--art-gray-600, #5b6068);
-    font-size: 15px;
-    transition: all 0.18s ease;
-    cursor: pointer;
-  }
-
-  .dy-act-btn:hover {
-    background: var(--theme-color, #3b82f6);
-    color: #fff;
-  }
-
-  .dy-act-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .dy-chip {
     display: inline-block;
     margin-right: 4px;
