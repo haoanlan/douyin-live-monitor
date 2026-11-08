@@ -488,6 +488,7 @@
     { prop: 'created_at', label: '时间', width: 170, useSlot: true, slotName: 'created_at' },
     { prop: 'event', label: '事件', width: 90, useSlot: true, slotName: 'event' },
     { prop: 'nickname', label: '主播', minWidth: 110, useSlot: true, slotName: 'nickname' },
+    { prop: 'source', label: '来源', width: 84, useSlot: true, slotName: 'source' },
     { prop: 'detail', label: '说明', minWidth: 140, useSlot: true, slotName: 'detail' }
   ]
 
