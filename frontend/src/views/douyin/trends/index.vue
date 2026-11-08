@@ -223,12 +223,14 @@
         永远不执行，勾选非默认指标后卡片一直是 display:none（实测踩到过）。
         给元素一个动态 prop（pf>0）才会被收集进 dynamicChildren、走正常 patch。
       -->
+      <!-- 指标图：宽屏两列并排（原来一列竖排 4 张、每张 288px，一屏放不下又不精致） -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
       <div
         v-for="m in allMetrics"
         v-show="activeMetrics.includes(m.key)"
         :key="m.key"
         :data-metric="m.key"
-        class="art-card p-5 mb-5"
+        class="art-card p-5"
       >
         <div class="art-card-header">
           <div class="title flex items-center gap-2">
@@ -241,7 +243,9 @@
           <span class="text-[11px] text-g-400">{{ xAxisLabel }}</span>
         </div>
         <!-- ref 用静态 key，配合下面的 chartRefs 记录 -->
-        <div :ref="recordChart(m.key)" class="h-72"></div>
+        <div :ref="recordChart(m.key)" class="h-56"></div>
+      </div>
+
       </div>
 
       <!--
@@ -351,6 +355,9 @@
 
 <script setup lang="ts">
   import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useChartOps } from '@/hooks/core/useChart'
+  import { useSettingStore } from '@/store/modules/setting'
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import { echarts } from '@/plugins/echarts'
@@ -565,6 +572,10 @@ ext`，不能再按当前状态取反一次 ——
   /** 用柱状图呈现的"量类"指标；人数/比率/时长仍用折线 */
   const BAR_METRICS = ['diamonds', 'danmaku', 'gifts']
 
+  /** 模板的图表主题（调色板/字号），与 Art Design Pro 的图表组件保持一致 */
+  const chartOps = computed(() => useChartOps())
+  const { isDark } = storeToRefs(useSettingStore())
+
   /** 渲染/重绘所有指标图 */
   async function redraw() {
     await nextTick()
@@ -585,18 +596,52 @@ ext`，不能再按当前状态取反一次 ——
       const first = toAxis(series.value[0], [m.key])
       const labels = first.labels
 
+      /*
+       * 样式全部对齐模板的图表组件（hooks/core/useChart.ts 的 getSplitLineStyle 等）：
+       *   · 网格线用**虚线**（#EDEDED / 暗色 #444），坐标轴线与刻度隐藏
+       *   · 调色板用 useChartOps().colors（主色 + #4ABEFF + #14DEBA + #FFAF20 …）
+       *   · 折线去掉圆点、线宽 2.5；柱状圆角 6、最大宽度 18
+       * 之前这里是 echarts 默认样式（实线网格 + 默认蓝），所以看着"不如模板精致"。
+       */
+      const theme = chartOps.value
+      const axisColor = isDark.value ? '#444' : '#EDEDED'
+      const labelColor = '#999'
+      const splitLine = { show: true, lineStyle: { color: axisColor, width: 1, type: 'dashed' } }
+      const axisLine = { show: false, lineStyle: { color: axisColor } }
+
       const option: Record<string, unknown> = {
+        color: theme.colors,
+        textStyle: { fontSize: 12, color: labelColor },
         tooltip: {
           trigger: 'axis',
-          valueFormatter: (v: number) => fmtNum(v)
+          valueFormatter: (v: number) => fmtNum(v),
+          backgroundColor: isDark.value ? 'rgba(30,30,32,0.95)' : 'rgba(255,255,255,0.98)',
+          borderWidth: 1,
+          borderColor: axisColor,
+          borderRadius: 8,
+          padding: [8, 12],
+          textStyle: { fontSize: 12, color: isDark.value ? '#eee' : '#333' }
         },
-        legend: { data: series.value.map((s) => s.name), type: 'scroll', top: 0, left: 0, itemWidth: 10, itemHeight: 10, itemGap: 14 },
-        grid: { left: 64, right: 24, top: 44, bottom: 40 },
+        legend: {
+          data: series.value.map((s) => s.name),
+          type: 'scroll',
+          bottom: 0,
+          left: 'center',
+          icon: 'circle',
+          itemWidth: 8,
+          itemHeight: 8,
+          itemGap: 16,
+          textStyle: { fontSize: 12, color: labelColor }
+        },
+        grid: { left: 8, right: 16, top: 16, bottom: 36, containLabel: true },
         xAxis: {
           type: 'category',
           data: labels,
+          axisLine,
+          axisTick: { show: false },
           axisLabel: {
             fontSize: 11,
+            color: labelColor,
             rotate: 0,
             // 日期只留 MM-DD；标签多时自动抽稀，避免挤成一团
             formatter: (v: string) => (typeof v === 'string' && v.length >= 10 ? v.slice(5) : v),
@@ -604,21 +649,51 @@ ext`，不能再按当前状态取反一次 ——
             hideOverlap: true
           }
         },
-        yAxis: { type: 'value', axisLabel: { formatter: (v: number) => fmtNum(v) } },
-        series: series.value.map((s) => {
+        yAxis: {
+          type: 'value',
+          axisLine,
+          axisTick: { show: false },
+          splitLine,
+          axisLabel: { fontSize: 11, color: labelColor, formatter: (v: number) => fmtNum(v) }
+        },
+        series: series.value.map((s, i) => {
           const ax = toAxis(s, [m.key])
+          const isBar = BAR_METRICS.includes(m.key)
           return {
             name: s.name,
             // 量类指标用柱（一眼看量级），比率/人数类用折线
-            type: BAR_METRICS.includes(m.key) ? 'bar' : 'line',
+            type: isBar ? 'bar' : 'line',
             smooth: true,
-            symbolSize: 6,
+            showSymbol: false,
+            symbolSize: 0,
             connectNulls: true,
-            ...(BAR_METRICS.includes(m.key)
-              ? { barMaxWidth: 26, itemStyle: { borderRadius: [4, 4, 0, 0], opacity: 0.85 } }
-              : {}),
-            data: ax.values[0],
-            areaStyle: series.value.length === 1 ? { opacity: 0.12 } : undefined
+            ...(isBar
+              ? {
+                  barMaxWidth: 18,
+                  itemStyle: { borderRadius: [6, 6, 0, 0], opacity: 0.9 },
+                  emphasis: { focus: 'series' }
+                }
+              : {
+                  lineStyle: { width: 2.5 },
+                  areaStyle:
+                    series.value.length === 1
+                      ? {
+                          opacity: 0.16,
+                          color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [
+                              { offset: 0, color: theme.colors[i % theme.colors.length] },
+                              { offset: 1, color: 'rgba(255,255,255,0)' }
+                            ]
+                          }
+                        }
+                      : undefined
+                }),
+            data: ax.values[0]
           }
         })
       }
