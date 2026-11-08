@@ -41,6 +41,7 @@ import NProgress from 'nprogress'
 import { useSettingStore } from '@/store/modules/setting'
 import { useUserStore } from '@/store/modules/user'
 import { useMenuStore } from '@/store/modules/menu'
+  import { usePermissionStore } from '@/store/modules/permission'
 import { setWorktab } from '@/utils/navigation'
 import { setPageTitle } from '@/utils/router'
 import { RoutesAlias } from '../routesAlias'
@@ -291,8 +292,20 @@ async function handleDynamicRoutes(
     // 1. 获取用户信息
     await fetchUserInfo()
 
-    // 2. 获取菜单数据
-    const menuList = await menuProcessor.getMenuList()
+    /*
+     * 2. 先取权限（页面 + 操作），再拿菜单并按 role_menus 裁剪。
+     *
+     * 以前侧边栏是纯前端路由（VITE_ACCESS_MODE=frontend），角色管理里
+     * 取消勾选某个页面并不会让它消失 —— 权限表只"存着"，没人读。
+     * 现在：/api/auth/permissions 返回当前角色能看的页面路径，
+     * 这里按路径把菜单树剪一遍，越权的页面既不出现在侧边栏，也进不去
+     * （下面的 RoutePermissionValidator 会拦）。
+     */
+    const permissionStore = usePermissionStore()
+    await permissionStore.load(true)
+
+    // 3. 获取菜单数据（按页面权限裁剪）
+    const menuList = permissionStore.filterMenus(await menuProcessor.getMenuList())
 
     // 3. 验证菜单数据
     if (!menuProcessor.validateMenuList(menuList)) {

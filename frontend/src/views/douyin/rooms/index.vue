@@ -46,7 +46,7 @@
             <ArtSvgIcon icon="ri:search-line" class="text-g-400" />
           </template>
         </el-input>
-        <el-button v-if="isAdmin" type="primary" @click="openAdd">
+        <el-button v-if="can('room.add')" type="primary" @click="openAdd">
           <ArtSvgIcon icon="ri:add-line" class="mr-1" />
           添加房间
         </el-button>
@@ -136,7 +136,7 @@
 
               <!-- 操作 -->
               <div class="flex items-center gap-1.5 shrink-0" @click.stop>
-                <template v-if="isAdmin">
+                <template v-if="can(row.enabled ? 'room.pause' : 'room.resume') || can('room.remove')">
                   <el-tooltip
                     :content="row.enabled ? '暂停监控' : '恢复监控'"
                     placement="top"
@@ -153,7 +153,7 @@
                       />
                     </button>
                   </el-tooltip>
-                  <el-tooltip content="移除房间" placement="top" :hide-after="0">
+                  <el-tooltip v-if="can('room.remove')" content="移除房间" placement="top" :hide-after="0">
                     <button
                       class="dy-pressable size-8 rounded-lg flex-cc bg-g-100/70 text-g-500 hover:bg-danger/10 hover:text-danger"
                       aria-label="移除房间"
@@ -401,12 +401,20 @@
     type LookupResult,
   } from '@/api/douyin'
   import { useUserStore } from '@/store/modules/user'
+  import { usePermissionStore } from '@/store/modules/permission'
   import { fmtTime } from '@/utils/format'
 
   defineOptions({ name: 'DouyinRooms' })
 
   const userStore = useUserStore()
   const isAdmin = computed(() => userStore.info.roles?.includes('R_SUPER') ?? false)
+
+  /*
+   * 细粒度操作权限：房间相关动作按 role_actions 里的 key 判断，
+   * 不再是"要么全给管理员、要么整块隐藏"。超管恒真（见 permission store）。
+   */
+  const permissionStore = usePermissionStore()
+  const can = (action: string) => permissionStore.hasPerm(action)
 
   const router = useRouter()
   const route = useRoute()

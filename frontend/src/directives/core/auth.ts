@@ -1,59 +1,44 @@
 /**
  * v-auth 权限指令
  *
- * 适用于后端权限控制模式，基于权限标识控制 DOM 元素的显示和隐藏。
- * 如果用户没有对应权限，元素将从 DOM 中移除。
+ * 两种用法：
+ *   1. `v-auth="'room.pause'"` —— **操作权限**（带点号）：查 /api/auth/permissions
+ *      返回的 actions（role_actions），没有就移除元素。这是本项目的用法。
+ *   2. `v-auth="'add'"` —— 模板原有的用法：查当前路由 meta.authList。
+ *      我们没配 authList 的页面视为放行，避免整页按钮被误删。
  *
- * ## 主要功能
- *
- * - 权限验证 - 根据路由 meta 中的权限列表验证用户权限
- * - DOM 控制 - 无权限时自动移除元素，而非隐藏
- * - 响应式更新 - 权限变化时自动更新元素状态
- *
- * ## 使用示例
- *
- * ```vue
- * <!-- 只有拥有 'add' 权限的用户才能看到新增按钮 -->
- * <el-button v-auth="'add'">新增</el-button>
- *
- * <!-- 只有拥有 'edit' 权限的用户才能看到编辑按钮 -->
- * <el-button v-auth="'edit'">编辑</el-button>
- *
- * <!-- 只有拥有 'delete' 权限的用户才能看到删除按钮 -->
- * <el-button v-auth="'delete'">删除</el-button>
- * ```
- *
- * ## 注意事项
- *
- * - 该指令会直接移除 DOM 元素，而不是使用 v-if 隐藏
- * - 权限列表从当前路由的 meta.authList 中获取
- *
- * @module directives/auth
- * @author Art Design Pro Team
+ * 数据来源统一在 store/modules/permission.ts，加载时机是路由守卫（beforeEach）里。
  */
-
 import { router } from '@/router'
+import { usePermissionStore } from '@/store/modules/permission'
 import { App, Directive, DirectiveBinding } from 'vue'
 
 export type AuthDirective = Directive<HTMLElement, string>
 
-function checkAuthPermission(el: HTMLElement, binding: DirectiveBinding<string>): void {
-  // 获取当前路由的权限列表
-  const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || []
+function isAllowed(key: string): boolean {
+  if (!key) return true
 
-  // 检查是否有对应的权限标识
-  const hasPermission = authList.some((item) => item.authMark === binding.value)
-
-  // 如果没有权限，移除元素
-  if (!hasPermission) {
-    removeElement(el)
+  // 带点号的是操作权限（room.pause / gift_price.write …）
+  if (key.includes('.')) {
+    try {
+      return usePermissionStore().hasPerm(key)
+    } catch {
+      return true
+    }
   }
+
+  const authList = (router.currentRoute.value.meta.authList as Array<{ authMark: string }>) || []
+  // 没配 authList 的页面不做限制（否则模板里 v-auth="'add'" 会把按钮全删掉）
+  if (!authList.length) return true
+  return authList.some((item) => item.authMark === key)
+}
+
+function checkAuthPermission(el: HTMLElement, binding: DirectiveBinding<string>): void {
+  if (!isAllowed(binding.value)) removeElement(el)
 }
 
 function removeElement(el: HTMLElement): void {
-  if (el.parentNode) {
-    el.parentNode.removeChild(el)
-  }
+  el.parentNode?.removeChild(el)
 }
 
 const authDirective: AuthDirective = {
