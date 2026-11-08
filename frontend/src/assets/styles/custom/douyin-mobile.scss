@@ -1101,3 +1101,19 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
+
+/* ============================================================
+ * 弹窗圆角统一走主题变量（--custom-radius，当前 12px）
+ *
+ * 系统里圆角只有一个来源：--custom-radius。但 Art Design Pro 的模板页
+ * 自带 `class="el-dialog-border"` 之类的规则，会把圆角改回 4/8px，
+ * 于是"系统管理"这几个弹窗和抖音页面的弹窗看起来不是一个系统。
+ * ============================================================ */
+.el-dialog {
+  border-radius: var(--custom-radius, 12px) !important;
+}
+
+.el-dialog-border,
+.el-dialog.el-dialog-border {
+  border-radius: var(--custom-radius, 12px) !important;
+}

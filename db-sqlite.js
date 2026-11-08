@@ -614,16 +614,9 @@ async function init() {
 
     // 操作级权限：先用字符串登记，阶段四才真正校验
     const insRA = d.prepare('INSERT OR IGNORE INTO role_actions (role_key,action_key) VALUES (?,?)');
-    const actions = [
-      'gift_price.write',    // 改礼物价格
-      'manual_gift.add',     // 补录礼物
-      'manual_gift.delete',  // 撤销补录
-      'manual_user.merge',   // 合并虚拟用户
-      'qrlogin.start',       // 扫码登录
-      'service.restart',     // 启动/重启/停止监控与代理
-      'proxy_config.write',  // 改代理配置
-      'account.manage'       // 账号管理
-    ];
+    // 清单来自 lib/action-catalog.js：一条操作一个 key（暂停 / 删除 / 重启 等都分开）
+    const { ACTION_KEYS } = require('./lib/action-catalog');
+    const actions = ACTION_KEYS;
     for (const a of actions) insRA.run('R_SUPER', a);
 
     /*

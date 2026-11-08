@@ -1446,6 +1446,13 @@ export function adminRoleMenusSave(roleKey: string, keys: string[]) {
 }
 
 /** 整份替换某角色的操作权限 */
+/** 操作权限清单（含中文名与分组，来源 lib/action-catalog.js） */
+export function getAdminActions() {
+  return request.get<{ items: { key: string; label: string; group: string }[]; count: number }>({
+    url: '/api/admin/actions'
+  })
+}
+
 export function adminRoleActionsSave(roleKey: string, keys: string[]) {
   return request.put<{ ok: boolean; count: number }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/actions", data: { keys }, showErrorMessage: false })
 }
