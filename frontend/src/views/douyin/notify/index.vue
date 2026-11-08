@@ -1,7 +1,7 @@
 <template>
-  <div class="douyin-page p-4">
+  <div class="art-full-height">
     <!-- 页头：和礼物价格页同一套语言（art-card + art-card-header） -->
-    <div class="art-card p-4 mb-4">
+    <div class="art-card mb-3 shrink-0 p-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
           <h4 class="m-0 text-base font-semibold text-g-900">通知管理</h4>
@@ -25,7 +25,7 @@
     </div>
 
     <!-- ============ 事件规则 ============ -->
-    <ElCard v-if="activeTab === 'rules'" class="art-table-card">
+    <ElCard v-if="activeTab === 'rules'" class="art-table-card flex-1">
       <ArtTableHeader :loading="loading" @refresh="reloadAll">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
@@ -69,14 +69,16 @@
           />
         </template>
         <template #actions="{ row }">
-          <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openRuleDialog(row as NotifyRule)" />
-          <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeRule(row as NotifyRule)" />
+          <div class="flex items-center justify-end gap-1">
+            <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openRuleDialog(row as NotifyRule)" />
+            <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeRule(row as NotifyRule)" />
+          </div>
         </template>
       </ArtTable>
     </ElCard>
 
     <!-- ============ 推送渠道 ============ -->
-    <ElCard v-else-if="activeTab === 'channels'" class="art-table-card">
+    <ElCard v-else-if="activeTab === 'channels'" class="art-table-card flex-1">
       <ArtTableHeader :loading="loading" @refresh="reloadAll">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
@@ -116,23 +118,25 @@
           />
         </template>
         <template #actions="{ row }">
-          <el-button
-            v-if="can('notify.test')"
-            link
-            type="primary"
-            :loading="testingId === row.id"
-            @click="testChannel(row as NotifyChannel)"
-          >
-            测试
-          </el-button>
-          <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
-          <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
+          <div class="flex items-center justify-end gap-1">
+            <el-button
+              v-if="can('notify.test')"
+              link
+              type="primary"
+              :loading="testingId === row.id"
+              @click="testChannel(row as NotifyChannel)"
+            >
+              测试
+            </el-button>
+            <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
+            <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
+          </div>
         </template>
       </ArtTable>
     </ElCard>
 
     <!-- ============ 发送记录 ============ -->
-    <ElCard v-else-if="activeTab === 'logs'" class="art-table-card">
+    <ElCard v-else-if="activeTab === 'logs'" class="art-table-card flex-1">
       <ArtTableHeader :loading="false" @refresh="loadLogs(logPage)">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
@@ -198,7 +202,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
         <ElCard class="art-table-card">
           <ArtTableHeader :loading="false" @refresh="loadUpstage">
             <template #left>
@@ -269,7 +273,7 @@
         </ElCard>
       </div>
 
-      <div class="art-card mt-4 p-3">
+      <div class="art-card mt-3 shrink-0 p-3">
         <div class="mb-1 text-[11px] text-g-600">
           人脸识别通道的帧从这里进来（Go 代理没有这个 proto，需要外部采集进程解码后提交）：
         </div>
