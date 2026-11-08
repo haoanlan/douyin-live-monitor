@@ -20,16 +20,15 @@
     <!-- 面包屑统一由顶栏渲染（原来这里那份与顶栏内容一字不差地重复） -->
 
     <!-- 页头：标题 + 说明 + 筛选（和模板分析页同一套 art-card / art-card-header） -->
-    <div class="art-card p-5 mb-5">
-      <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="art-card p-4 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="art-card-header !mb-0">
           <div class="title">
             <h4>趋势分析</h4>
-            <p>按场次 / 日 / 周 / 月看单个或多个主播的走势，并与上一个等长周期对比</p>
+            <p class="!text-[11px]">按场次 / 日 / 周 / 月看走势，并与上一个等长周期对比</p>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-        <el-select
         <el-select
           v-model="selectedHosts"
           multiple
@@ -133,10 +132,10 @@
       <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
       <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div v-for="k in kpiCards" :key="k.key" class="art-card p-5">
+        <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">
           <div class="text-[11px] leading-none text-g-500">{{ k.label }}</div>
           <div class="mt-2 flex items-end gap-2 flex-wrap">
-            <span class="text-2xl font-semibold leading-none text-g-900 tabular-nums">{{ k.value }}</span>
+            <span class="text-xl font-semibold leading-none text-g-900 tabular-nums">{{ k.value }}</span>
             <span
               v-if="k.delta !== null"
               class="rounded px-1.5 py-0.5 text-[11px] font-medium leading-none"
@@ -150,44 +149,6 @@
         </div>
       </div>
 
-      <!--
-        ② 钱和流量从哪来：主播占比
-        原来这里是「每个房间一张卡」，里面是四个场均数字 —— 和上方 KPI 是同一批数据，
-        用户反馈"林语巷这块很怪"。改成占比条：一眼看出钻石和弹幕主要来自谁。
-      -->
-      <div class="art-card p-5 mb-5">
-        <div class="art-card-header">
-          <div class="title">
-            <h4>钱和流量从哪来</h4>
-            <p>所选房间在「总钻石 / 总弹幕」里的占比，按钻石从高到低</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-3">
-          <div v-for="h in hostShareRows" :key="h.name" class="min-w-0">
-            <div class="flex items-center gap-2 mb-1">
-              <el-avatar :size="20" :src="h.avatar || undefined" class="shrink-0">{{ h.name?.[0] }}</el-avatar>
-              <span class="truncate text-sm text-g-800">{{ h.name }}</span>
-              <span class="ml-auto shrink-0 text-[11px] text-g-400">
-                {{ h.sessions }} 场 · {{ fmtNum(h.diamonds) }} 钻
-              </span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-10 shrink-0 text-[10px] text-g-400">钻石</span>
-              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-g-200/60">
-                <div class="h-full rounded-full bg-theme" :style="{ width: h.dPct + '%' }" />
-              </div>
-              <span class="w-11 shrink-0 text-right text-[11px] tabular-nums text-g-500">{{ h.dPct.toFixed(1) }}%</span>
-            </div>
-            <div class="mt-1 flex items-center gap-2">
-              <span class="w-10 shrink-0 text-[10px] text-g-400">弹幕</span>
-              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-g-200/60">
-                <div class="h-full rounded-full bg-info" :style="{ width: h.mPct + '%' }" />
-              </div>
-              <span class="w-11 shrink-0 text-right text-[11px] tabular-nums text-g-500">{{ h.mPct.toFixed(1) }}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!--
         ③ 什么时候播效果最好：24 小时 × 周几 的「场均钻石」热力图
@@ -721,25 +682,6 @@ ext`，不能再按当前状态取反一次 ——
       loading.value = false
     }
   }
-
-  /**
-   * ② 钱和流量从哪来：按钻石 / 弹幕算每个主播的占比。
-   * 数据直接来自 series 的 summary（后端已经按时间范围聚好），不需要额外请求。
-   */
-  const hostShareRows = computed(() => {
-    const totalD = series.value.reduce((a, s) => a + (s.summary.totalDiamonds || 0), 0)
-    const totalM = series.value.reduce((a, s) => a + (s.summary.totalDanmaku || 0), 0)
-    return series.value
-      .map((s) => ({
-        name: s.name,
-        avatar: s.avatar,
-        sessions: s.summary.sessions || 0,
-        diamonds: s.summary.totalDiamonds || 0,
-        dPct: totalD > 0 ? ((s.summary.totalDiamonds || 0) / totalD) * 100 : 0,
-        mPct: totalM > 0 ? ((s.summary.totalDanmaku || 0) / totalM) * 100 : 0
-      }))
-      .sort((a, b) => b.diamonds - a.diamonds)
-  })
 
   /* ===== ③ 什么时候播效果最好：24×7 热力图 ===== */
 
