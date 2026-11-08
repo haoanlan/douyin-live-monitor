@@ -185,3 +185,61 @@ client_max_body_size 20m;
 | 依赖安装 | 1Panel 自动 `npm install` | 构建阶段 `npm ci` |
 | 升级 | 覆盖文件 + 重启 | 重新 build 镜像 |
 | 适合 | **本场景** ✅ | 想固定镜像/多机分发 |
+
+---
+
+## 为什么每次重启都要重装字体 / 浏览器依赖？
+
+**因为 1Panel 的「重启」= 按镜像重建容器。**
+
+- apt 装的东西（`fonts-noto-cjk`、`fonts-hanazono`、`libnss3`、`xvfb`…）落在**容器层**，
+  容器一重建就没了；
+- 只有**挂载出来的目录**（项目目录、`.pw-browsers`）会保留。
+
+所以 `container-entry.sh` 里那几个"缺失才装"的分支，每次重建后判定都会变成"缺失"，
+于是又跑一遍 apt（1–3 分钟）。
+
+### 一次性解决：把依赖烘进镜像
+
+仓库里已经带了 `deploy/Dockerfile.runtime` 和构建脚本：
+
+```bash
+cd /opt/douyin-monitor
+bash deploy/build-runtime-image.sh            # 生成 douyin-monitor-runtime:<日期>
+```
+
+脚本末尾会做自检（字体、`libnss3/libnspr4/libgbm/libasound`、Xvfb 是否都在镜像里）。
+
+然后：
+
+1. 1Panel → 运行环境 → 编辑
+2. **镜像**改成 `douyin-monitor-runtime:<日期>`
+3. 挂载目录不变（代码仍然走挂载，不进镜像）
+4. 保存 → 重启
+
+之后重启只会：
+- 补 `chromium`（在 `.pw-browsers` 挂载盘里，已有就跳过）
+- 起 Xvfb
+- exec node
+
+**不会再 apt 任何东西。**
+
+### 不想构建镜像？用 docker commit 也是一样的效果
+
+```bash
+# 现在这个容器已经装好了依赖，直接存成镜像
+docker ps                                  # 找到运行环境容器名
+docker commit <容器名> douyin-monitor-runtime:snapshot
+```
+
+然后在 1Panel 里把镜像指向 `douyin-monitor-runtime:snapshot`。
+
+缺点：等同"手工快照"，换新版本基础镜像时要重做一次；长期还是建议用 `Dockerfile.runtime`。
+
+### 只想跳过检查（依赖其实都在）
+
+```bash
+SKIP_DEPS=1 bash deploy/container-entry.sh
+```
+
+（`DY_RUNTIME_IMAGE=1` 由自定义镜像自动带上，效果相同。）

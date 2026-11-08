@@ -42,9 +42,21 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 0.5) 快速模式：依赖已经烘进镜像（deploy/Dockerfile.runtime）时整段跳过
+#
+# 判断依据：字体 + Xvfb + 关键库都在，就说明是自定义运行镜像；
+# 也可以显式设 SKIP_DEPS=1 强制跳过（离线环境很有用）。
+# ---------------------------------------------------------------------------
+DEPS_READY=0
+if [ "${SKIP_DEPS:-0}" = "1" ] || [ "${DY_RUNTIME_IMAGE:-0}" = "1" ]; then
+  DEPS_READY=1
+  info "依赖由镜像提供（SKIP_DEPS/DY_RUNTIME_IMAGE），跳过安装检查"
+fi
+
+# ---------------------------------------------------------------------------
 # 1) Xvfb（系统包，只能 apt —— 这里只在缺失时装一次）
 # ---------------------------------------------------------------------------
-if ! command -v Xvfb >/dev/null 2>&1; then
+if [ "$DEPS_READY" = "0" ] && ! command -v Xvfb >/dev/null 2>&1; then
   info "首次启动：安装 xvfb（约 10 秒）..."
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update -qq >/dev/null 2>&1 || true
@@ -80,7 +92,7 @@ info "PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH"
 # Playwright 只报 "Target page, context or browser has been closed"，极难定位。
 # ---------------------------------------------------------------------------
 CH_BIN="$(ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1)"
-if [ -n "$CH_BIN" ]; then
+if [ "$DEPS_READY" = "0" ] && [ -n "$CH_BIN" ]; then
   MISSING_LIBS=""
   if command -v ldd >/dev/null 2>&1; then
     MISSING_LIBS="$(ldd "$CH_BIN" 2>/dev/null | grep 'not found' || true)"
@@ -121,7 +133,7 @@ FONT_DIR_HANA="/usr/share/fonts/truetype/hanazono"
 NEED_FONT=0
 ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || NEED_FONT=1
 ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || NEED_FONT=1
-if [ "$NEED_FONT" = "1" ]; then
+if [ "$DEPS_READY" = "0" ] && [ "$NEED_FONT" = "1" ]; then
   info "安装中日韩字体（含生僻字，约 1-2 分钟，只需一次）..."
   if command -v apt-get >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk fonts-hanazono >>/tmp/pw-deps.log 2>&1 \
