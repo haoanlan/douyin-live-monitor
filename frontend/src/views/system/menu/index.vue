@@ -19,7 +19,7 @@
         @refresh="handleRefresh"
       >
         <template #left>
-          <ElButton v-auth="'add'" @click="handleAddMenu" v-ripple> 添加菜单 </ElButton>
+          <ElButton type="primary" @click="handleAddMenu" v-ripple> 添加菜单 </ElButton>
           <ElButton @click="toggleExpand" v-ripple>
             {{ isExpanded ? '收起' : '展开' }}
           </ElButton>
@@ -182,12 +182,15 @@
     {
       prop: 'date',
       label: '编辑时间',
-      formatter: () => '2022-3-12 12:00:00'
+      formatter: (row: AppRouteRecord) => (row.meta as any)?.updatedAt || '—'
     },
     {
       prop: 'status',
       label: '状态',
-      formatter: () => h(ElTag, { type: 'success' }, () => '启用')
+      formatter: (row: AppRouteRecord) =>
+        h(ElTag, { type: (row.meta as any)?.visible === false ? 'info' : 'success' }, () =>
+          (row.meta as any)?.visible === false ? '停用' : '启用'
+        )
     },
     {
       prop: 'operation',

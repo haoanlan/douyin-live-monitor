@@ -1,4 +1,11 @@
-import request from '@/utils/http'
+/*
+ * 必须用项目自己的 douyin-http（baseURL = '/'，打到本地后端）。
+ * 原来这里 import 的是模板的 '@/utils/http'，它的 baseURL 取 VITE_API_URL，
+ * 而 .env.production 里那是模板的 **apifox mock 地址** ——
+ * 于是这三个页面一加载就去请求 mock 站，返回 401「无效令牌」，
+ * 前端拦截器按"会话过期"处理直接登出（用户看到的就是"刚登录就说无效令牌"）。
+ */
+import request from '@/api/douyin-http'
 import type { AppRouteRecord } from '@/types/router'
 
 /**
@@ -96,6 +103,7 @@ export async function fetchGetMenuList(): Promise<AppRouteRecord[]> {
     hidden?: number
     menuType?: string
     perms?: string
+    updatedAt?: string
   }
 
   const nodes: Node[] = items
@@ -117,6 +125,9 @@ export async function fetchGetMenuList(): Promise<AppRouteRecord[]> {
         icon: n.icon || '',
         keepAlive: false,
         hidden: !!n.hidden,
+        // 下面两个给「编辑时间 / 状态」两列用（模板原来写死成 2022-3-12 和"启用"）
+        updatedAt: n.updatedAt || '',
+        visible: n.visible !== 0,
         ...(n.perms ? { authMark: n.perms, authList: [{ title: n.perms, authMark: n.perms }] } : {})
       }
     }
