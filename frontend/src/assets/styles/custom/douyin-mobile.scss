@@ -1117,3 +1117,49 @@
 .el-dialog.el-dialog-border {
   border-radius: var(--custom-radius, 12px) !important;
 }
+
+/* ============================================================
+ * 高级表格页：卡片要能"缩"，否则分页被顶出可视区
+ *
+ * .art-full-height 是固定高度容器、.art-table-card 是 flex:1，
+ * 但 flex 子项默认 min-height:auto —— 表格行一多，卡片就按内容撑高，
+ * 底部分页被挤出屏幕（礼物价格页 20 行时实测被截掉一半）。
+ * 给卡片和它的 body 显式 min-height:0，ArtTable 的 calc(100% - 分页高) 才成立。
+ * ============================================================ */
+.art-full-height > .art-table-card,
+.art-table-card > .el-card__body {
+  min-height: 0;
+}
+
+/*
+ * 高级表格 + 外置 ArtTableHeader 时的分页可见性修复。
+ *
+ * ArtTable 的高度是 calc(100% - 分页高)，百分比是相对 .el-card__body 的；
+ * 而 ArtTableHeader 也在这个 body 里，占掉 ~66px —— 于是「表头 + 表格 + 分页」
+ * 比 body 高出表头那一截，分页被 overflow:hidden 裁掉（礼物价格页 20 行时实测
+ * 分页整体在可视区之外）。
+ * 这里把 body 变成 flex 列、ArtTable 变成可伸缩的 flex 子项，
+ * 高度由「剩余空间」决定，而不是百分比估算。
+ */
+.art-table-card > .el-card__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.art-table-card > .el-card__body > #art-table-header {
+  flex: 0 0 auto;
+}
+
+.art-table-card > .el-card__body > .art-table {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.art-table-card > .el-card__body > .art-table > .el-table {
+  flex: 1 1 auto;
+  min-height: 0;
+}

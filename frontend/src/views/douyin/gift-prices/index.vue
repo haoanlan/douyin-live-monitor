@@ -142,11 +142,13 @@
         </template>
 
         <!-- 操作：只有「修改」 -->
+        <!-- 操作：用模板统一的 ArtButtonTable 图标按钮（原来那个自造 pill 按钮风格和系统其它表格不一致） -->
         <template #actions="{ row }">
-          <el-button v-if="can('gift_price.write')" size="small" class="edit-btn" @click="openEdit(row)">
-            <ArtSvgIcon icon="ri:edit-line" class="mr-1" />
-            修改
-          </el-button>
+          <ArtButtonTable
+            v-if="can('gift_price.write')"
+            type="edit"
+            @click="openEdit(row)"
+          />
         </template>
       </ArtTable>
     </ElCard>
@@ -259,6 +261,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import type { ColumnOption } from '@/types'
 import { usePermissionStore } from '@/store/modules/permission'
+import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
 import {
   fetchGiftPrices,
   previewGiftPriceRepair,
