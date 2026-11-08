@@ -19,10 +19,17 @@
   <div class="douyin-page dy-stagger p-4">
     <!-- 面包屑统一由顶栏渲染（原来这里那份与顶栏内容一字不差地重复） -->
 
-    <!-- 工具条：选房间 + 时间范围 + X 轴粒度 -->
-    <div class="art-card dy-toolbar mb-5 flex items-center justify-between gap-4 flex-wrap">
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="dy-toolbar-title">趋势分析</div>
+    <!-- 页头：标题 + 说明 + 筛选（和模板分析页同一套 art-card / art-card-header） -->
+    <div class="art-card p-5 mb-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="art-card-header !mb-0">
+          <div class="title">
+            <h4>趋势分析</h4>
+            <p>按场次 / 日 / 周 / 月看单个或多个主播的走势，并与上一个等长周期对比</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+        <el-select
         <el-select
           v-model="selectedHosts"
           multiple
@@ -46,9 +53,8 @@
             </div>
           </el-option>
         </el-select>
-      </div>
-
-      <div class="dy-toolbar-actions">
+        </div>
+        <div class="dy-toolbar-actions">
         <el-radio-group v-model="range" @change="refresh">
           <el-radio-button value="7d">7天</el-radio-button>
           <el-radio-button value="30d">30天</el-radio-button>
@@ -64,6 +70,7 @@
         <el-button :loading="loading" @click="refresh">
           <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
         </el-button>
+        </div>
       </div>
     </div>
 
@@ -126,14 +133,20 @@
       <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
       <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">
-          <div class="text-xs text-g-500">{{ k.label }}</div>
-          <div class="mt-1.5 flex items-baseline gap-2 flex-wrap">
-            <span class="text-xl font-bold text-g-900">{{ k.value }}</span>
-            <span v-if="k.delta !== null" class="text-xs font-medium" :class="k.delta >= 0 ? 'text-green-600' : 'text-red-500'"> {{ k.delta >= 0 ? '↑' : '↓' }}{{ Math.abs(k.delta).toFixed(1) }}% </span>
-            <span v-else class="text-xs text-g-400">环比 —</span>
+        <div v-for="k in kpiCards" :key="k.key" class="art-card p-5">
+          <div class="text-[11px] leading-none text-g-500">{{ k.label }}</div>
+          <div class="mt-2 flex items-end gap-2 flex-wrap">
+            <span class="text-2xl font-semibold leading-none text-g-900 tabular-nums">{{ k.value }}</span>
+            <span
+              v-if="k.delta !== null"
+              class="rounded px-1.5 py-0.5 text-[11px] font-medium leading-none"
+              :class="k.delta >= 0 ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'"
+            >
+              {{ k.delta >= 0 ? '↑' : '↓' }}{{ Math.abs(k.delta).toFixed(1) }}%
+            </span>
+            <span v-else class="text-[11px] leading-none text-g-400">环比 —</span>
           </div>
-          <div v-if="k.hint" class="mt-1 text-[11px] text-g-400">{{ k.hint }}</div>
+          <div v-if="k.hint" class="mt-2 text-[11px] leading-none text-g-400">{{ k.hint }}</div>
         </div>
       </div>
 
@@ -142,22 +155,23 @@
         用「平均每场」而不是「总和」—— 场次多的房间不该因为播得多就赢。
       -->
       <div class="dy-trend-kpis mb-5">
-        <div v-for="s in series" :key="s.hostId" class="art-card p-4">
-          <div class="flex items-center gap-2.5 mb-3">
-            <el-avatar :size="32" :src="s.avatar || undefined" class="shrink-0">{{ s.name?.[0] }}</el-avatar>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-g-900 truncate" :title="s.name">
-                {{ s.name }}
-              </div>
-              <div class="text-xs text-g-500">
-                {{ s.summary.sessions }} 场
-                <template v-if="s.summary.sessionsWithData < s.summary.sessions">
-                  · {{ s.summary.sessions - s.summary.sessionsWithData }} 场无数据
-                </template>
+        <div v-for="s in series" :key="s.hostId" class="art-card p-5">
+          <div class="art-card-header">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <el-avatar :size="32" :src="s.avatar || undefined" class="shrink-0">{{ s.name?.[0] }}</el-avatar>
+              <div class="min-w-0">
+                <h4 class="truncate" :title="s.name">{{ s.name }}</h4>
+                <p>
+                  {{ s.summary.sessions }} 场
+                  <template v-if="s.summary.sessionsWithData < s.summary.sessions">
+                    · {{ s.summary.sessions - s.summary.sessionsWithData }} 场无数据
+                  </template>
+                </p>
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-x-3 gap-y-2.5">
+          <!-- 四个平均指标铺满一行（两列时中间会空一大块，等于把卡片撑成两半） -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
             <div v-for="k in kpiKeys" :key="k.key">
               <div class="text-xs text-g-500">{{ k.label }}</div>
               <div class="flex items-baseline gap-1.5">
@@ -216,13 +230,15 @@
         :data-metric="m.key"
         class="art-card p-5 mb-5"
       >
-        <div class="flex items-center justify-between gap-3 mb-1 flex-wrap">
-          <div class="flex items-center gap-2">
+        <div class="art-card-header">
+          <div class="title flex items-center gap-2">
             <ArtSvgIcon :icon="m.icon" class="text-theme" />
-            <span class="font-medium">{{ m.label }}</span>
-            <span class="text-xs text-g-500">{{ m.hint }}</span>
+            <div>
+              <h4>{{ m.label }}</h4>
+              <p>{{ m.hint }}</p>
+            </div>
           </div>
-          <span class="text-xs text-g-500">{{ xAxisLabel }}</span>
+          <span class="text-[11px] text-g-400">{{ xAxisLabel }}</span>
         </div>
         <!-- ref 用静态 key，配合下面的 chartRefs 记录 -->
         <div :ref="recordChart(m.key)" class="h-72"></div>
@@ -363,7 +379,9 @@
   /** 明细表当前显示哪个房间 */
   /**
    * 明细表当前选中的主播。
-   * 用 `number | ''` 而不是 `number | null`：el-radio-group 的 v-model 类型里没有 null
+   * 用 
+umber | ''` 而不是 
+umber | null`：el-radio-group 的 v-model 类型里没有 null
    * （element-plus 声明为 string | number | boolean | undefined），原来是 TS2322。
    * 空串表示"还没选"，读取处用 falsy 判断即可（见下面两处）。
    */
@@ -408,7 +426,8 @@
    * 切换指标显示。
    *
    * 注意：`el-check-tag` 的 change 事件传出的是**新值**（它内部已经做了 `!checked`），
-   * 所以这里必须用传进来的 `next`，不能再按当前状态取反一次 ——
+   * 所以这里必须用传进来的 
+ext`，不能再按当前状态取反一次 ——
    * 两个反相会互相抵消，表现就是"点了没反应"（实测踩到过）。
    */
   function toggleMetric(key: TrendMetricKey, next: boolean) {
