@@ -24,7 +24,7 @@
     结构对齐 Art Design Pro 的「高级表格」示例：
       ArtSearchBar（礼物名 / 标签）
       ElCard.art-table-card
-        ├ ArtTableHeader（左侧：刷新 / 同步单价字段 / 统计；右侧：列设置等工具栏）
+        ├ ArtTableHeader（左侧：同步单价字段 / 统计；右侧：刷新 + 列设置等工具栏）
         └ ArtTable（礼物 / 标签 / 单价 / 操作 + 分页）
 
     原来的四个数字（总数 / 未映射 / 已映射 / 历史不一致）收进 ArtTableHeader 左侧，
@@ -43,10 +43,10 @@
       <ArtTableHeader :loading="loading" @refresh="reload">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
-            <ElButton @click="reload">
-              <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
-              刷新
-            </ElButton>
+            <!--
+              不再放「刷新」按钮：ArtTableHeader 右侧自带的刷新图标已经绑了 @refresh="reload"，
+              两个刷新按钮功能重复（用户要求只留右边那个）。
+            -->
             <el-tooltip
               content="历史上只改了总价、没改单价字段的行，这里按总价把单价回填。不改任何金额。"
               placement="bottom"
