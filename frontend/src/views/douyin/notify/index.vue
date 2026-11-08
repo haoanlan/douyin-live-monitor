@@ -69,7 +69,7 @@
           />
         </template>
         <template #actions="{ row }">
-          <div class="flex items-center justify-end gap-1">
+          <div class="flex items-center justify-end gap-1 pr-2">
             <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openRuleDialog(row as NotifyRule)" />
             <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeRule(row as NotifyRule)" />
           </div>
@@ -118,10 +118,17 @@
           />
         </template>
         <template #actions="{ row }">
-          <div class="flex items-center justify-end gap-1">
-            <el-tooltip v-if="can('notify.test')" content="测试发送" placement="top">
-              <ArtButtonTable type="view" @click="testChannel(row as NotifyChannel)" />
-            </el-tooltip>
+          <div class="flex items-center justify-end gap-1 pr-2">
+            <button
+              v-if="can('notify.test')"
+              type="button"
+              class="dy-act-btn"
+              title="测试发送"
+              :disabled="testingId === row.id"
+              @click="testChannel(row as NotifyChannel)"
+            >
+              <ArtSvgIcon icon="ri:send-plane-line" />
+            </button>
             <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
             <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
           </div>
@@ -442,19 +449,24 @@
 
   /* ---------------- 列定义（高级表格） ---------------- */
   const ruleColumns: ColumnOption[] = [
-    { prop: 'event', label: '事件', minWidth: 140, useSlot: true, slotName: 'event' },
-    { prop: 'channels', label: '推送渠道', minWidth: 200, useSlot: true, slotName: 'channels' },
-    { prop: 'quiet', label: '免打扰', width: 150, useSlot: true, slotName: 'quiet' },
-    { prop: 'enabled', label: '状态', width: 90, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '操作', width: 120, align: 'right', useSlot: true, slotName: 'actions' }
+    { prop: 'event', label: '事件', width: 160, useSlot: true, slotName: 'event' },
+    { prop: 'channels', label: '推送渠道', useSlot: true, slotName: 'channels' },
+    { prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' },
+    { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'actions', label: '操作', width: 130, align: 'right', useSlot: true, slotName: 'actions' }
   ]
 
+  /*
+   * 列宽要能"收"：之前地址列 minWidth 280 + 其余固定宽度，加起来超过表格容器宽度，
+   * 最后一列（操作）就压到卡片右边框上（截图里三个图标正好压在竖线上）。
+   * 现在只给必要列固定宽度，地址列自适应。
+   */
   const channelColumns: ColumnOption[] = [
-    { prop: 'name', label: '名称', minWidth: 160, useSlot: true, slotName: 'name' },
-    { prop: 'type', label: '类型', width: 150, useSlot: true, slotName: 'type' },
-    { prop: 'url', label: '地址', minWidth: 280, useSlot: true, slotName: 'url' },
-    { prop: 'enabled', label: '状态', width: 90, align: 'center', useSlot: true, slotName: 'enabled' },
-    { prop: 'actions', label: '操作', width: 150, align: 'right', useSlot: true, slotName: 'actions' }
+    { prop: 'name', label: '名称', minWidth: 150, useSlot: true, slotName: 'name' },
+    { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' },
+    { prop: 'url', label: '地址', useSlot: true, slotName: 'url' },
+    { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
   ]
 
   const logColumns: ColumnOption[] = [
@@ -857,6 +869,31 @@
 </script>
 
 <style scoped>
+  /* 表格里的图标按钮（和模板 ArtButtonTable 同一尺寸/圆角，但不套 tooltip，避免被裁切） */
+  .dy-act-btn {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--art-gray-100, #f4f5f7);
+    color: var(--art-gray-600, #5b6068);
+    font-size: 15px;
+    transition: all 0.18s ease;
+    cursor: pointer;
+  }
+
+  .dy-act-btn:hover {
+    background: var(--theme-color, #3b82f6);
+    color: #fff;
+  }
+
+  .dy-act-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .dy-chip {
     display: inline-block;
     margin-right: 4px;
