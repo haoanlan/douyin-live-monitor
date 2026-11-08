@@ -121,7 +121,7 @@
             </button>
           </div>
 
-          <el-button :loading="loading" @click="refresh">
+          <el-button :loading="loading" class="!h-8 !px-3" @click="refresh">
             <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
             刷新
           </el-button>
@@ -180,8 +180,8 @@
       空状态：没选直播间时给"直接点一个"的入口。
       原来是一个 el-empty 插图 + 一行字，用户反馈"空状态也要优化"。
     -->
-    <div v-else-if="!selectedHosts.length" class="art-card p-10">
-      <div class="mx-auto max-w-[560px] text-center">
+    <div v-else-if="!selectedHosts.length" class="art-card dy-trends-empty p-10">
+      <div class="mx-auto flex max-w-[560px] flex-col items-center justify-center text-center">
         <div class="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-theme/10 text-theme">
           <ArtSvgIcon icon="ri:line-chart-line" class="text-xl" />
         </div>

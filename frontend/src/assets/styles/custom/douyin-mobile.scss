@@ -1321,3 +1321,39 @@ html.dark .dy-quick-host {
 html.dark .dy-host-row:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+
+/* ============================================================
+ * 趋势分析页：顶部控件统一 32px 高 + 空状态占满剩余高度
+ * ============================================================ */
+
+/* 选择直播间按钮、分段控件、刷新按钮，三者高度统一成 32px */
+.dy-picker-btn,
+.dy-seg {
+  height: 32px;
+}
+
+.dy-seg {
+  padding: 2px;
+}
+
+.dy-seg__item {
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+/* 空状态：撑满视口剩余高度，避免"下面一大片空白" */
+.dy-trends-empty {
+  min-height: calc(100vh - 260px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  .dy-trends-empty {
+    min-height: auto;
+  }
+}
