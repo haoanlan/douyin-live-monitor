@@ -13,6 +13,7 @@ import { prefetchPagesWhenIdle } from './router/core/prefetch'
 // 而这台机器上三个 iconify CDN 域名全部连不上（实测），结果就是图标空白。
 import { registerOfflineIcons } from './utils/ui/iconify-loader'
 import { setupScrollbarAutoHide } from './utils/ui/scrollbar-auto-hide'
+import { useSettingStore } from './store/modules/setting'
 
 registerOfflineIcons()
 // 滚动条自动隐藏：全局只装一次 scroll 捕获监听（见 utils/ui/scrollbar-auto-hide.ts）
@@ -26,6 +27,25 @@ document.addEventListener(
 
 const app = createApp(App)
 initStore(app)
+
+/*
+ * 一次性迁移：把老默认的页面过渡（自造的 dy-fade-lift）换成模板原版的 slide-left。
+ *
+ * 为什么必须写迁移而不是只改默认值：pageTransition 是持久化到 localStorage 的，
+ * 老用户浏览器里存着 'dy-fade-lift'，改默认值对他们不生效 ——
+ * 用户反馈"原版那种切换更舒服"，所以这里主动迁一次；只迁一次（打标记），
+ * 之后用户在设置面板里自己选的值不会再被覆盖。
+ */
+try {
+  const MIGRATION_KEY = 'dy-page-transition-migrated-v1'
+  if (!localStorage.getItem(MIGRATION_KEY)) {
+    const store = useSettingStore()
+    if (store.pageTransition === 'dy-fade-lift') store.setPageTransition('slide-left')
+    localStorage.setItem(MIGRATION_KEY, '1')
+  }
+} catch (e) {
+  /* 迁移失败不影响启动 */
+}
 initRouter(app)
 setupGlobDirectives(app)
 setupErrorHandle(app)

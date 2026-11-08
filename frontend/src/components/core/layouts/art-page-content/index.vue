@@ -34,8 +34,14 @@
           原来靠 v-if 分流来区分缓存，合并后必须显式告诉 KeepAlive 只缓存这些页面，
           否则搜索/详情/画像也会被缓存（筛选条件、场次 id 全留在内存里）。
       -->
+      <!--
+        :css 跟着过渡类型走：
+          · dy-fade-lift（自造）→ css=false，交给下面的 WAAPI 钩子（CSS 类名有已知坑，见注释）
+          · fade / slide-*（模板原版）→ css=true，就是纯 CSS 类过渡，和原版完全一致
+        之前写死 :css="false"，等于把模板那套 CSS 过渡彻底废掉了，只剩自造那一种。
+      -->
       <Transition
-        :css="false"
+        :css="!isCustomAnim"
         :name="showTransitionMask ? '' : actualTransition"
         @enter="onPageEnter"
         @leave="onPageLeave"
@@ -201,7 +207,13 @@
     el.style.left = ''
   }
 
+  /** 只有自造的 dy-fade-lift 才走 WAAPI；其余过渡交给 CSS 类名（和模板原版一致） */
+  const isCustomAnim = computed(() => actualTransition.value === 'dy-fade-lift')
+
   const onPageEnter = (el: Element, done: () => void) => {
+    // CSS 过渡（fade / slide-*）：什么都不做，让浏览器按类名播完（Vue 会在 transitionend 时收尾）。
+    // 这里**不能**调 done()，否则会把动画提前掐断。
+    if (!isCustomAnim.value) return
     const node = el as HTMLElement
     reattach(node)
     // 窄屏也不做进场位移（理由见 isNarrowScreen 的注释：实测这就是"返回时抖一下"）
@@ -255,6 +267,8 @@
    * 进场的位移仍然保留（见 onPageEnter），所以切换仍有"就位感"，只是不再有淡入淡出。
    */
   const onPageLeave = (el: Element, done: () => void) => {
+    // 同上：CSS 过渡这条路径不要插手（.slide-*-leave-active 已经把离开页绝对定位了）
+    if (!isCustomAnim.value) return
     const node = el as HTMLElement
     detachForLeave(node)
     reattach(node)

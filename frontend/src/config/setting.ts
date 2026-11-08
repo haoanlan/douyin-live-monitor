@@ -76,7 +76,12 @@ export const SETTING_DEFAULT_CONFIG = {
   /** 边框模式 */
   boxBorderMode: true,
   /** 页面过渡效果：dy-fade-lift = 淡入 + 8px 上浮（横向 slide 手感偏移动端，后台里显廉价） */
-  pageTransition: 'dy-fade-lift',
+  /*
+   * 默认过渡用模板原版的 slide-left（250ms 位移 + 淡入淡出，纯 CSS 类）。
+   * 之前默认是自造的 dy-fade-lift（WAAPI：旧页瞬移、新页只做 10px 位移不动 opacity），
+   * 观感比原版"硬"：用户反馈原版那种更舒服。想用回自造那版可以在设置面板里切换。
+   */
+  pageTransition: 'slide-left',
   /** 标签页样式 */
   tabStyle: 'tab-default',
   /** 自定义圆角 */
