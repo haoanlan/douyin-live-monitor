@@ -566,12 +566,23 @@
 
       .action-column {
         .action-buttons-wrapper {
-          flex-direction: column;
+          /*
+           * 手机上原来是「竖着排 + 居中」：重置 / 查询 挤在中间一小块，
+           * 两边都是空白，看着很别扭（用户反馈）。
+           * 改成一行两个等宽按钮、撑满整行 —— 拇指够得着，也不再留白。
+           */
+          flex-direction: row;
           gap: 8px;
           align-items: stretch;
 
           .form-buttons {
-            justify-content: center;
+            flex: 1;
+            justify-content: stretch;
+
+            .el-button {
+              flex: 1;
+              margin-left: 0;
+            }
           }
 
           .filter-toggle {

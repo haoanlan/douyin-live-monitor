@@ -1118,6 +1118,16 @@
   border-radius: var(--custom-radius, 12px) !important;
 }
 
+/*
+ * 确认 / 输入弹窗（ElMessageBox）也要跟着同一套圆角。
+ * 之前这条规则被后续编辑弄丢了，实测「重置密码 / 删除用户」弹窗圆角是 4px（Element 默认），
+ * 而其它弹窗是 12px —— 用户反馈"弹窗都不是跟随设置的"。
+ * Element 自己在 dark 下会用 --el-messagebox-* 变量，这里只补圆角，不写死颜色。
+ */
+.el-message-box {
+  border-radius: var(--custom-radius, 12px) !important;
+}
+
 /* ============================================================
  * 高级表格页：卡片要能"缩"，否则分页被顶出可视区
  *
