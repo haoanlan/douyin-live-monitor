@@ -248,99 +248,6 @@
 
       </div>
 
-      <!--
-        明细表：图看趋势，表看具体数字。
-        同一主播一天多场时，表里能直接看到是下午场还是晚间场拖了后腿。
-      -->
-      <div class="art-card p-5">
-        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <div class="art-card-header !mb-0">
-            <div class="title">
-              <h4>场次明细</h4>
-              <p>按开播时间排序，最近的在最上面</p>
-            </div>
-          </div>
-          <el-radio-group v-model="detailHost" size="small">
-            <el-radio-button v-for="s in series" :key="s.hostId" :value="s.hostId ?? ''">
-              {{ s.name }}
-            </el-radio-button>
-          </el-radio-group>
-        </div>
-        <!--
-          窄屏必须套一层横滚容器（.dy-table-scroll）：
-          这张表 8 列合计约 840px，而手机上卡片内宽只有 ~330px。
-          el-table 在 max-height（固定表头）模式下遇到过窄容器会出现
-          "表头 950px / 表体 330px" 的宽度分叉 —— 表头能横移、表体不能，
-          末列「详情」永远够不到（实测 390×844：末列右边界 980px）。
-          外层横滚 + 表格 min-width，让表头表体处于同一张足够宽的表格里。
-          另外加 @row-click：主操作（进详情）不再只依赖末列按钮。
-        -->
-        <div class="dy-table-scroll">
-          <el-table
-            :data="detailRows"
-            size="small"
-            max-height="420"
-            stripe
-            class="c-pointer"
-            @row-click="(row: any) => goDetail(row.sessionId)"
-          >
-            <el-table-column label="开播时间" min-width="150">
-            <template #default="{ row }">
-              <span class="text-xs">{{ fmtTime(row.startAt) }}</span>
-              <el-tag v-if="!row.ended" size="small" type="success" class="ml-1">直播中</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="峰值在线" width="100" align="right">
-            <template #default="{ row }">{{ fmtNum(row.peakOnline) }}</template>
-          </el-table-column>
-          <el-table-column label="钻石" width="120" align="right">
-            <template #default="{ row }">
-              <span v-if="row.hasData">{{ fmtNum(row.diamonds) }}</span>
-              <span v-else class="text-g-500" title="这一场没有采集到数据，不等于业绩为 0">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="弹幕" width="100" align="right">
-            <template #default="{ row }">{{ fmtNum(row.danmaku) }}</template>
-          </el-table-column>
-          <el-table-column label="礼物数" width="100" align="right">
-            <template #default="{ row }">{{ fmtNum(row.gifts) }}</template>
-          </el-table-column>
-          <el-table-column label="时长" width="90" align="right">
-            <template #default="{ row }">{{ row.durationMinutes }}分</template>
-          </el-table-column>
-          <el-table-column label="钻/时" width="110" align="right">
-            <template #default="{ row }">
-              <span v-if="row.hasData">{{ fmtNum(row.diamondsPerHour) }}</span>
-              <span v-else class="text-g-500">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="弹幕/千人" width="110" align="right">
-            <template #default="{ row }">
-              <span v-if="row.hasData">{{ fmtNum(row.danmakuPerThousand) }}</span>
-              <span v-else class="text-g-500">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="" width="70" align="right">
-            <template #default="{ row }">
-              <el-button
-                size="small"
-                text
-                type="primary"
-                @click="goDetail(row.sessionId)"
-              >
-                详情
-              </el-button>
-            </template>
-          </el-table-column>
-          <!-- 空态交给表格自己的 #empty，避免"表格空态 + 外侧空态"两份同时出现（P2-15） -->
-          <template #empty>
-            <div class="py-6 text-center text-sm text-g-600">
-              该时间范围内这个房间还没有场次记录。
-            </div>
-          </template>
-          </el-table>
-        </div>
-      </div>
     </template>
 
     <div v-else-if="!queryError" class="art-card p-10">
@@ -357,9 +264,7 @@
   import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useChartOps } from '@/hooks/core/useChart'
-  import { useSettingStore } from '@/store/modules/setting'
-  import { useRouter } from 'vue-router'
-  import { ElMessage } from 'element-plus'
+  import { useSettingStore } from '@/store/modules/setting'  import { ElMessage } from 'element-plus'
   import { echarts } from '@/plugins/echarts'
   import {
     fetchHostTrends,
@@ -373,7 +278,7 @@
 
   defineOptions({ name: 'DouyinTrends' })
 
-  const router = useRouter()
+  // 场次明细表已删（用户要求），跳详情用的 router 也一并移除
 
   const loading = ref(true)
   const queryError = ref('')
@@ -383,16 +288,7 @@
   const range = ref('30d')
   /** X 轴粒度：场次（默认）/ 日 / 周 / 月 */
   const xMode = ref<'session' | 'day' | 'week' | 'month'>('day')
-  /** 明细表当前显示哪个房间 */
-  /**
-   * 明细表当前选中的主播。
-   * 用 
-umber | ''` 而不是 
-umber | null`：el-radio-group 的 v-model 类型里没有 null
-   * （element-plus 声明为 string | number | boolean | undefined），原来是 TS2322。
-   * 空串表示"还没选"，读取处用 falsy 判断即可（见下面两处）。
-   */
-  const detailHost = ref<number | ''>('')
+
 
   const hasData = computed(() => series.value.some((s) => s.points.length > 0))
 
@@ -769,9 +665,6 @@ ext`，不能再按当前状态取反一次 ——
       series.value = data.series || []
       queryError.value = ''
       lastLoadedAt = Date.now()
-      if (!detailHost.value || !series.value.some((s) => s.hostId === detailHost.value)) {
-        detailHost.value = series.value[0]?.hostId ?? ''
-      }
       await redraw()
     } catch (e) {
       queryError.value = apiErrorMessage(e, '趋势数据加载失败')
@@ -779,13 +672,6 @@ ext`，不能再按当前状态取反一次 ——
       loading.value = false
     }
   }
-
-  /** 明细表数据：当前选中房间的场次，最近的在最上面 */
-  const detailRows = computed(() => {
-    const s = series.value.find((x) => x.hostId === detailHost.value)
-    if (!s) return []
-    return [...s.points].reverse()
-  })
 
   /** 全局 KPI（聚合所有已选房间）+ 环比（后端 prevSummary） */
   const kpiCards = computed(() => {
@@ -818,10 +704,6 @@ ext`，不能再按当前状态取反一次 ——
       { key: 'top10', label: 'Top10 占比', value: top10 == null ? '—' : top10.toFixed(1) + '%', delta: null, hint: '前 10 名用户贡献的钻石占比' }
     ]
   })
-
-  function goDetail(sessionId: number) {
-    router.push(`/douyin/detail/${sessionId}`)
-  }
 
   // 指标开关变化时只重绘，不用重新请求。
   // flush: 'post' → 回调在 DOM 更新**之后**执行，这样刚勾上的图表容器已经显示、
