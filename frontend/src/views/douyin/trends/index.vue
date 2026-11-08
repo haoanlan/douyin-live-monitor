@@ -151,46 +151,95 @@
       </div>
 
       <!--
-        KPI：每个房间一张卡。
-        用「平均每场」而不是「总和」—— 场次多的房间不该因为播得多就赢。
+        ② 钱和流量从哪来：主播占比
+        原来这里是「每个房间一张卡」，里面是四个场均数字 —— 和上方 KPI 是同一批数据，
+        用户反馈"林语巷这块很怪"。改成占比条：一眼看出钻石和弹幕主要来自谁。
       -->
-      <div class="dy-trend-kpis mb-5">
-        <div v-for="s in series" :key="s.hostId" class="art-card p-5">
-          <div class="art-card-header">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <el-avatar :size="32" :src="s.avatar || undefined" class="shrink-0">{{ s.name?.[0] }}</el-avatar>
-              <div class="min-w-0">
-                <h4 class="truncate" :title="s.name">{{ s.name }}</h4>
-                <p>
-                  {{ s.summary.sessions }} 场
-                  <template v-if="s.summary.sessionsWithData < s.summary.sessions">
-                    · {{ s.summary.sessions - s.summary.sessionsWithData }} 场无数据
-                  </template>
-                </p>
+      <div class="art-card p-5 mb-5">
+        <div class="art-card-header">
+          <div class="title">
+            <h4>钱和流量从哪来</h4>
+            <p>所选房间在「总钻石 / 总弹幕」里的占比，按钻石从高到低</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div v-for="h in hostShareRows" :key="h.name" class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <el-avatar :size="20" :src="h.avatar || undefined" class="shrink-0">{{ h.name?.[0] }}</el-avatar>
+              <span class="truncate text-sm text-g-800">{{ h.name }}</span>
+              <span class="ml-auto shrink-0 text-[11px] text-g-400">
+                {{ h.sessions }} 场 · {{ fmtNum(h.diamonds) }} 钻
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-10 shrink-0 text-[10px] text-g-400">钻石</span>
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-g-200/60">
+                <div class="h-full rounded-full bg-theme" :style="{ width: h.dPct + '%' }" />
               </div>
+              <span class="w-11 shrink-0 text-right text-[11px] tabular-nums text-g-500">{{ h.dPct.toFixed(1) }}%</span>
+            </div>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="w-10 shrink-0 text-[10px] text-g-400">弹幕</span>
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-g-200/60">
+                <div class="h-full rounded-full bg-info" :style="{ width: h.mPct + '%' }" />
+              </div>
+              <span class="w-11 shrink-0 text-right text-[11px] tabular-nums text-g-500">{{ h.mPct.toFixed(1) }}%</span>
             </div>
           </div>
-          <!-- 四个平均指标铺满一行（两列时中间会空一大块，等于把卡片撑成两半） -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3">
-            <div v-for="k in kpiKeys" :key="k.key">
-              <div class="text-xs text-g-500">{{ k.label }}</div>
-              <div class="flex items-baseline gap-1.5">
-                <span class="text-base font-medium text-g-900 leading-tight">
-                  {{ k.fmt(s.summary[k.key as keyof HostTrendSummary] as number) }}
-                </span>
-                <!-- 与上一周期对比：涨跌用箭头 + 百分比，比只给一个数有用 -->
-                <span
-                  v-if="delta(s, k.key)"
-                  class="text-xs shrink-0"
-                  :class="delta(s, k.key)!.up ? 'text-success' : 'text-danger'"
-                >
-                  {{ delta(s, k.key)!.up ? '↑' : '↓' }}{{ delta(s, k.key)!.pct }}%
-                </span>
+        </div>
+      </div>
+
+      <!--
+        ③ 什么时候播效果最好：24 小时 × 周几 的「场均钻石」热力图
+        用"场均"而不是"总量"：黄金时段播一场顶三场，看总量只会奖励播得多的人。
+      -->
+      <div class="art-card p-5 mb-5">
+        <div class="art-card-header">
+          <div class="title">
+            <h4>什么时候播效果最好</h4>
+            <p>
+              横轴 0–23 点、纵轴周几，颜色是该时段的场均钻石<template v-if="bestSlot"> · 最佳 {{ bestSlot.weekday }} {{ bestSlot.hour }} 点，场均 {{ fmtNum(bestSlot.avg) }} 钻（{{ bestSlot.count }} 场）</template>
+            </p>
+          </div>
+        </div>
+        <!--
+          用 CSS 网格画热力图，不用 echarts：
+          heatmap 在"类目轴 + 坐标名"这套组合上试了三轮都画不出格子（下标/类目名都对不上），
+          而这里只有 168 个格子，div + 背景色最稳，还自带响应式。
+        -->
+        <div class="mt-2 flex gap-2">
+          <!-- 周几标签 -->
+          <div class="flex shrink-0 flex-col gap-[3px] pt-[14px]">
+            <div v-for="w in WEEK_LABELS" :key="w" class="flex h-4 items-center text-[10px] text-g-400">
+              {{ w }}
+            </div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <!-- 小时刻度 -->
+            <div class="mb-1 grid gap-[3px]" style="grid-template-columns: repeat(24, minmax(0, 1fr))">
+              <div
+                v-for="h in 24"
+                :key="'h' + h"
+                class="text-center text-[9px] leading-none text-g-400"
+              >
+                {{ (h - 1) % 3 === 0 ? h - 1 : '' }}
+              </div>
+            </div>
+            <div class="flex flex-col gap-[3px]">
+              <div v-for="w in WEEK_LABELS" :key="w" class="grid gap-[3px]" style="grid-template-columns: repeat(24, minmax(0, 1fr))">
+                <div
+                  v-for="c in heatCellsFor(w)"
+                  :key="w + c.hour"
+                  class="h-4 rounded-[3px] transition-colors"
+                  :style="{ background: c.bg }"
+                  :title="c.title"
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
+
 
       <!-- 指标开关：自己选要看哪些 -->
       <div class="art-card p-4 mb-5">
@@ -671,6 +720,100 @@ ext`，不能再按当前状态取反一次 ——
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * ② 钱和流量从哪来：按钻石 / 弹幕算每个主播的占比。
+   * 数据直接来自 series 的 summary（后端已经按时间范围聚好），不需要额外请求。
+   */
+  const hostShareRows = computed(() => {
+    const totalD = series.value.reduce((a, s) => a + (s.summary.totalDiamonds || 0), 0)
+    const totalM = series.value.reduce((a, s) => a + (s.summary.totalDanmaku || 0), 0)
+    return series.value
+      .map((s) => ({
+        name: s.name,
+        avatar: s.avatar,
+        sessions: s.summary.sessions || 0,
+        diamonds: s.summary.totalDiamonds || 0,
+        dPct: totalD > 0 ? ((s.summary.totalDiamonds || 0) / totalD) * 100 : 0,
+        mPct: totalM > 0 ? ((s.summary.totalDanmaku || 0) / totalM) * 100 : 0
+      }))
+      .sort((a, b) => b.diamonds - a.diamonds)
+  })
+
+  /* ===== ③ 什么时候播效果最好：24×7 热力图 ===== */
+
+  const WEEK_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+
+  /** 每格累计：钻石之和 / 场次数（点里没有直播时长的，用场次做分母就是"场均"） */
+  const heatBuckets = computed(() => {
+    const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ sum: 0, n: 0 })))
+    for (const s of series.value) {
+      for (const p of s.points) {
+        if (!p.hasData || !p.startAt) continue
+        const d = new Date(String(p.startAt).replace(' ', 'T'))
+        if (Number.isNaN(d.getTime())) continue
+        const wd = (d.getDay() + 6) % 7 // 0=周一
+        const hh = d.getHours()
+        grid[wd][hh].sum += Number(p.diamonds) || 0
+        grid[wd][hh].n += 1
+      }
+    }
+    return grid
+  })
+
+  /** 最佳时段（场均钻石最高，且至少 1 场） */
+  const bestSlot = computed(() => {
+    let best: { weekday: string; hour: number; avg: number; count: number } | null = null
+    const grid = heatBuckets.value
+    for (let wd = 0; wd < 7; wd++) {
+      for (let hh = 0; hh < 24; hh++) {
+        const b = grid[wd][hh]
+        if (!b.n) continue
+        const avg = b.sum / b.n
+        if (!best || avg > best.avg) {
+          best = { weekday: WEEK_LABELS[wd], hour: hh, avg: Math.round(avg), count: b.n }
+        }
+      }
+    }
+    return best
+  })
+
+  /**
+   * 热力图的格子数据（168 格）。
+   * ratio 用**中位数**做分母：一场 205 万的爆发场会把 max 顶到 200 万，
+   * 其余几万的格子就全变成最浅色，看起来像"没有数据"。
+   */
+  const heatScale = computed(() => {
+    const grid = heatBuckets.value
+    const avgs: number[] = []
+    for (let wd = 0; wd < 7; wd++) {
+      for (let hh = 0; hh < 24; hh++) {
+        const b = grid[wd][hh]
+        if (b.n) avgs.push(b.sum / b.n)
+      }
+    }
+    avgs.sort((a, b) => a - b)
+    const mid = avgs.length ? avgs[Math.floor((avgs.length - 1) * 0.5)] : 0
+    return Math.max(1, mid)
+  })
+
+  /** 按周几取一行 24 个格子 */
+  function heatCellsFor(weekday: string) {
+    const wd = WEEK_LABELS.indexOf(weekday)
+    const grid = heatBuckets.value
+    const scale = heatScale.value
+    return Array.from({ length: 24 }, (_, hh) => {
+      const b = grid[wd]?.[hh] || { sum: 0, n: 0 }
+      const avg = b.n ? b.sum / b.n : 0
+      const ratio = b.n ? Math.min(1, avg / scale) : 0
+      return {
+        hour: hh,
+        avg,
+        bg: b.n ? `rgba(99, 102, 241, ${(0.12 + ratio * 0.78).toFixed(3)})` : 'transparent',
+        title: b.n ? `${weekday} ${hh}:00 · 场均 ${fmtNum(Math.round(avg))} 钻（${b.n} 场）` : `${weekday} ${hh}:00 · 没有场次`
+      }
+    })
   }
 
   /** 全局 KPI（聚合所有已选房间）+ 环比（后端 prevSummary） */
