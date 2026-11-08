@@ -1,254 +1,289 @@
 <template>
   <div class="douyin-page p-4">
+    <!-- 页头：和礼物价格页同一套语言（art-card + art-card-header） -->
     <div class="art-card p-4 mb-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
           <h4 class="m-0 text-base font-semibold text-g-900">通知管理</h4>
           <p class="m-0 mt-0.5 text-[11px] text-g-500">
-            开播通知 / 下播战报 / 异常告警都从这里配置。规则 → 渠道 → 记录，一条链路走完。
+            开播通知 / 下播战报 / 主播上场提醒都从这里配置：规则 → 渠道 → 记录。
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <el-button :loading="loading" @click="reloadAll">
-            <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />刷新
-          </el-button>
+        <div class="dy-seg">
+          <button
+            v-for="t in TABS"
+            :key="t.value"
+            type="button"
+            class="dy-seg__item"
+            :class="{ 'is-active': activeTab === t.value }"
+            @click="switchTab(t.value)"
+          >
+            {{ t.label }}
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="art-card p-4 min-h-[460px]">
-      <el-tabs v-model="activeTab" @tab-change="(name: any) => onTabChange(String(name))">
-        <!-- ============ 事件规则 ============ -->
-        <el-tab-pane label="事件规则" name="rules">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <p class="m-0 text-[11px] text-g-500">
-              一条规则 = 一个事件 + 一组渠道。免打扰时段内不推送（会记入发送记录）。
-            </p>
-            <el-button v-if="can('notify.manage')" type="primary" @click="openRuleDialog()">
+    <!-- ============ 事件规则 ============ -->
+    <ElCard v-if="activeTab === 'rules'" class="art-table-card">
+      <ArtTableHeader :loading="loading" @refresh="reloadAll">
+        <template #left>
+          <div class="flex flex-wrap items-center gap-2">
+            <ElButton v-if="can('notify.manage')" type="primary" @click="openRuleDialog()">
               <ArtSvgIcon icon="ri:add-line" class="mr-1" />新建规则
-            </el-button>
-          </div>
-          <el-table :data="rules" size="small" empty-text="还没有规则">
-            <el-table-column label="事件" min-width="140">
-              <template #default="{ row }">
-                <span class="text-sm text-g-800">{{ eventLabel(row.event) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="推送渠道" min-width="180">
-              <template #default="{ row }">
-                <span v-if="!row.channel_ids.length" class="text-xs text-danger">未配置</span>
-                <span v-for="cid in row.channel_ids" :key="cid" class="dy-chip">{{ channelName(cid) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="免打扰" width="140">
-              <template #default="{ row }">
-                <span class="text-xs text-g-500">
-                  {{ row.quiet_hours?.start ? `${row.quiet_hours.start}–${row.quiet_hours.end}` : '不限' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="90">
-              <template #default="{ row }">
-                <el-switch
-                  :model-value="!!row.enabled"
-                  :disabled="!can('notify.manage')"
-                  size="small"
-                  @change="(v: any) => toggleRule(row as NotifyRule, !!v)"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="130" align="right">
-              <template #default="{ row }">
-                <el-button v-if="can('notify.manage')" link type="primary" @click="openRuleDialog(row as NotifyRule)">编辑</el-button>
-                <el-button v-if="can('notify.manage')" link type="danger" @click="removeRule(row as NotifyRule)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
-        <!-- ============ 推送渠道 ============ -->
-        <el-tab-pane label="推送渠道" name="channels">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <p class="m-0 text-[11px] text-g-500">
-              支持企业微信 / 飞书 / 钉钉机器人，也可以填任意 Webhook（POST JSON）。保存前可先「测试」。
-            </p>
-            <el-button v-if="can('notify.manage')" type="primary" @click="openChannelDialog()">
-              <ArtSvgIcon icon="ri:add-line" class="mr-1" />新增渠道
-            </el-button>
-          </div>
-          <el-table :data="channels" size="small" empty-text="还没有推送渠道">
-            <el-table-column label="名称" min-width="140" prop="name" />
-            <el-table-column label="类型" width="140">
-              <template #default="{ row }">{{ channelTypeLabel(row.type) }}</template>
-            </el-table-column>
-            <el-table-column label="地址" min-width="240">
-              <template #default="{ row }">
-                <span class="truncate text-xs text-g-500">{{ maskUrl(row.config?.url) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="90">
-              <template #default="{ row }">
-                <el-switch
-                  :model-value="!!row.enabled"
-                  :disabled="!can('notify.manage')"
-                  size="small"
-                  @change="(v: any) => toggleChannel(row as NotifyChannel, !!v)"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="190" align="right">
-              <template #default="{ row }">
-                <el-button
-                  v-if="can('notify.test')"
-                  link
-                  type="primary"
-                  :loading="testingId === row.id"
-                  @click="testChannel(row as NotifyChannel)"
-                >
-                  测试
-                </el-button>
-                <el-button v-if="can('notify.manage')" link type="primary" @click="openChannelDialog(row as NotifyChannel)">编辑</el-button>
-                <el-button v-if="can('notify.manage')" link type="danger" @click="removeChannel(row as NotifyChannel)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-tab-pane>
-
-        <!-- ============ 发送记录 ============ -->
-        <el-tab-pane label="发送记录" name="logs">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <el-radio-group v-model="logStatus" size="small" @change="loadLogs(1)">
-              <el-radio-button value="">全部</el-radio-button>
-              <el-radio-button value="sent">成功</el-radio-button>
-              <el-radio-button value="failed">失败</el-radio-button>
-            </el-radio-group>
-            <span class="text-[11px] text-g-500">共 {{ logTotal }} 条</span>
-          </div>
-          <el-table :data="logs" size="small" empty-text="还没有发送记录">
-            <el-table-column label="时间" width="170">
-              <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="事件" width="140">
-              <template #default="{ row }">{{ eventLabel(row.event) }}</template>
-            </el-table-column>
-            <el-table-column label="渠道" min-width="140" prop="channel_name" />
-            <el-table-column label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 'sent' ? 'success' : 'danger'" size="small" effect="light">
-                  {{ row.status === 'sent' ? '成功' : '失败' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="失败原因" min-width="200">
-              <template #default="{ row }">
-                <span class="text-xs text-danger">{{ row.error || '—' }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div class="mt-3 flex justify-end">
-            <el-pagination
-              :current-page="logPage"
-              :page-size="logSize"
-              :total="logTotal"
-              layout="prev, pager, next"
-              @current-change="loadLogs"
-            />
-          </div>
-        </el-tab-pane>
-        <!-- ============ 主播上场提醒 ============ -->
-        <el-tab-pane label="主播上场" name="upstage">
-          <div class="mb-3 flex flex-wrap items-end gap-2">
-            <div>
-              <div class="mb-1 text-[11px] text-g-400">房间号（web_rid，直播间地址里的那串数字）</div>
-              <el-input v-model="upWebRid" placeholder="例如 65209552987" style="width: 200px" @change="loadUpstage" />
-            </div>
-            <el-button :loading="upLoadingMembers" @click="loadMembers">拉团员榜</el-button>
-            <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
-            <span class="text-[11px] text-g-400">
-              映射 {{ upStatus?.rank?.mappedUsers || 0 }} 人 · 最近帧
-              {{ upStatus?.runtime?.lastFrameAt ? fmtGap(upStatus.runtime.streamGapSecs) : '无' }}
-              · 来源 {{ upStatus?.runtime?.lastSource || '—' }}
+            </ElButton>
+            <span class="ml-1 text-xs text-g-500">
+              共 <b class="text-g-700">{{ rules.length }}</b> 条 ·
+              启用 <b class="text-success">{{ rules.filter((r) => r.enabled).length }}</b>
             </span>
           </div>
+        </template>
+      </ArtTableHeader>
 
-          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <!-- 关注名单 -->
-            <div>
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-medium text-g-800">关注名单</span>
-                <span class="text-[11px] text-g-400">按 uid 匹配，昵称只用于显示</span>
-              </div>
-              <div v-if="members.length" class="mb-2 flex flex-wrap gap-1">
-                <button
-                  v-for="m in members.filter((x) => !watchUids.includes(x.uid))"
-                  :key="m.uid"
-                  type="button"
-                  class="rounded-full bg-g-100 px-2 py-0.5 text-[11px] text-g-600 hover:bg-theme/10 hover:text-theme"
-                  @click="addWatch(m)"
-                >
-                  + {{ m.nickname }}
-                </button>
-              </div>
-              <el-table :data="watchList" size="small" empty-text="还没有关注的主播">
-                <el-table-column label="昵称" min-width="120">
-                  <template #default="{ row }">{{ row.nickname || '（待补）' }}</template>
-                </el-table-column>
-                <el-table-column label="uid" min-width="150">
-                  <template #default="{ row }"><span class="text-xs text-g-500">{{ row.uid }}</span></template>
-                </el-table-column>
-                <el-table-column label="操作" width="80" align="right">
-                  <template #default="{ row }">
-                    <el-button v-if="can('upstage.manage')" link type="danger" @click="removeWatch(row as UpstageWatch)">移除</el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
+      <ArtTable
+        :data="rules"
+        :columns="ruleColumns"
+        :loading="loading"
+        :show-table-header="false"
+        row-key="id"
+        empty-text="还没有规则，先建一条"
+      >
+        <template #event="{ row }">
+          <span class="text-sm text-g-800">{{ eventLabel(row.event) }}</span>
+        </template>
+        <template #channels="{ row }">
+          <span v-if="!row.channel_ids.length" class="text-xs text-danger">未配置</span>
+          <span v-for="cid in row.channel_ids" :key="cid" class="dy-chip">{{ channelName(cid) }}</span>
+        </template>
+        <template #quiet="{ row }">
+          <span class="text-xs text-g-500">
+            {{ row.quiet_hours?.start ? `${row.quiet_hours.start}–${row.quiet_hours.end}` : '不限' }}
+          </span>
+        </template>
+        <template #enabled="{ row }">
+          <el-switch
+            :model-value="!!row.enabled"
+            :disabled="!can('notify.manage')"
+            size="small"
+            @change="(v: any) => toggleRule(row as NotifyRule, !!v)"
+          />
+        </template>
+        <template #actions="{ row }">
+          <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openRuleDialog(row as NotifyRule)" />
+          <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeRule(row as NotifyRule)" />
+        </template>
+      </ArtTable>
+    </ElCard>
 
-            <!-- 事件 -->
-            <div>
-              <div class="mb-2 flex items-center justify-between">
-                <span class="text-sm font-medium text-g-800">上场事件</span>
-                <span class="text-[11px] text-g-400">共 {{ upEventTotal }} 条 · 离场不推送</span>
-              </div>
-              <el-table :data="upEvents" size="small" empty-text="还没有事件">
-                <el-table-column label="时间" width="160">
-                  <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
-                </el-table-column>
-                <el-table-column label="事件" width="90">
-                  <template #default="{ row }">
-                    <el-tag size="small" :type="row.event === 'on_stage' ? 'success' : 'info'" effect="light">
-                      {{ upEventLabel(row.event) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="主播" min-width="100">
-                  <template #default="{ row }">{{ row.nickname || row.uid }}</template>
-                </el-table-column>
-                <el-table-column label="说明" min-width="120">
-                  <template #default="{ row }"><span class="text-xs text-g-500">{{ row.detail || '—' }}</span></template>
-                </el-table-column>
-              </el-table>
-            </div>
+    <!-- ============ 推送渠道 ============ -->
+    <ElCard v-else-if="activeTab === 'channels'" class="art-table-card">
+      <ArtTableHeader :loading="loading" @refresh="reloadAll">
+        <template #left>
+          <div class="flex flex-wrap items-center gap-2">
+            <ElButton v-if="can('notify.manage')" type="primary" @click="openChannelDialog()">
+              <ArtSvgIcon icon="ri:add-line" class="mr-1" />新增渠道
+            </ElButton>
+            <span class="ml-1 text-xs text-g-500">
+              企业微信 / 飞书 / 钉钉机器人，或任意 Webhook
+            </span>
           </div>
+        </template>
+      </ArtTableHeader>
 
-          <!-- 外部采集进程接入说明 -->
-          <div class="mt-4 rounded-lg bg-g-100/60 p-3">
-            <div class="mb-1 text-[11px] text-g-600">
-              人脸识别通道的帧从这里进来（Go 代理没有这个 proto，需要外部采集进程解码后提交）：
+      <ArtTable
+        :data="channels"
+        :columns="channelColumns"
+        :loading="loading"
+        :show-table-header="false"
+        row-key="id"
+        empty-text="还没有推送渠道"
+      >
+        <template #name="{ row }">
+          <span class="text-sm font-medium text-g-800">{{ row.name }}</span>
+        </template>
+        <template #type="{ row }">
+          <el-tag size="small" effect="light">{{ channelTypeLabel(row.type) }}</el-tag>
+        </template>
+        <template #url="{ row }">
+          <span class="truncate text-xs text-g-500" :title="row.config?.url">{{ maskUrl(row.config?.url) }}</span>
+        </template>
+        <template #enabled="{ row }">
+          <el-switch
+            :model-value="!!row.enabled"
+            :disabled="!can('notify.manage')"
+            size="small"
+            @change="(v: any) => toggleChannel(row as NotifyChannel, !!v)"
+          />
+        </template>
+        <template #actions="{ row }">
+          <el-button
+            v-if="can('notify.test')"
+            link
+            type="primary"
+            :loading="testingId === row.id"
+            @click="testChannel(row as NotifyChannel)"
+          >
+            测试
+          </el-button>
+          <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
+          <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
+        </template>
+      </ArtTable>
+    </ElCard>
+
+    <!-- ============ 发送记录 ============ -->
+    <ElCard v-else-if="activeTab === 'logs'" class="art-table-card">
+      <ArtTableHeader :loading="false" @refresh="loadLogs(logPage)">
+        <template #left>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="dy-seg">
+              <button
+                v-for="s in LOG_STATUS"
+                :key="s.value"
+                type="button"
+                class="dy-seg__item"
+                :class="{ 'is-active': logStatus === s.value }"
+                @click="logStatus = s.value; loadLogs(1)"
+              >
+                {{ s.label }}
+              </button>
             </div>
-            <div class="flex items-center gap-2">
-              <code class="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-g-700">
-                POST /api/upstage/frames  X-Upstage-Token: {{ upStatus?.frameToken || '…' }}
-              </code>
-              <el-button size="small" @click="copyToken">复制令牌</el-button>
-            </div>
-            <div class="mt-1 text-[11px] text-g-400">
-              请求体：{"webRid":"65209552987","source":"face","frames":[{"uid":"2203876772819496","conf":0.62}]}
-            </div>
+            <span class="text-xs text-g-500">共 <b class="text-g-700">{{ logTotal }}</b> 条</span>
           </div>
-        </el-tab-pane>
-      </el-tabs>
-    </div>
+        </template>
+      </ArtTableHeader>
+
+      <ArtTable
+        :data="logs"
+        :columns="logColumns"
+        :loading="false"
+        :pagination="{ current: logPage, size: logSize, total: logTotal }"
+        :show-table-header="false"
+        row-key="id"
+        empty-text="还没有发送记录"
+        @pagination:current-change="loadLogs"
+      >
+        <template #created_at="{ row }">
+          <span class="text-xs text-g-600">{{ fmtTime(row.created_at) }}</span>
+        </template>
+        <template #event="{ row }">
+          <span class="text-sm text-g-800">{{ eventLabel(row.event) }}</span>
+        </template>
+        <template #status="{ row }">
+          <el-tag :type="row.status === 'sent' ? 'success' : row.status === 'skipped' ? 'warning' : 'danger'" size="small" effect="light">
+            {{ row.status === 'sent' ? '成功' : row.status === 'skipped' ? '跳过' : '失败' }}
+          </el-tag>
+        </template>
+        <template #error="{ row }">
+          <span class="text-xs" :class="row.error ? 'text-danger' : 'text-g-400'">{{ row.error || '—' }}</span>
+        </template>
+      </ArtTable>
+    </ElCard>
+
+    <!-- ============ 主播上场 ============ -->
+    <template v-else>
+      <div class="art-card p-4 mb-4">
+        <div class="flex flex-wrap items-end gap-2">
+          <div>
+            <div class="mb-1 text-[11px] text-g-400">房间号（web_rid，直播间地址里的那串数字）</div>
+            <el-input v-model="upWebRid" placeholder="例如 65209552987" style="width: 200px" @change="loadUpstage" />
+          </div>
+          <el-button :loading="upLoadingMembers" @click="loadMembers">拉团员榜</el-button>
+          <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
+          <span class="text-[11px] text-g-400">
+            映射 {{ upStatus?.rank?.mappedUsers || 0 }} 人 · 最近帧
+            {{ upStatus?.runtime?.lastFrameAt ? fmtGap(upStatus.runtime.streamGapSecs) : '无' }}
+            · 来源 {{ upStatus?.runtime?.lastSource || '—' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ElCard class="art-table-card">
+          <ArtTableHeader :loading="false" @refresh="loadUpstage">
+            <template #left>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs text-g-500">关注名单 · 按 uid 匹配</span>
+                <span class="text-xs text-g-400">（昵称只用于显示）</span>
+              </div>
+            </template>
+          </ArtTableHeader>
+          <div v-if="members.length" class="mb-2 flex flex-wrap gap-1 px-1">
+            <button
+              v-for="m in members.filter((x) => !watchUids.includes(x.uid))"
+              :key="m.uid"
+              type="button"
+              class="dy-quick-host"
+              @click="addWatch(m)"
+            >
+              + {{ m.nickname }}
+            </button>
+          </div>
+          <ArtTable
+            :data="watchList"
+            :columns="watchColumns"
+            :show-table-header="false"
+            row-key="id"
+            empty-text="还没有关注的主播"
+          >
+            <template #nickname="{ row }">
+              <span class="text-sm text-g-800">{{ row.nickname || '（待补）' }}</span>
+            </template>
+            <template #uid="{ row }">
+              <span class="text-xs text-g-500">{{ row.uid }}</span>
+            </template>
+            <template #actions="{ row }">
+              <ArtButtonTable v-if="can('upstage.manage')" type="delete" @click="removeWatch(row as UpstageWatch)" />
+            </template>
+          </ArtTable>
+        </ElCard>
+
+        <ElCard class="art-table-card">
+          <ArtTableHeader :loading="false" @refresh="loadUpstage">
+            <template #left>
+              <span class="text-xs text-g-500">上场事件 · 共 {{ upEventTotal }} 条 · 离场不推送</span>
+            </template>
+          </ArtTableHeader>
+          <ArtTable
+            :data="upEvents"
+            :columns="upEventColumns"
+            :show-table-header="false"
+            row-key="id"
+            empty-text="还没有事件"
+          >
+            <template #created_at="{ row }">
+              <span class="text-xs text-g-600">{{ fmtTime(row.created_at) }}</span>
+            </template>
+            <template #event="{ row }">
+              <el-tag size="small" :type="row.event === 'on_stage' ? 'success' : 'info'" effect="light">
+                {{ upEventLabel(row.event) }}
+              </el-tag>
+            </template>
+            <template #nickname="{ row }">
+              <span class="text-sm text-g-800">{{ row.nickname || row.uid }}</span>
+            </template>
+            <template #detail="{ row }">
+              <span class="text-xs text-g-500">{{ row.detail || '—' }}</span>
+            </template>
+          </ArtTable>
+        </ElCard>
+      </div>
+
+      <div class="art-card mt-4 p-3">
+        <div class="mb-1 text-[11px] text-g-600">
+          人脸识别通道的帧从这里进来（Go 代理没有这个 proto，需要外部采集进程解码后提交）：
+        </div>
+        <div class="flex items-center gap-2">
+          <code class="min-w-0 flex-1 truncate rounded bg-g-100 px-2 py-1 text-[11px] text-g-700">
+            POST /api/upstage/frames  X-Upstage-Token: {{ upStatus?.frameToken || '…' }}
+          </code>
+          <el-button size="small" @click="copyToken">复制令牌</el-button>
+        </div>
+        <div class="mt-1 text-[11px] text-g-400">
+          请求体：{"webRid":"65209552987","source":"face","frames":[{"uid":"2203876772819496","conf":0.62}]}
+        </div>
+      </div>
+    </template>
 
     <!-- ============ 规则弹窗 ============ -->
     <el-dialog v-model="ruleDialogVisible" :title="ruleForm.id ? '编辑规则' : '新建规则'" width="520">
@@ -314,6 +349,8 @@
 <script setup lang="ts">
   import { computed, onMounted, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import type { ColumnOption } from '@/types'
+  import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
 
   import {
     deleteNotifyChannel,
@@ -329,7 +366,6 @@
     type NotifyLog,
     type NotifyRule
   } from '@/api/notify'
-  import { usePermissionStore } from '@/store/modules/permission'
   import {
     addUpstageWatch,
     deleteUpstageWatch,
@@ -342,6 +378,7 @@
     type UpstageStatus,
     type UpstageWatch
   } from '@/api/upstage'
+  import { usePermissionStore } from '@/store/modules/permission'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtTime } from '@/utils/format'
 
@@ -349,6 +386,20 @@
 
   const permissionStore = usePermissionStore()
   const can = (key: string) => permissionStore.hasPerm(key)
+
+  const TABS = [
+    { value: 'rules', label: '事件规则' },
+    { value: 'channels', label: '推送渠道' },
+    { value: 'logs', label: '发送记录' },
+    { value: 'upstage', label: '主播上场' }
+  ] as const
+
+  const LOG_STATUS = [
+    { value: '', label: '全部' },
+    { value: 'sent', label: '成功' },
+    { value: 'failed', label: '失败' },
+    { value: 'skipped', label: '跳过' }
+  ] as const
 
   const activeTab = ref<'rules' | 'channels' | 'logs' | 'upstage'>('rules')
   const loading = ref(false)
@@ -365,6 +416,45 @@
   const logSize = ref(20)
   const logStatus = ref('')
 
+  /* ---------------- 列定义（高级表格） ---------------- */
+  const ruleColumns: ColumnOption[] = [
+    { prop: 'event', label: '事件', minWidth: 140, useSlot: true, slotName: 'event' },
+    { prop: 'channels', label: '推送渠道', minWidth: 200, useSlot: true, slotName: 'channels' },
+    { prop: 'quiet', label: '免打扰', width: 150, useSlot: true, slotName: 'quiet' },
+    { prop: 'enabled', label: '状态', width: 90, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'actions', label: '操作', width: 120, align: 'right', useSlot: true, slotName: 'actions' }
+  ]
+
+  const channelColumns: ColumnOption[] = [
+    { prop: 'name', label: '名称', minWidth: 160, useSlot: true, slotName: 'name' },
+    { prop: 'type', label: '类型', width: 150, useSlot: true, slotName: 'type' },
+    { prop: 'url', label: '地址', minWidth: 280, useSlot: true, slotName: 'url' },
+    { prop: 'enabled', label: '状态', width: 90, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'actions', label: '操作', width: 150, align: 'right', useSlot: true, slotName: 'actions' }
+  ]
+
+  const logColumns: ColumnOption[] = [
+    { prop: 'created_at', label: '时间', width: 180, useSlot: true, slotName: 'created_at' },
+    { prop: 'event', label: '事件', width: 140, useSlot: true, slotName: 'event' },
+    { prop: 'channel_name', label: '渠道', minWidth: 140 },
+    { prop: 'status', label: '状态', width: 90, useSlot: true, slotName: 'status' },
+    { prop: 'error', label: '失败原因', minWidth: 220, useSlot: true, slotName: 'error' }
+  ]
+
+  const watchColumns: ColumnOption[] = [
+    { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
+    { prop: 'uid', label: 'UID', minWidth: 150, useSlot: true, slotName: 'uid' },
+    { prop: 'actions', label: '', width: 70, align: 'right', useSlot: true, slotName: 'actions' }
+  ]
+
+  const upEventColumns: ColumnOption[] = [
+    { prop: 'created_at', label: '时间', width: 170, useSlot: true, slotName: 'created_at' },
+    { prop: 'event', label: '事件', width: 90, useSlot: true, slotName: 'event' },
+    { prop: 'nickname', label: '主播', minWidth: 110, useSlot: true, slotName: 'nickname' },
+    { prop: 'detail', label: '说明', minWidth: 140, useSlot: true, slotName: 'detail' }
+  ]
+
+  /* ---------------- 元数据 ---------------- */
   const eventGroups = computed(() => {
     const map = new Map<string, { key: string; label: string }[]>()
     for (const e of events.value) {
@@ -578,7 +668,19 @@
     }
   }
 
-  /* ---------------- 主播上场提醒 ---------------- */
+  /* ---------------- 记录 ---------------- */
+  async function loadLogs(page = logPage.value) {
+    logPage.value = page
+    try {
+      const r = await fetchNotifyLogs({ page, size: logSize.value, status: logStatus.value })
+      logs.value = r.items || []
+      logTotal.value = r.total || 0
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '读取发送记录失败'))
+    }
+  }
+
+  /* ---------------- 主播上场 ---------------- */
   const upWebRid = ref('')
   const upLoadingMembers = ref(false)
   const members = ref<{ uid: string; nickname: string }[]>([])
@@ -596,8 +698,19 @@
     secs == null ? '—' : secs < 60 ? `${secs} 秒前` : `${Math.round(secs / 60)} 分钟前`
 
   async function loadUpstage() {
-    if (!upWebRid.value.trim()) return
     const rid = upWebRid.value.trim()
+    /*
+     * 没填房间号时也拉一次状态：令牌（frameToken）和参数跟房间无关，
+     * 用户一进这个 tab 就应该能看到「外部采集进程要用的令牌」。
+     */
+    if (!rid) {
+      try {
+        upStatus.value = await fetchUpstageStatus({ webRid: '' })
+      } catch {
+        /* 忽略 */
+      }
+      return
+    }
     try {
       const [w, s, ev] = await Promise.all([
         fetchUpstageWatch({ webRid: rid }),
@@ -631,7 +744,7 @@
     try {
       const r = await addUpstageWatch({ web_rid: upWebRid.value.trim(), uid: m.uid, nickname: m.nickname, enabled: 1 })
       watchList.value = r.items || []
-      ElMessage.success(`已关注 `)
+      ElMessage.success(`已关注 ${m.nickname}`)
     } catch (e) {
       ElMessage.error(apiErrorMessage(e, '添加失败'))
     }
@@ -667,18 +780,8 @@
       ElMessage.warning('复制失败，请手动选择文本')
     }
   }
-  /* ---------------- 记录 ---------------- */
-  async function loadLogs(page = logPage.value) {
-    logPage.value = page
-    try {
-      const r = await fetchNotifyLogs({ page, size: logSize.value, status: logStatus.value })
-      logs.value = r.items || []
-      logTotal.value = r.total || 0
-    } catch (e) {
-      ElMessage.error(apiErrorMessage(e, '读取发送记录失败'))
-    }
-  }
 
+  /* ---------------- 加载 ---------------- */
   async function reloadAll() {
     loading.value = true
     try {
@@ -693,7 +796,8 @@
     }
   }
 
-  function onTabChange(name: string) {
+  function switchTab(name: string) {
+    activeTab.value = name as typeof activeTab.value
     if (name === 'logs') loadLogs(1)
     if (name === 'upstage') loadUpstage()
   }
