@@ -54,14 +54,19 @@ export async function fetchGetRoleList(
   const res: any = await request.get({ url: '/api/admin/roles' })
   const roles = pickArray<any>(res, 'roles')
 
-  let rows: Api.SystemManage.RoleListItem[] = roles.map((r, i) => ({
-    roleId: i + 1,
-    roleName: r.name || r.key || '',
-    roleCode: r.key || '',
-    description: r.note || '',
-    enabled: true,
-    createTime: ''
-  }))
+  // menuCount / actionCount 是本地多出来的两列（role_menus / role_actions 的条数）
+  let rows: (Api.SystemManage.RoleListItem & { menuCount: number; actionCount: number })[] = roles.map(
+    (r: any, i: number) => ({
+      roleId: i + 1,
+      roleName: r.name || r.key || '',
+      roleCode: r.key || '',
+      description: r.note || '',
+      enabled: true,
+      createTime: '',
+      menuCount: Number(r.menu_count) || 0,
+      actionCount: Number(r.action_count) || 0
+    })
+  )
 
   const kw = (v?: string) => (v || '').toLowerCase().trim()
   const name = kw(params.roleName)

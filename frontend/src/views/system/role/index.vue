@@ -105,31 +105,39 @@
       },
       // 排除 apiParams 中的属性
       excludeParams: ['daterange'],
+      /*
+       * 列按**本地字段**来（roles / role_menus / role_actions）：
+       *   角色编码 = roles.key、角色名称 = roles.name、角色描述 = roles.note
+       *   权限数量 = role_menus 条数 + role_actions 条数
+       * 模板原来的「角色ID」「创建日期」我们表里没有对应字段（id 不是主键、也无 created_at），
+       * 留着只会显示假数据，所以换成真实存在的这一组。
+       */
       columnsFactory: () => [
         {
-          prop: 'roleId',
-          label: '角色ID',
-          width: 100
+          prop: 'roleCode',
+          label: '角色编码',
+          width: 160
         },
         {
           prop: 'roleName',
           label: '角色名称',
-          minWidth: 120
-        },
-        {
-          prop: 'roleCode',
-          label: '角色编码',
-          minWidth: 120
+          minWidth: 140
         },
         {
           prop: 'description',
           label: '角色描述',
-          minWidth: 150,
+          minWidth: 220,
           showOverflowTooltip: true
         },
         {
+          prop: 'counts',
+          label: '权限数量',
+          width: 190,
+          formatter: (row: any) => `${row.menuCount ?? 0} 个页面 · ${row.actionCount ?? 0} 个操作`
+        },
+        {
           prop: 'enabled',
-          label: '角色状态',
+          label: '状态',
           width: 100,
           formatter: (row) => {
             const statusConfig = row.enabled
@@ -141,12 +149,6 @@
               () => statusConfig.text
             )
           }
-        },
-        {
-          prop: 'createTime',
-          label: '创建日期',
-          width: 180,
-          sortable: true
         },
         {
           prop: 'operation',
