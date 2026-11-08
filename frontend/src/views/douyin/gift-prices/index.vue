@@ -18,88 +18,56 @@
   历史数据不会自己变，要靠弹窗里的「同时重算历史数据」。
 -->
 <template>
-  <div class="douyin-page dy-stagger p-4">
-    <article class="art-card p-5">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h3 class="text-lg font-semibold text-g-900 m-0">礼物价格</h3>
-          <p class="mt-1 mb-0 text-sm leading-6 text-g-600">
-            改价会写入映射表，<b class="font-medium text-g-800">之后采集到的该礼物按新价计算</b>（约 10 秒内生效）；
-            勾选「同时重算历史数据」还会把已有的历史记录和总价一起改掉。
-          </p>
-        </div>
-      </div>
+  <!--
+    礼物价格（高级表格版）
 
-      
+    结构对齐 Art Design Pro 的「高级表格」示例：
+      ArtSearchBar（礼物名 / 标签）
+      ElCard.art-table-card
+        ├ ArtTableHeader（左侧：刷新 / 同步单价字段 / 统计；右侧：列设置等工具栏）
+        └ ArtTable（礼物 / 标签 / 单价 / 操作 + 分页）
 
-      <!-- 概览：四个数字，电脑端把顶部填满，也方便一眼看总体 -->
-      <div class="gift-stats">
-        <div class="gift-stat">
-          <span class="gift-stat__label">礼物总数</span>
-          <span class="gift-stat__value">{{ allCount }}</span>
-        </div>
-        <div class="gift-stat">
-          <span class="gift-stat__label">未映射</span>
-          <span class="gift-stat__value gift-stat__value--warn">{{ unmappedCount }}</span>
-        </div>
-        <div class="gift-stat">
-          <span class="gift-stat__label">已映射</span>
-          <span class="gift-stat__value gift-stat__value--ok">{{ mappedCount }}</span>
-        </div>
-        <div class="gift-stat">
-          <span class="gift-stat__label">历史单价不一致</span>
-          <span class="gift-stat__value">{{ inconsistentCount }}</span>
-        </div>
-      </div>
+    原来的四个数字（总数 / 未映射 / 已映射 / 历史不一致）收进 ArtTableHeader 左侧，
+    不再单独占一条统计卡 —— 之前那样顶部堆一排大数字，和系统里其它表格页不是一个风格。
+  -->
+  <div class="art-full-height">
+    <ArtSearchBar
+      v-model="formFilters"
+      :items="formItems"
+      :showExpand="false"
+      @reset="handleReset"
+      @search="handleSearch"
+    />
 
-      <!-- 工具条 -->
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <el-input
-          v-model="keyword"
-          placeholder="按礼物名搜索"
-          clearable
-          class="!w-[240px]"
-          @keyup.enter="reload"
-          @clear="reload"
-        >
-          <template #prefix><ArtSvgIcon icon="ri:search-line" /></template>
-        </el-input>
+    <ElCard class="art-table-card">
+      <ArtTableHeader :loading="loading" @refresh="reload">
+        <template #left>
+          <div class="flex flex-wrap items-center gap-2">
+            <ElButton @click="reload">
+              <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
+              刷新
+            </ElButton>
+            <el-tooltip
+              content="历史上只改了总价、没改单价字段的行，这里按总价把单价回填。不改任何金额。"
+              placement="bottom"
+            >
+              <ElButton :loading="syncing" @click="syncUnitFields">
+                <ArtSvgIcon icon="ri:price-tag-3-line" class="mr-1" />
+                同步单价字段
+              </ElButton>
+            </el-tooltip>
+            <span class="ml-1 text-xs text-g-500">
+              共 <b class="text-g-700">{{ allCount }}</b> 个 ·
+              未映射 <b class="text-warning">{{ unmappedCount }}</b> ·
+              已映射 <b class="text-success">{{ mappedCount }}</b>
+              <template v-if="inconsistentCount"> · 历史单价不一致 <b>{{ inconsistentCount }}</b></template>
+              <template v-if="zeroCount"> · 钻石为 0 <b>{{ zeroCount }}</b></template>
+            </span>
+          </div>
+        </template>
+      </ArtTableHeader>
 
-        <!-- 标签筛选（只是工具条上的过滤，不是顶栏 tab） -->
-        <el-select v-model="filter" class="!w-[150px]" @change="reload">
-          <el-option label="全部标签" value="all" />
-          <el-option label="未映射" value="unmapped" />
-          <el-option label="已映射" value="mapped" />
-        </el-select>
-
-        <el-button :loading="loading" @click="reload">
-          <ArtSvgIcon icon="ri:refresh-line" class="mr-1" />
-          刷新
-        </el-button>
-
-        <el-tooltip
-          content="历史上只改了总价、没改单价字段的行，这里按总价把单价回填。不改任何金额。"
-          placement="bottom"
-        >
-          <el-button :loading="syncing" @click="syncUnitFields">
-            <ArtSvgIcon icon="ri:price-tag-3-line" class="mr-1" />
-            同步单价字段
-          </el-button>
-        </el-tooltip>
-
-        <span class="text-xs text-g-500">
-          <span v-if="zeroCount">钻石为 0 的礼物 {{ zeroCount }} 个</span>
-        </span>
-      </div>
-
-      <el-alert
-        v-if="loadError"
-        class="mt-4"
-        type="error"
-        :title="loadError"
-        show-icon
-        :closable="false"
-      >
+      <el-alert v-if="loadError" class="mb-2" type="error" :title="loadError" show-icon :closable="false">
         <template #default>
           <el-button size="small" class="mt-2" @click="reload">重试</el-button>
         </template>
@@ -113,7 +81,7 @@
         :show-table-header="false"
         row-key="gift_name"
         empty-text="没有匹配的礼物"
-        class="mt-2 gift-table"
+        class="gift-table"
         @pagination:size-change="onSizeChange"
         @pagination:current-change="onPageChange"
         @sort-change="onSortChange"
@@ -133,7 +101,6 @@
             </span>
             <div class="min-w-0">
               <div class="truncate font-medium text-g-900 gift-name">{{ row.gift_name }}</div>
-              <!-- 电脑端：一行小字把个数/总额/场次带上，行不空、也不用单开三列 -->
               <div v-if="!isMobile && row.rows > 0" class="gift-meta">
                 {{ fmtNum(row.gift_count) }} 个 · {{ fmtBig(row.diamonds) }} 钻石 · {{ fmtNum(row.sessions) }} 场
               </div>
@@ -146,7 +113,7 @@
           </div>
         </template>
 
-        <!-- 标签列：未映射 / 已映射（不是顶栏 tab） -->
+        <!-- 标签列：未映射 / 已映射 -->
         <template #tag="{ row }">
           <el-tag size="small" :type="isMapped(row) ? 'success' : 'warning'" effect="light">
             {{ isMapped(row) ? '已映射' : '未映射' }}
@@ -169,20 +136,20 @@
               v-else-if="row.unit_variants?.length === 1 && row.unit_variants[0] !== currentPrice(row)"
               class="mt-0.5 text-[11px] tabular-nums text-g-400"
             >
-             历史 {{ fmtPrice((row.unit_variants || [])[0]) }}
+              历史 {{ fmtPrice((row.unit_variants || [])[0]) }}
             </span>
           </div>
         </template>
 
-        <!-- 操作：只有「修改」（改错了再改一次就行，不需要撤销/恢复默认） -->
+        <!-- 操作：只有「修改」 -->
         <template #actions="{ row }">
-          <el-button size="small" class="edit-btn" @click="openEdit(row)">
+          <el-button v-if="can('gift_price.write')" size="small" class="edit-btn" @click="openEdit(row)">
             <ArtSvgIcon icon="ri:edit-line" class="mr-1" />
             修改
           </el-button>
         </template>
       </ArtTable>
-    </article>
+    </ElCard>
 
     <!-- 设定单价弹窗 -->
     <el-dialog
@@ -291,6 +258,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import type { ColumnOption } from '@/types'
+import { usePermissionStore } from '@/store/modules/permission'
 import {
   fetchGiftPrices,
   previewGiftPriceRepair,
@@ -305,9 +273,51 @@ import { useIsMobile } from '@/hooks/core/useIsMobile'
 
 defineOptions({ name: 'DouyinGiftPrices' })
 
+/** 细粒度操作权限（超管恒真） */
+const permissionStore = usePermissionStore()
+const can = (action: string) => permissionStore.hasPerm(action)
+
 const rows = ref<GiftPriceItem[]>([])
 const loading = ref(false)
 const loadError = ref('')
+/*
+ * 搜索栏（ArtSearchBar）的模型：它只负责收集条件，真正的过滤还是走 keyword/filter，
+ * 这样原有的 reload / 分页 / 排序逻辑一行都不用改。
+ */
+const formFilters = reactive<{ keyword: string; tag: 'all' | 'unmapped' | 'mapped' }>({
+  keyword: '',
+  tag: 'all'
+})
+const formItems = [
+  { label: '礼物名', key: 'keyword', type: 'input', placeholder: '按礼物名搜索', clearable: true },
+  {
+    label: '标签',
+    key: 'tag',
+    type: 'select',
+    props: {
+      placeholder: '全部标签',
+      options: [
+        { label: '全部标签', value: 'all' },
+        { label: '未映射', value: 'unmapped' },
+        { label: '已映射', value: 'mapped' }
+      ]
+    }
+  }
+]
+
+function handleSearch() {
+  keyword.value = formFilters.keyword || ''
+  filter.value = (formFilters.tag || 'all') as 'all' | 'unmapped' | 'mapped'
+  page.value = 1
+  reload()
+}
+
+function handleReset() {
+  formFilters.keyword = ''
+  formFilters.tag = 'all'
+  handleSearch()
+}
+
 const keyword = ref('')
 const filter = ref<'all' | 'unmapped' | 'mapped'>('all')
 const syncing = ref(false)
