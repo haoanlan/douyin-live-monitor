@@ -667,12 +667,15 @@
               <template #prefix><ArtSvgIcon icon="ri:user-search-line" /></template>
             </el-input>
             <!--
-              候选列表**只在真正搜索时出现**（输入满 2 个字）。
+              候选列表**只在真正搜索时出现**（有输入就出现，单字也算）。
               之前一直挂着一个 76px 高、写着「输入至少 2 个字开始搜索」的空框，
               白占一大块地方（用户："这个模块根本不需要"）。
+              下限原本是 2 个字，用户要求取消：库里单字昵称是真实存在的
+              （gifts 11,750 条 / danmaku 13,033，「毅」1769 条、「平」454），
+              补录时选不中这些人才是 bug。
             -->
             <div
-              v-if="manualGiftQuery.trim().length >= 2 && !manualGiftUser.sec_uid"
+              v-if="manualGiftQuery.trim().length >= 1 && !manualGiftUser.sec_uid"
               class="mt-1 max-h-[120px] overflow-y-auto overflow-x-hidden rounded border border-g-200"
             >
               <div v-if="manualGiftSearching" class="py-2 flex items-center justify-center gap-1.5 text-xs text-g-500">
@@ -1693,24 +1696,38 @@
   }
 
   let manualGiftSearchTimer: number | undefined
+  /**
+   * 搜人请求序号：单字放开后，第一次按键就会发查询（单字一次要 2~4 秒），
+   * 中途停顿再打字很可能出现"后发先到" —— 旧关键词的结果覆盖掉新的。
+   * 每次请求领一个号，回来时对不上就丢弃。
+   */
+  let manualGiftSearchSeq = 0
   /** 搜人：输入停顿 300ms 再查（复用信息查询接口） */
   function searchManualUser() {
     const q = manualGiftQuery.value.trim()
     manualGiftUser.value = {}
     if (manualGiftSearchTimer) clearTimeout(manualGiftSearchTimer)
-    if (q.length < 2) {
+    /*
+     * 单字也查（后端已放开）：库里单字昵称是真实存在的，补录时选不中这些人才是 bug。
+     * 只取 20 个候选（下拉最多也只用 20 个）：单字命中可能上百人，
+     * 每人后端都要查全库 + 调抖音接口，拉 100 个回来只会让下拉卡住。
+     */
+    if (!q) {
       manualGiftCandidates.value = []
       return
     }
     manualGiftSearchTimer = window.setTimeout(async () => {
+      const my = ++manualGiftSearchSeq
       manualGiftSearching.value = true
       try {
-        const r: any = await anonymousLookup(q)
+        const r: any = await anonymousLookup(q, undefined, undefined, 20)
+        if (my !== manualGiftSearchSeq) return
         manualGiftCandidates.value = (r?.users || []).filter((u: any) => u.sec_uid).slice(0, 20)
       } catch {
+        if (my !== manualGiftSearchSeq) return
         manualGiftCandidates.value = []
       } finally {
-        manualGiftSearching.value = false
+        if (my === manualGiftSearchSeq) manualGiftSearching.value = false
       }
     }, 300)
   }
