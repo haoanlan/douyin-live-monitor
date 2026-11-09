@@ -42,23 +42,53 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 0.5) 快速模式：依赖已经烘进镜像（deploy/Dockerfile.runtime）时整段跳过
+# 0.5) 依赖自检：**每次启动实测，不再信任标记文件**
 #
-# 判断依据：字体 + Xvfb + 关键库都在，就说明是自定义运行镜像；
-# 也可以显式设 SKIP_DEPS=1 强制跳过（离线环境很有用）。
+# 原来是"装成功一次就写 .runtime-deps-ok，下次看到文件就跳过"。这个做法有两个洞：
+#   1) 写入失败被 `|| true` 吞掉 → 明明没记下来，下次还是全量重装（用户看到的"每次重启都装"）；
+#   2) 反过来，标记一旦过期（容器按镜像重建、apt 装进容器层的字体/库已经没了，
+#      但标记文件在挂载盘上还在）→ 脚本会**跳过安装**，字库真丢了却不补，图片里全是"口口口"。
+# 现在改成每次启动花 10 毫秒实测三件事：Xvfb 命令在不在、字体文件在不在项目目录、
+# chromium 的系统库（ldd）缺不缺。都齐就跳过安装；缺什么装什么。
 # ---------------------------------------------------------------------------
-# 依赖标记：装成功一次就写这个文件。它在**项目目录**（挂载盘）里，
-# 所以容器重建也不会丢 —— 这是"只装一次"的关键，
-# 而不是像 apt 那样每次重建都重新判定缺失。
-DEPS_MARKER="$(pwd)/.runtime-deps-ok"
+export PLAYWRIGHT_BROWSERS_PATH="$(pwd)/.pw-browsers"
+
+# 字体落在项目目录（挂载盘）里，和 node_modules / .pw-browsers 同一个待遇：
+# 容器按镜像重建也不丢，所以"装一次"就真的只装一次。
+export RUNTIME_FONT_DIR="$(pwd)/.runtime-fonts"
+RUNTIME_FONT_CONF="$RUNTIME_FONT_DIR/fonts.conf"
+RUNTIME_FONT_CACHE="$RUNTIME_FONT_DIR/cache"
+
+font_count() {
+  ls "$RUNTIME_FONT_DIR"/*.ttf "$RUNTIME_FONT_DIR"/*.ttc "$RUNTIME_FONT_DIR"/*.otf 2>/dev/null | wc -l | tr -d ' '
+}
+chromium_bin() {
+  ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1
+}
 
 DEPS_READY=0
+DEPS_WHY="未知"
 if [ "${SKIP_DEPS:-0}" = "1" ] || [ "${DY_RUNTIME_IMAGE:-0}" = "1" ]; then
   DEPS_READY=1
-  info "依赖由镜像提供（SKIP_DEPS/DY_RUNTIME_IMAGE），跳过安装检查"
-elif [ -f "$DEPS_MARKER" ]; then
-  DEPS_READY=1
-  info "依赖已装过（$(cat "$DEPS_MARKER" 2>/dev/null)），跳过安装检查"
+  DEPS_WHY="由镜像提供（SKIP_DEPS / DY_RUNTIME_IMAGE）"
+elif ! command -v Xvfb >/dev/null 2>&1; then
+  DEPS_WHY="缺 Xvfb"
+elif [ "$(font_count)" -lt 1 ]; then
+  DEPS_WHY="字体还没落到项目目录"
+else
+  CH_BIN_NOW="$(chromium_bin)"
+  if [ -n "$CH_BIN_NOW" ] && command -v ldd >/dev/null 2>&1 \
+     && ldd "$CH_BIN_NOW" 2>/dev/null | grep -q 'not found'; then
+    DEPS_WHY="chromium 缺系统库"
+  else
+    DEPS_READY=1
+    DEPS_WHY="Xvfb + 字体 + 系统库都在"
+  fi
+fi
+if [ "$DEPS_READY" = "1" ]; then
+  info "依赖已就绪（$DEPS_WHY），跳过安装"
+else
+  info "依赖需要补齐：$DEPS_WHY"
 fi
 
 # ---------------------------------------------------------------------------
@@ -80,14 +110,15 @@ fi
 
 # ---------------------------------------------------------------------------
 # 2) Chromium（下到项目目录，持久化；Playwright 的库已在 package.json 里）
+#
+# 原来这里的判断是 `[ ! -d "$PLAYWRIGHT_BROWSERS_PATH/chromium-"* ]`：
+# 通配符展开成多个参数时 test 会直接报 "too many arguments"（被 2>/dev/null 吞掉），
+# 判断结果不可靠。改成统一走 chromium_bin()（ls 到可执行文件才算真装了）。
 # ---------------------------------------------------------------------------
-export PLAYWRIGHT_BROWSERS_PATH="$(pwd)/.pw-browsers"
-if [ ! -d "$PLAYWRIGHT_BROWSERS_PATH/chromium-"* ] 2>/dev/null; then
-  if ! ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1; then
-    info "首次启动：下载 chromium 到 .pw-browsers（约 150MB，3-5 分钟）..."
-    npx playwright install --with-deps chromium \
-      || warn "chromium 下载失败（图片报告/扫码登录会不可用）"
-  fi
+if [ -z "$(chromium_bin)" ]; then
+  info "首次启动：下载 chromium 到 .pw-browsers（约 150MB，3-5 分钟）..."
+  npx playwright install --with-deps chromium \
+    || warn "chromium 下载失败（图片报告/扫码登录会不可用）"
 fi
 info "PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH"
 
@@ -100,7 +131,7 @@ info "PLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH"
 #   error while loading shared libraries: libnspr4.so: cannot open shared object file
 # Playwright 只报 "Target page, context or browser has been closed"，极难定位。
 # ---------------------------------------------------------------------------
-CH_BIN="$(ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1)"
+CH_BIN="$(chromium_bin)"
 if [ "$DEPS_READY" = "0" ] && [ -n "$CH_BIN" ]; then
   MISSING_LIBS=""
   if command -v ldd >/dev/null 2>&1; then
@@ -129,45 +160,85 @@ if [ "$DEPS_READY" = "0" ] && [ -n "$CH_BIN" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2.6) 中日韩字体（榜单/报告图片里的中文与**生僻字**）
+# 2.6) 中日韩字体：**放进项目目录，和 node_modules 一样持久**
 #
-# 容器里默认往往只有很基础的字库：普通汉字能显示，但 CJK 扩展 B 区的生僻字
-# （例如 𠈌 𤫊 𣲙，U+2020C / U+24ACA / U+23C99）会渲染成方块 ——
-# 用户下载的榜单图片里就是"口口口"。
+# 为什么不再 apt install：1Panel 重启 Node 运行环境是**按镜像重建容器**，
+# apt 装进容器层的字体每次清零，于是每次启动都要重装 1-2 分钟（用户反馈的正是这条）。
+# 字体本质就是几个文件 —— 放进项目目录（挂载盘）就"装一次、永久有效"，
+# 再用 FONTCONFIG_FILE 把 fontconfig 指过去，Chromium 直接读这个文件夹。
+#
+# 取文件的顺序（都不需要 root，也不往容器层写东西）：
+#   1) 系统里已经有（自定义镜像 / 之前 apt 装过）→ 复制进项目目录，不走网络
+#   2) 没有就 `apt-get download` 下 deb 到 /tmp，再 `dpkg-deb -x` 把 ttf/ttc/otf 解进项目目录
+#   3) 都失败 → 只 warn，不阻塞启动（图片里的生僻字会变方块）
+#
+# 需要覆盖的生僻字：CJK 扩展 B 区（如 𠈌 𤫊 𣲙，U+2020C / U+24ACA / U+23C99）。
 #   fonts-noto-cjk  覆盖日常中文
 #   fonts-hanazono  覆盖 CJK 扩展 A/B/C/D，是这类生僻字的关键
 # ---------------------------------------------------------------------------
-FONT_DIR_NOTO="/usr/share/fonts/opentype/noto"
-FONT_DIR_HANA="/usr/share/fonts/truetype/hanazono"
-NEED_FONT=0
-ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || NEED_FONT=1
-ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || NEED_FONT=1
-if [ "$DEPS_READY" = "0" ] && [ "$NEED_FONT" = "1" ]; then
-  info "检测到缺少中文字体（noto-cjk / hanazono）"
-  info "安装中日韩字体（含生僻字，约 1-2 分钟，只需一次）..."
-  if command -v apt-get >/dev/null 2>&1; then
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-noto-cjk fonts-hanazono >>/tmp/pw-deps.log 2>&1 \
-      || warn "字体安装失败，见 /tmp/pw-deps.log（榜单图片里的生僻字可能显示成方块）"
-    if command -v fc-cache >/dev/null 2>&1; then fc-cache -f >/dev/null 2>&1 || true; fi
-  else
-    warn "没有 apt-get，无法安装字体（生僻字可能显示成方块）"
+FONTS_ADDED=0
+mkdir -p "$RUNTIME_FONT_DIR" 2>/dev/null || true
+if [ "$(font_count)" -lt 1 ]; then
+  info "首次启动：把中文字体落到 $RUNTIME_FONT_DIR（之后不再安装）..."
+  for d in /usr/share/fonts/opentype/noto /usr/share/fonts/truetype/hanazono /usr/share/fonts/truetype/noto; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*CJK* "$d"/*.ttf "$d"/*.ttc "$d"/*.otf; do
+      [ -f "$f" ] || continue
+      if cp -f "$f" "$RUNTIME_FONT_DIR/" 2>/dev/null; then FONTS_ADDED=1; fi
+    done
+  done
+  if [ "$(font_count)" -lt 1 ] && command -v apt-get >/dev/null 2>&1 && command -v dpkg-deb >/dev/null 2>&1; then
+    FONT_TMP="$(mktemp -d)"
+    (
+      cd "$FONT_TMP" || exit 0
+      apt-get -o Dir::State::lists="$FONT_TMP/lists" update -qq >/dev/null 2>&1 || true
+      apt-get -o Dir::State::lists="$FONT_TMP/lists" download fonts-noto-cjk fonts-hanazono >/dev/null 2>&1 || true
+    )
+    for deb in "$FONT_TMP"/*.deb; do
+      [ -f "$deb" ] || continue
+      dpkg-deb -x "$deb" "$FONT_TMP/root" 2>/dev/null || true
+    done
+    if [ -d "$FONT_TMP/root" ]; then
+      find "$FONT_TMP/root" -type f \( -name '*.ttf' -o -name '*.ttc' -o -name '*.otf' \) \
+        -exec cp -f {} "$RUNTIME_FONT_DIR/" \; 2>/dev/null || true
+      FONTS_ADDED=1
+    fi
+    rm -rf "$FONT_TMP" 2>/dev/null || true
   fi
-else
-  info "中日韩字体已就绪 ✓"
+  if [ "$(font_count)" -lt 1 ]; then
+    warn "字体没取到（网络或 apt 源问题）——图片里的中文可能显示成方块，但服务照常启动"
+  fi
 fi
 
-# 三段都过了就落标记：下次启动直接跳过（容器重建也不丢，因为文件在挂载盘）
-if [ "$DEPS_READY" = "0" ]; then
-  FONT_OK=1
-  ls "$FONT_DIR_NOTO"/*CJK* >/dev/null 2>&1 || FONT_OK=0
-  ls "$FONT_DIR_HANA"/*.ttf    >/dev/null 2>&1 || FONT_OK=0
-  if command -v Xvfb >/dev/null 2>&1 && [ "$FONT_OK" = "1" ]; then
-    printf 'xvfb + fonts + libs ok @ %s\n' "$(date '+%F %T')" > "$DEPS_MARKER" 2>/dev/null || true
-    info "依赖已就绪并记录标记：$DEPS_MARKER（下次启动直接跳过）"
-  else
-    warn "依赖还不完整（Xvfb 或字体），不写标记，下次启动会重试"
-  fi
+# fontconfig：先 include 系统默认配置（保留 emoji 等系统字体），再追加项目目录
+if ! grep -qF "$RUNTIME_FONT_DIR" "$RUNTIME_FONT_CONF" 2>/dev/null; then
+  mkdir -p "$RUNTIME_FONT_CACHE" 2>/dev/null || true
+  cat > "$RUNTIME_FONT_CONF" <<FONTCONF
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+  <dir>${RUNTIME_FONT_DIR}</dir>
+  <cachedir>${RUNTIME_FONT_CACHE}</cachedir>
+</fontconfig>
+FONTCONF
+  FONTS_ADDED=1
 fi
+
+if [ -f "$RUNTIME_FONT_CONF" ]; then
+  export FONTCONFIG_FILE="$RUNTIME_FONT_CONF"
+  # 只在"这次真的加了文件/刚写配置"时重建缓存；缓存本身也存在项目目录里，
+  # 所以后续启动不用再扫（启动保持秒级，而不是每次 1-2 秒的 fc-cache）
+  if [ "$FONTS_ADDED" = "1" ] && command -v fc-cache >/dev/null 2>&1; then
+    fc-cache -f >/dev/null 2>&1 || true
+  fi
+  info "字体目录: $RUNTIME_FONT_DIR（$(font_count) 个文件），FONTCONFIG_FILE=$FONTCONFIG_FILE"
+else
+  warn "字体配置写不进去（$RUNTIME_FONT_CONF），中文可能显示成方块"
+fi
+
+# 旧的 .runtime-deps-ok 标记文件已经**不再读取**（它过期后会静默跳过安装，反而把字库丢掉）。
+# 留着不影响使用，想清掉可以直接删：rm -f "$(pwd)/.runtime-deps-ok"
 
 # ---------------------------------------------------------------------------
 # 3) 起虚拟屏

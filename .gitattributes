@@ -1,0 +1,14 @@
+# 行尾（换行符）必须钉死，否则 Windows 开发机打出来的部署包会在 Linux 上炸。
+#
+# 踩过的坑（2026-11-09）：Windows 上 core.autocrlf=true 会把工作区里的 .sh 检出成 CRLF，
+# 打包脚本 tar 的是工作区原件 → 传到服务器后 dash 读到 `set -eu\r`，
+# 直接报 `deploy/container-entry.sh: 16: set: Illegal option -`，容器无限重启。
+#
+# 所以：所有 shell 脚本一律 LF；Windows 批处理一律 CRLF。
+* text=auto
+
+*.sh   text eol=lf
+*.bash text eol=lf
+
+*.bat  text eol=crlf
+*.cmd  text eol=crlf

@@ -113,6 +113,31 @@ for (const plat of ['win', 'linux']) {
   writeLauncher(dir, plat, proxy, hasProxy);
 
   /*
+   * 行尾自检（2026-11-09 踩过的坑）：
+   * Windows 上 core.autocrlf=true 会把工作区的 .sh 检出成 CRLF，而 tar 打的是工作区原件 ——
+   * 传到 Linux 后 dash 读到 `set -eu\r` 直接报 `16: set: Illegal option -`，容器无限重启。
+   * 这里宁可打包失败，也不发一个"解压就起不来"的包。
+   */
+  const crlfSh = [];
+  const scan = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== 'node_modules') scan(p);
+      } else if (e.name.endsWith('.sh') && fs.readFileSync(p).includes(13)) {
+        crlfSh.push(path.relative(dir, p));
+      }
+    }
+  };
+  scan(dir);
+  if (crlfSh.length) {
+    console.error('  ✗ 这些脚本带 CRLF，Linux 上 sh 会起不来：');
+    for (const f of crlfSh) console.error('      ' + f);
+    console.error('  修复：把 .sh 转成 LF（或按 .gitattributes 重新检出），再打包。');
+    process.exit(1);
+  }
+
+  /*
    * 打包用 bsdtar（Windows 10+ 自带 C:\Windows\System32\tar.exe）：
    *   · .NET Framework 的 ZipFile.CreateFromDirectory 会写出**反斜杠**条目
    *     （frontend\dist\index.html），Linux 上 unzip 会解出一个文件名带反斜杠的怪东西；
