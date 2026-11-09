@@ -446,7 +446,17 @@ export const useWorktabStore = defineStore(
                 path: tab.path,
                 query: (tab.query as LocationQueryRaw) || undefined
               })
-              return resolved.matched.length > 0
+              /*
+               * 落到 404 通配路由的必须算无效。
+               *
+               * 静态路由里有 `/:pathMatch(.*)*`（name: Exception404），所以**任何**
+               * 不存在的历史路径都能 resolve 出 matched.length > 0 —— 旧版本留下的标签
+               * （比如模板时代的 /dashboard/console「工作台」）就永远不会被清理，
+               * 一直挂在标签栏里、点开是 404（用户反馈"一直有个工作台"，
+               * 而他自己的部署（另一个 origin）没有这份 localStorage 所以看不到）。
+               */
+              if (!resolved.matched.length) return false
+              return !resolved.matched.some((r) => String(r.name) === 'Exception404')
             }
             return false
           } catch {
