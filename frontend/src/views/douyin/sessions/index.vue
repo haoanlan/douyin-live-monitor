@@ -48,7 +48,7 @@
         />
         <el-button v-if="dateRange" @click="clearDate">清除</el-button>
         <el-dropdown
-          v-if="isAdmin && selectedIds.length"
+          v-if="canDelete && selectedIds.length"
           trigger="click"
           @command="onBatchCommand"
         >
@@ -140,7 +140,7 @@
             <!-- 主行 -->
             <div class="session-row__main flex items-center gap-3">
               <el-checkbox
-                v-if="isAdmin"
+                v-if="canDelete"
                 :model-value="selectedIds.includes(row.id)"
                 class="-ml-1 shrink-0"
                 @click.stop
@@ -220,7 +220,7 @@
                   </button>
                 </el-tooltip>
                 <button
-                  v-if="isAdmin"
+                  v-if="canDelete"
                   class="dy-pressable size-8 rounded-lg flex-cc bg-g-100/70 text-g-500 hover:bg-danger/10 hover:text-danger"
                   aria-label="删除场次"
                   @click="remove(row)"
@@ -275,7 +275,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { fetchSessions, deleteSession, getReportUrl, type Session } from '@/api/douyin'
-  import { useUserStore } from '@/store/modules/user'
+  import { usePermissionStore } from '@/store/modules/permission'
   import { fmtNum, fmtFull, fmtSessionRange, formatDuration } from '@/utils/format'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { downloadWithAuth } from '@/utils/download'
@@ -284,8 +284,14 @@
 
   const route = useRoute()
   const router = useRouter()
-  const userStore = useUserStore()
-  const isAdmin = computed(() => userStore.info.roles?.includes('R_SUPER') ?? false)
+  /*
+   * 删除场次改成按 action 校验（后端同步加了 requireAction('session.delete')）。
+   * 原来这里只认 isAdmin：角色管理里勾了「删除场次」的非超管角色，界面上根本看不到按钮。
+   * 超管在 hasPerm 里恒为 true，所以对管理员行为没有任何变化。
+   */
+  const permissionStore = usePermissionStore()
+  const can = (action: string) => permissionStore.hasPerm(action)
+  const canDelete = computed(() => can('session.delete'))
 
   const sessions = ref<Session[]>([])
   const hostId = ref((route.query.hostId as string) || '')
