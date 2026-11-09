@@ -98,7 +98,7 @@
         -->
         <el-input
           v-model="query"
-          placeholder="输入昵称关键词，回车查询"
+          placeholder="输入昵称或抖音号，回车查询"
           style="width: 240px"
           clearable
           @keyup.enter="onQueryEnter"
@@ -142,7 +142,7 @@
         </div>
         <h4 class="dy-search-guide__title">开始查询</h4>
         <p class="dy-search-guide__desc">
-          支持昵称模糊匹配，数据来自本库的弹幕、礼物与进场记录
+          支持昵称模糊匹配、抖音号精确匹配，数据来自本库的弹幕、礼物与进场记录
         </p>
 
         <div class="dy-search-guide__chips">
