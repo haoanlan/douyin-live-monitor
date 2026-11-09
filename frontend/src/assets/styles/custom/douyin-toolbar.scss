@@ -30,7 +30,7 @@
   height: 36px;
   padding: 0 12px;
   border: 1px solid var(--art-gray-300);
-  border-radius: 6px;
+  border-radius: var(--dy-radius-sm);
   background: var(--default-box-color);
   transition: border-color var(--dy-dur-fast, 0.16s) ease;
   user-select: none;

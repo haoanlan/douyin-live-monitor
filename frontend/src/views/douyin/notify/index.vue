@@ -205,7 +205,7 @@
               </el-option>
             </el-select>
           </div>
-          <el-button :loading="upLoadingMembers" @click="loadMembers">刷新名单</el-button>
+          <el-button class="!min-w-[112px]" :loading="upLoadingMembers" @click="loadMembers">刷新名单</el-button>
           <el-button v-if="can('upstage.manage')" @click="resetStates">清空本场状态</el-button>
           <span class="text-[11px] text-success">● 自动模式：开启的主播命中即推送，名单每 60 秒自动维护</span>
           <span class="text-[11px] text-g-400">
@@ -363,7 +363,7 @@
       </el-form>
       <template #footer>
         <el-button @click="ruleDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitRule">保存</el-button>
+        <el-button type="primary" class="!min-w-[88px]" :loading="saving" @click="submitRule">保存</el-button>
       </template>
     </el-dialog>
 
@@ -388,8 +388,8 @@
       </el-form>
       <template #footer>
         <el-button @click="channelDialogVisible = false">取消</el-button>
-        <el-button :loading="testingId === -1" @click="testDraftChannel">测试这条</el-button>
-        <el-button type="primary" :loading="saving" @click="submitChannel">保存</el-button>
+        <el-button class="!min-w-[112px]" :loading="testingId === -1" @click="testDraftChannel">测试这条</el-button>
+        <el-button type="primary" class="!min-w-[88px]" :loading="saving" @click="submitChannel">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -960,7 +960,7 @@
     display: inline-block;
     margin-right: 4px;
     padding: 1px 6px;
-    border-radius: 6px;
+    border-radius: var(--dy-radius-sm);
     background: var(--art-gray-100, #f4f5f7);
     font-size: 11px;
     color: var(--art-gray-600, #5b6068);

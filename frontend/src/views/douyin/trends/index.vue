@@ -121,7 +121,7 @@
             </button>
           </div>
 
-          <el-button class="dy-refresh-btn" :loading="loading" @click="refresh">
+          <el-button class="dy-refresh-btn !min-w-[80px]" :loading="loading" @click="refresh">
             <ArtSvgIcon v-if="!loading" icon="ri:refresh-line" class="mr-1" />
             <span>刷新</span>
           </el-button>
@@ -142,7 +142,7 @@
     >
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-xs break-all">{{ queryError }}</span>
-        <el-button size="small" type="primary" plain :loading="loading" @click="refresh">
+        <el-button size="small" type="primary" plain class="!min-w-[88px]" :loading="loading" @click="refresh">
           重试
         </el-button>
       </div>

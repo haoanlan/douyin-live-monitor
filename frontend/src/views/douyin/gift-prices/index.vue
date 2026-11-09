@@ -250,7 +250,8 @@
 
       <template #footer>
         <el-button @click="editOpen = false">取消</el-button>
-        <el-button type="primary" :loading="savingEdit" @click="saveEdit">保存</el-button>
+        <!-- 定宽：:loading 会插入转圈，不定宽按钮会被撑宽（点了变长） -->
+        <el-button type="primary" class="!min-w-[88px]" :loading="savingEdit" @click="saveEdit">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -614,7 +615,7 @@ onMounted(load)
   flex-direction: column;
   gap: 6px;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--dy-radius-xl);
   background: var(--art-gray-100);
 }
 .gift-stat__label {
@@ -649,7 +650,7 @@ onMounted(load)
   height: 30px;
   padding: 0 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
   background: color-mix(in srgb, var(--theme-color) 10%, transparent);
   color: var(--theme-color);
   font-weight: 500;
@@ -664,7 +665,7 @@ onMounted(load)
 .gift-icon {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
   object-fit: cover;
   background: var(--art-gray-100);
   flex-shrink: 0;
@@ -672,7 +673,7 @@ onMounted(load)
 .gift-icon--lg {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--dy-radius-lg);
 }
 .gift-icon--empty {
   display: inline-flex;
@@ -686,7 +687,7 @@ onMounted(load)
 .preview-box {
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--dy-radius-lg);
   background: var(--art-gray-100);
 }
 
@@ -722,7 +723,7 @@ onMounted(load)
   .gift-icon {
     width: 32px;
     height: 32px;
-    border-radius: 9px;
+    border-radius: var(--dy-radius-md);
   }
   .gift-name {
     font-size: 15px;

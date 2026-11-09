@@ -651,7 +651,7 @@
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--dy-radius-lg);
   background: var(--art-gray-100);
   border: 1px solid transparent;
   transition: border-color var(--dy-dur-fast) var(--dy-ease-out);

@@ -52,7 +52,8 @@
           trigger="click"
           @command="onBatchCommand"
         >
-          <el-button type="primary" :loading="batchDownloading">
+          <!-- 定宽：:loading 会在图标前再插一个转圈，不定宽按钮会被撑宽（点了变长） -->
+          <el-button type="primary" class="!min-w-[132px]" :loading="batchDownloading">
             <ArtSvgIcon icon="ri:check-double-line" class="mr-1" />
             批量 ({{ selectedIds.length }})
             <ArtSvgIcon icon="ri:arrow-down-s-line" class="ml-1" />

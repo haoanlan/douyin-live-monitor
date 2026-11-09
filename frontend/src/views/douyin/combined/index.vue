@@ -1188,7 +1188,7 @@
     cursor: pointer;
     background: var(--default-box-color);
     border: 1px solid var(--art-card-border);
-    border-radius: 10px;
+    border-radius: var(--dy-radius-lg);
     transition:
       background-color 0.15s,
       border-color 0.15s;

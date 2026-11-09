@@ -647,7 +647,7 @@
     cursor: pointer;
     background: var(--art-gray-100);
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--dy-radius-md);
     transition:
       color 0.15s,
       background-color 0.15s;

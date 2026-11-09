@@ -17,7 +17,7 @@
   min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--art-gray-200);
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
 }
 
 .douyin-page .mon-kv__label,

@@ -675,7 +675,7 @@
     color: var(--art-gray-600);
     background: var(--art-gray-100);
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--dy-radius-lg);
 
     .el-icon + span,
     span.dy-session-head__btn-label {
@@ -1186,13 +1186,13 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: var(--dy-radius-lg);
   background: var(--art-gray-100, #f4f5f7);
 }
 
 .dy-seg__item {
   padding: 4px 10px;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
   font-size: 12px;
   line-height: 18px;
   color: var(--art-gray-600, #5b6068);
@@ -1235,7 +1235,7 @@ html.dark .dy-seg__item.is-active {
   gap: 6px;
   height: 32px;
   padding: 0 10px;
-  border-radius: 10px;
+  border-radius: var(--dy-radius-lg);
   background: var(--art-gray-100, #f4f5f7);
   color: var(--art-gray-700, #4b5058);
   font-size: 12px;
@@ -1253,7 +1253,7 @@ html.dark .dy-seg__item.is-active {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
   background: var(--theme-color, #3b82f6);
   color: #fff;
   font-size: 10px;
@@ -1275,7 +1275,7 @@ html.dark .dy-seg__item.is-active {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
   cursor: pointer;
 }
 
@@ -1341,7 +1341,7 @@ html.dark .dy-host-row:hover {
   padding: 0 10px;
   display: inline-flex;
   align-items: center;
-  border-radius: 8px;
+  border-radius: var(--dy-radius-md);
 }
 
 /* 空状态：撑满视口剩余高度，避免"下面一大片空白" */
