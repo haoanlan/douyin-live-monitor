@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ROLE_LIST_DATA } from '@/mock/temp/formData'
+  import { fetchGetRoleList } from '@/api/system-manage'
   import { createUser, updateUser as apiUpdateUser } from '@/api/auth-douyin'
   import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 
@@ -56,7 +56,36 @@
   const props = defineProps<Props>()
   const emit = defineEmits<Emits>()
 
-  const roleList = ref(ROLE_LIST_DATA)
+  /*
+   * 可选角色：从库里 roles 表读**真实名称**（角色管理里改了名，这里跟着变）。
+   *
+   * 为什么只列内置两个：前端路由的 meta.roles 只认 R_SUPER / R_GUEST，
+   * 给用户分配自定义角色后，登录时 MenuProcessor 会把菜单全剪掉（侧边栏空白）——
+   * 在"阶段四"把菜单过滤切到 role_menus 之前，先不放开自定义角色。
+   */
+  const ASSIGNABLE_ROLES = ['R_SUPER', 'R_GUEST']
+  const roleList = ref([
+    { roleCode: 'R_SUPER', roleName: '管理员' },
+    { roleCode: 'R_GUEST', roleName: '普通用户' }
+  ])
+
+  async function loadRoles() {
+    try {
+      const list = await fetchGetRoleList()
+      const picked = (list?.records || []).filter((r) =>
+        ASSIGNABLE_ROLES.includes(r.roleCode)
+      )
+      if (picked.length) {
+        roleList.value = picked.map((r) => ({
+          roleCode: r.roleCode,
+          roleName: r.roleName || r.roleCode
+        }))
+      }
+    } catch {
+      /* 拉不到就沿用内置名称 */
+    }
+  }
+
   const saving = ref(false)
 
   const dialogVisible = computed({
@@ -105,6 +134,7 @@
     ([visible]) => {
       if (visible) {
         initFormData()
+        loadRoles()
         nextTick(() => formRef.value?.clearValidate())
       }
     },

@@ -1461,3 +1461,13 @@ export function adminRoleActionsSave(roleKey: string, keys: string[]) {
 export function adminRoleCreate(body: { key: string; name: string; note?: string }) {
   return request.post<{ ok: boolean; key: string }>({ url: "/api/admin/roles", data: body, showErrorMessage: false })
 }
+
+/** 修改角色（只能改名称 / 备注，key 不可改） */
+export function adminRoleUpdate(key: string, body: { name?: string; note?: string }) {
+  return request.put<{ ok: boolean }>({ url: "/api/admin/roles/" + encodeURIComponent(key), data: body, showErrorMessage: false })
+}
+
+/** 删除角色（超管、内置访客、以及还有账号在用的角色，后端会拒绝） */
+export function adminRoleDelete(key: string) {
+  return request.del<{ ok: boolean }>({ url: "/api/admin/roles/" + encodeURIComponent(key), showErrorMessage: false })
+}

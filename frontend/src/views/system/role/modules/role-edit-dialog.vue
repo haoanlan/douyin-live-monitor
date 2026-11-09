@@ -11,7 +11,8 @@
         <ElInput v-model="form.roleName" placeholder="请输入角色名称" />
       </ElFormItem>
       <ElFormItem label="角色编码" prop="roleCode">
-        <ElInput v-model="form.roleCode" placeholder="请输入角色编码" />
+        <!-- 编码是主键（dashboard_users.role / role_menus.role_key 都引它），编辑时不允许改 -->
+        <ElInput v-model="form.roleCode" :disabled="dialogType === 'edit'" placeholder="请输入角色编码" />
       </ElFormItem>
       <ElFormItem label="描述" prop="description">
         <ElInput
@@ -21,19 +22,21 @@
           placeholder="请输入角色描述"
         />
       </ElFormItem>
-      <ElFormItem label="启用">
-        <ElSwitch v-model="form.enabled" />
-      </ElFormItem>
+      <!--
+        原来这里有个「启用」开关，是模板遗留：库里 roles 表没有 enabled 列，
+        角色能不能用完全取决于有没有给它授菜单/操作。接了真接口后留着只会误导，直接去掉。
+      -->
     </ElForm>
     <template #footer>
       <ElButton @click="handleClose">取消</ElButton>
-      <ElButton type="primary" @click="handleSubmit">提交</ElButton>
+      <ElButton type="primary" :loading="saving" @click="handleSubmit">提交</ElButton>
     </template>
   </ElDialog>
 </template>
 
 <script setup lang="ts">
   import type { FormInstance, FormRules } from 'element-plus'
+  import { adminRoleCreate, adminRoleUpdate } from '@/api/douyin'
 
   type RoleListItem = Api.SystemManage.RoleListItem
 
@@ -57,6 +60,8 @@
   const emit = defineEmits<Emits>()
 
   const formRef = ref<FormInstance>()
+  /** 提交中：避免连点重复建角色 */
+  const saving = ref(false)
 
   /**
    * 弹窗显示状态双向绑定
@@ -142,21 +147,39 @@
   }
 
   /**
-   * 提交表单
-   * 验证通过后调用接口保存数据
+   * 提交表单：新增走 POST /api/admin/roles，编辑走 PUT /api/admin/roles/:key。
+   * 之前这里只弹一句"新增成功"，什么都没写库（用户点了以为生效了）。
    */
   const handleSubmit = async () => {
     if (!formRef.value) return
 
     try {
       await formRef.value.validate()
-      // TODO: 调用新增/编辑接口
-      const message = props.dialogType === 'add' ? '新增成功' : '修改成功'
-      ElMessage.success(message)
+    } catch {
+      return
+    }
+
+    saving.value = true
+    try {
+      if (props.dialogType === 'add') {
+        await adminRoleCreate({
+          key: form.roleCode.trim(),
+          name: form.roleName.trim(),
+          note: form.description
+        })
+      } else {
+        await adminRoleUpdate(form.roleCode, {
+          name: form.roleName.trim(),
+          note: form.description
+        })
+      }
+      ElMessage.success(props.dialogType === 'add' ? '新增成功' : '修改成功')
       emit('success')
       handleClose()
-    } catch (error) {
-      console.log('表单验证失败:', error)
+    } catch (e: any) {
+      ElMessage.error(e?.backendMessage || e?.message || '保存失败')
+    } finally {
+      saving.value = false
     }
   }
 </script>

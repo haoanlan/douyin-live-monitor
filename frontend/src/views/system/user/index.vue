@@ -44,7 +44,7 @@
 <script setup lang="ts">
   import ArtButtonTable from '@/components/core/forms/art-button-table/index.vue'
   import { useTable } from '@/hooks/core/useTable'
-  import { fetchGetUserList } from '@/api/system-manage'
+  import { fetchGetUserList, fetchGetRoleList } from '@/api/system-manage'
   import { deleteUser as apiDeleteUser, resetUserPassword, updateUser } from '@/api/auth-douyin'
   import { useUserStore } from '@/store/modules/user'
   import UserSearch from './modules/user-search.vue'
@@ -56,11 +56,28 @@
 
   type UserListItem = Api.SystemManage.UserListItem
 
-  /** dashboard_users.role 的两个取值 */
-  const ROLE_LABELS: Record<string, string> = {
-    R_SUPER: '管理员',
-    R_GUEST: '普通用户'
+  /**
+   * dashboard_users.role 的取值 → 显示名。
+   *
+   * 不能写死：角色管理改的是库里 roles 表的 name（默认「超级管理员 / 访客」），
+   * 这里硬编码「管理员 / 普通用户」就会两页对不上（用户反馈"角色和实际不对"）。
+   * 启动时从 /api/admin/roles 拉一次；接口失败才退回内置两项。
+   */
+  const roleLabels = ref<Record<string, string>>({ R_SUPER: '管理员', R_GUEST: '普通用户' })
+
+  async function loadRoleLabels() {
+    try {
+      const list = await fetchGetRoleList()
+      const map: Record<string, string> = {}
+      for (const r of list?.records || []) {
+        if (r.roleCode) map[r.roleCode] = r.roleName || r.roleCode
+      }
+      if (Object.keys(map).length) roleLabels.value = map
+    } catch {
+      /* 拉不到就沿用内置名称，不影响其它功能 */
+    }
   }
+  onMounted(loadRoleLabels)
 
   const myId = useUserStore().getUserInfo?.userId
 
@@ -141,7 +158,7 @@
             return h(
               ElTag,
               { type: code === 'R_SUPER' ? 'warning' : 'info', effect: 'light' },
-              () => ROLE_LABELS[code] || code || '—'
+              () => roleLabels.value[code] || code || '—'
             )
           }
         },
