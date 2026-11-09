@@ -379,6 +379,16 @@ const server = http.createServer(async (req, res) => {
 // 启动
 async function start() {
   await db.init();
+  /*
+   * 菜单路径一致性自检：库里的 menu_items.path 必须指向真实的前端路由，
+   * 否则页面权限（role_menus）勾了也不生效，表现为"点进去被弹回首页"。
+   * 只打日志、不改数据（见 lib/route-paths.js 的说明）。
+   */
+  try {
+    require('./lib/route-paths').checkMenuPaths(db.getDb());
+  } catch (e) {
+    console.warn('[menu-check] 自检失败（不影响启动）:', e.message);
+  }
   // 预热总览聚合缓存（后台异步，避免首个用户等待全表扫描）
   try {
     const overviewRoute = require('./lib/routes/overview');
