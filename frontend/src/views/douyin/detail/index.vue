@@ -1720,7 +1720,8 @@
       const my = ++manualGiftSearchSeq
       manualGiftSearching.value = true
       try {
-        const r: any = await anonymousLookup(q, undefined, undefined, 20)
+        // skip_api：补录只需要昵称+抖音号，不调抖音接口补粉丝数/签名（否则每次 3~4 秒）
+        const r: any = await anonymousLookup(q, undefined, undefined, 20, true)
         if (my !== manualGiftSearchSeq) return
         manualGiftCandidates.value = (r?.users || []).filter((u: any) => u.sec_uid).slice(0, 20)
       } catch {

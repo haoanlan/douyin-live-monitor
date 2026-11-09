@@ -740,12 +740,18 @@ export function anonymousLookup(
   query: string,
   streamerId?: string,
   sessionId?: string,
-  limit?: number
+  limit?: number,
+  skipApi?: boolean
 ) {
   const params = new URLSearchParams({ q: query })
   if (streamerId) params.set('streamer_id', streamerId)
   if (sessionId) params.set('session_id', sessionId)
   if (limit) params.set('limit', String(limit))
+  /*
+   * skipApi：不调抖音接口补资料（粉丝数/签名/头像清空，昵称与抖音号来自库内）。
+   * 只用于"选人"场景（补录下拉），实测能把单字查询从 3~4 秒压到 0.3 秒量级。
+   */
+  if (skipApi) params.set('skip_api', '1')
   return request.get<AnonymousLookupResponse>({
     url: `/api/anonymous-lookup?${params.toString()}`,
     showErrorMessage: false
