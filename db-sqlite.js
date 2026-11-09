@@ -581,7 +581,7 @@ async function init() {
       ['SystemUsers', '用户管理', '/system/user', 'ri:user-settings-line', 'SystemManage', 91, 1, 0, 'menu', 'system:user:list'],
       ['SystemRoles', '角色管理', '/system/role', 'ri:shield-user-line', 'SystemManage', 92, 1, 0, 'menu', 'system:role:list'],
       ['SystemMenus', '菜单管理', '/system/menu', 'ri:menu-line', 'SystemManage', 93, 1, 0, 'menu', 'system:menu:list'],
-      ['UserCenter', '个人中心', '/user-center', 'ri:user-line', null, 900, 1, 0]
+      ['UserCenter', '个人中心', '/douyin/account', 'ri:user-line', null, 900, 1, 0]
     ];
     /*
      * 注意：seedMenus 里的行长度不一致 —— 目录/带权限的行是 10 列
@@ -610,6 +610,13 @@ async function init() {
       UPDATE menu_items SET path = '/system/user' WHERE key = 'SystemUsers'  AND path = '/douyin/system/users';
       UPDATE menu_items SET path = '/system/role' WHERE key = 'SystemRoles'  AND path = '/douyin/system/roles';
       UPDATE menu_items SET path = '/system/menu' WHERE key = 'SystemMenus'  AND path = '/douyin/system/menus';
+      /*
+       * 个人中心：早期抄的是模板路径 /user-center，但本项目真实路由是 /douyin/account
+       * （douyin.ts 里挂的隐藏子页）。路径对不上 → 页面权限按路径精确匹配时永远命中不了
+       * → 非超管（访客）的侧边栏/路由被剪掉 → 点「个人中心」被弹回首页。
+       * 只改还是旧值的那行，用户自己配过的路径不覆盖。
+       */
+      UPDATE menu_items SET path = '/douyin/account' WHERE key = 'UserCenter' AND path = '/user-center';
     `);
 
     const insRole = d.prepare('INSERT OR IGNORE INTO roles (key,name,note) VALUES (?,?,?)');

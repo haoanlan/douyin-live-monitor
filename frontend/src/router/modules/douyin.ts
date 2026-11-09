@@ -177,6 +177,13 @@ export const douyinRoutes: AppRouteRecord = {
          */
         isHideTab: false,
         keepAlive: true,
+        /*
+         * 个人中心是**自助页面**：改自己的密码 / 头像，任何登录用户都该能进。
+         * 所以它不参与「页面权限」裁剪（permission.ts 的 filterMenus 认这个标记）。
+         * 原来它只能靠库里的路径匹配放行，而库里存的是模板遗留的 /user-center，
+         * 与这里的 /douyin/account 对不上 → 访客被弹回首页（用户反馈）。
+         */
+        alwaysAllow: true,
         roles: ['R_SUPER', 'R_GUEST']
       }
     }

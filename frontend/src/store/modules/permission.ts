@@ -95,6 +95,19 @@ export const usePermissionStore = defineStore('permissionStore', () => {
    *   2. 父级目录本身（如 /douyin）可能没被单独授权，但只要子节点有授权就要保留，
    *      否则整棵子树会被剪掉 —— 表现就是"登录后侧边栏空白 + 跳 /500"。
    */
+  /**
+   * 自助页面豁免：`meta.alwaysAllow = true` 的路由（个人中心等）不参与页面权限裁剪。
+   *
+   * 为什么需要：这些页面是"改自己的东西"（密码 / 头像），任何登录用户都该能进；
+   * 而页面权限是按 **路径精确匹配** 的，一旦库里那条菜单的 path 和真实路由对不上
+   * （个人中心就踩过：库里 /user-center vs 路由 /douyin/account），
+   * 非超管的这条路由会被整条剪掉 → 点进去被弹回首页。
+   */
+  function isAlwaysAllowed(node: unknown): boolean {
+    const meta = (node as { meta?: { alwaysAllow?: boolean } } | null)?.meta
+    return meta?.alwaysAllow === true
+  }
+
   function filterMenus<T extends { path?: string; children?: T[] }>(list: T[]): T[] {
     if (isSuper.value || !loaded.value) return list
 
@@ -111,7 +124,7 @@ export const usePermissionStore = defineStore('permissionStore', () => {
         const children = n.children?.length ? walk(n.children, full) : []
         if (children.length) {
           out.push({ ...n, children })
-        } else if (canVisit(full)) {
+        } else if (isAlwaysAllowed(n) || canVisit(full)) {
           out.push(n)
         }
       }
