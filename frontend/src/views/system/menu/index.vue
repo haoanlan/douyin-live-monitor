@@ -56,6 +56,7 @@
   import type { AppRouteRecord } from '@/types/router'
   import MenuDialog from './modules/menu-dialog.vue'
   import { fetchGetMenuList } from '@/api/system-manage'
+  import { adminMenuCreate, adminMenuUpdate, adminMenuDelete } from '@/api/douyin'
   import { ElTag, ElMessageBox } from 'element-plus'
 
   defineOptions({ name: 'Menus' })
@@ -225,7 +226,7 @@
           }),
           h(ArtButtonTable, {
             type: 'delete',
-            onClick: () => handleDeleteMenu()
+            onClick: () => handleDeleteMenu(row)
           })
         ])
       }
@@ -413,31 +414,82 @@
   }
 
   /**
-   * 提交表单数据
-   * @param formData 表单数据
+   * 提交表单数据（真正写库）
+   *
+   * 这个弹窗是模板的"路由配置编辑器"，字段比我们的 menu_items 多很多
+   * （component / keepAlive / isIframe / authList…），只映射库里真有的那几个：
+   *   name → title、path → path、icon → icon、sort → sort、
+   *   isEnable → visible、isHide → hidden、isMenu → menu_type
+   *   parentKey 按 path 前缀推断（/douyin/* → DouyinLiveData，/system/* → SystemManage）
+   * 编辑时 key 取行上的 name（fetchGetMenuList 把后端 key 映射到 route.name）。
    */
-  const handleSubmit = (formData: MenuFormData): void => {
-    console.log('提交数据:', formData)
-    // TODO: 调用API保存数据
-    getMenuList()
+  const handleSubmit = async (formData: MenuFormData): Promise<void> => {
+    const title = String(formData.name || '').trim()
+    const path = String(formData.path || '').trim()
+    if (!title) {
+      ElMessage.warning('菜单名称不能为空')
+      return
+    }
+    const parentKey = path.startsWith('/douyin/')
+      ? 'DouyinLiveData'
+      : path.startsWith('/system/')
+        ? 'SystemManage'
+        : null
+    const body: Record<string, any> = {
+      title,
+      path: path || null,
+      icon: formData.icon || null,
+      parentKey,
+      sort: Number(formData.sort) > 0 ? Number(formData.sort) : 100,
+      visible: formData.isEnable === false ? 0 : 1,
+      hidden: formData.isHide ? 1 : 0,
+      menuType: formData.isMenu === false ? 'button' : 'menu'
+    }
+    const editingKey = String((editData.value as any)?.name || '')
+    try {
+      if (dialogType.value === 'menu' && editingKey) {
+        await adminMenuUpdate(editingKey, body)
+        ElMessage.success('已保存')
+      } else {
+        // 新菜单的 key 用时间戳生成：key 是主键（dashboard 的 role_menus 都引它），不能和现有撞
+        const key = `M_${Date.now().toString(36)}`
+        await adminMenuCreate({ key, title, ...body })
+        ElMessage.success('已新增')
+      }
+      dialogVisible.value = false
+      getMenuList()
+    } catch (e: any) {
+      ElMessage.error(e?.backendMessage || e?.message || '保存失败')
+    }
   }
 
   /**
-   * 删除菜单
+   * 删除菜单（真正删库；后端会连带清掉 role_menus 里对它的授权）
+   *
+   * 注意：后端只删表里的记录，**代码里的路由还在** —— 删完侧边栏不再出现该菜单，
+   * 但直接访问 URL 仍能打开页面。要彻底下线得同时删 router/modules 里的那条。
    */
-  const handleDeleteMenu = async (): Promise<void> => {
+  const handleDeleteMenu = async (row?: AppRouteRecord): Promise<void> => {
+    const key = String((row as any)?.name || '')
+    if (!key) {
+      ElMessage.warning('这一行没有菜单标识，无法删除')
+      return
+    }
     try {
-      await ElMessageBox.confirm('确定要删除该菜单吗？删除后无法恢复', '提示', {
+      await ElMessageBox.confirm(`确定删除菜单「${(row as any)?.meta?.title || key}」吗？删除后无法恢复`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       })
-      ElMessage.success('删除成功')
+    } catch {
+      return
+    }
+    try {
+      await adminMenuDelete(key)
+      ElMessage.success('已删除')
       getMenuList()
-    } catch (error) {
-      if (error !== 'cancel') {
-        ElMessage.error('删除失败')
-      }
+    } catch (e: any) {
+      ElMessage.error(e?.backendMessage || e?.message || '删除失败')
     }
   }
 
