@@ -80,6 +80,18 @@ export const usePermissionStore = defineStore('permissionStore', () => {
     const t = normPath(path)
     if (!t) return true
     /*
+     * 参数型页面一律放行（2026-11-09 修「访客打不开场次详情」）。
+     *
+     * /douyin/detail/:sessionId、/douyin/profile/:secUid 这类页面**不可能出现在
+     * role_menus 里**：它们不是菜单项（早期种子灌进去过，后来按"参数页只能从列表点进去"
+     * 删掉了），所以按下面的精确匹配，非超管的整条路由都会被剪掉 ——
+     * 表现在界面上就是"点场次卡片闪一下被弹回首页"。
+     *
+     * 这类页面权限跟随**入口页**（场次列表 / 信息查询）：能看列表就允许点进详情，
+     * 而且详情本身是只读的；写操作由后端 action 权限单独把关。
+     */
+    if (t.includes('/:')) return true
+    /*
      * **精确匹配**，不做前缀匹配。
      * 前缀匹配的坑：父目录 '/douyin' 一旦被授权，'/douyin/' 开头的所有子页
      * （房间管理、礼物价格、状态监控…）就全被放行了，取消勾选等于没生效。
