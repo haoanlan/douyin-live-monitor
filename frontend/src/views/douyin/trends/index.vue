@@ -156,23 +156,31 @@
       高度按真实图表的 420px 占位，避免数据到达时高度一次性 +896px。
     -->
     <div v-if="loading && !hasData" class="art-card p-5 min-h-[420px]">
-      <div class="flex gap-4 h-[300px] mt-4">
-        <div class="flex flex-col justify-between py-1 shrink-0">
-          <el-skeleton-item v-for="i in 5" :key="i" variant="text" style="width: 42px" />
+      <!--
+        必须包一层 `<el-skeleton animated>`：Element Plus 的流光动画只写在
+        `.el-skeleton.is-animated .el-skeleton__item` 这个后代选择器上。
+        原来这里是裸的 `el-skeleton-item`（没有父级 .el-skeleton），
+        渲染出来就是**一块块静止的灰条**，看着像"卡住了"，用户反馈的"骨架动画不对"就是这条。
+      -->
+      <el-skeleton animated>
+        <div class="flex gap-4 h-[300px] mt-4">
+          <div class="flex flex-col justify-between py-1 shrink-0">
+            <el-skeleton-item v-for="i in 5" :key="i" variant="text" style="width: 42px" />
+          </div>
+          <div class="flex-1 flex items-end gap-3 min-w-0">
+            <el-skeleton-item
+              v-for="(h, i) in [42, 68, 55, 82, 61, 74, 48]"
+              :key="i"
+              variant="rect"
+              :style="`flex:1; height:${h}%`"
+            />
+          </div>
         </div>
-        <div class="flex-1 flex items-end gap-3 min-w-0">
-          <el-skeleton-item
-            v-for="(h, i) in [42, 68, 55, 82, 61, 74, 48]"
-            :key="i"
-            variant="rect"
-            :style="`flex:1; height:${h}%`"
-          />
+        <div class="flex items-center justify-between mt-4">
+          <el-skeleton-item variant="text" style="width: 120px" />
+          <el-skeleton-item variant="text" style="width: 88px" />
         </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <el-skeleton-item variant="text" style="width: 120px" />
-        <el-skeleton-item variant="text" style="width: 88px" />
-      </div>
+      </el-skeleton>
     </div>
 
     <!-- 没选房间：明确提示，而不是给一片空白 -->
@@ -395,7 +403,7 @@
   /** 全部可选指标 */
   const allMetrics: { key: TrendMetricKey; label: string; icon: string; hint: string }[] = [
     { key: 'peakOnline', label: '峰值在线', icon: 'ri:signal-wifi-line', hint: '每场最高同时在线人数' },
-    { key: 'diamonds', label: '钻石', icon: 'ri:diamond-line', hint: '每场礼物收入（去重后）' },
+    { key: 'diamonds', label: '钻石', icon: 'ri:diamond-line', hint: '礼物收入（按日/周/月时取合计）' },
     { key: 'danmaku', label: '弹幕', icon: 'ri:chat-3-line', hint: '每场弹幕条数' },
     { key: 'gifts', label: '礼物数', icon: 'ri:gift-2-line', hint: '每场礼物件数' },
     { key: 'users', label: '参与用户', icon: 'ri:group-line', hint: '每场发过弹幕或送礼的人数' },
@@ -467,8 +475,12 @@ ext`，不能再按当前状态取反一次 ——
 
   /**
    * 按 X 轴粒度把「每场」的点聚合。
-   * 按场次时原样返回；按日/周/月时同一区间的场次取**平均**（不是求和）——
-   * 求和会让"播得多的那天"看起来更好，而我们要看的是"每场表现"。
+   * 按场次时原样返回；按日/周/月时，**默认取平均**（求平均才是"每场表现"，
+   * 求和会让"播得多的那天"凭空显得更好）。
+   *
+   * 例外见 SUM_METRICS：钻石必须**求和**。一天播 3 场、每场 10 万，那天就是 30 万；
+   * 取平均会把它压成 10 万，看不出这一天到底收了多少钱（用户反馈：
+   * "钻石图表应该是总数不是平均数"）。
    */
   function bucketKey(startAt: string): string {
     const d = new Date(String(startAt).replace(' ', 'T'))
@@ -489,9 +501,9 @@ ext`，不能再按当前状态取反一次 ——
   const xAxisLabel = computed(() => {
     const map: Record<string, string> = {
       session: 'X 轴：每场直播',
-      day: 'X 轴：按日（当天多场取平均）',
-      week: 'X 轴：按周（当周多场取平均）',
-      month: 'X 轴：按月（当月多场取平均）'
+      day: 'X 轴：按日（钻石取当天合计，其余取每场平均）',
+      week: 'X 轴：按周（钻石取当周合计，其余取每场平均）',
+      month: 'X 轴：按月（钻石取当月合计，其余取每场平均）'
     }
     return map[xMode.value]
   })
@@ -504,6 +516,15 @@ ext`，不能再按当前状态取反一次 ——
     count: number
     sessions: number[]
   }
+
+  /**
+   * 按日/周/月聚合时，这几个指标取**合计**（其余仍取每场平均）。
+   *
+   * 为什么要分开：钻石是"钱"的口径，一天的合计才有意义（用户原话：
+   * "钻石图表应该是总数不是平均数"）。而"峰值在线 / 钻时 / 弹幕每千人"这类
+   * 本来就是"每场"或"每小时"的强度指标，求和没有物理含义，取平均才对。
+   */
+  const SUM_METRICS: TrendMetricKey[] = ['diamonds']
 
   /** 把一个序列转成 X 轴标签 + 各指标的数值数组 */
   function toAxis(s: HostTrendSeries, metricKeys: TrendMetricKey[]) {
@@ -530,7 +551,13 @@ ext`，不能再按当前状态取反一次 ——
     const buckets = order.map((k) => map.get(k)!).sort((a, b) => a.label.localeCompare(b.label))
     return {
       labels: buckets.map((b) => b.label),
-      values: metricKeys.map((mk) => buckets.map((b) => Math.round((b.acc[mk] || 0) / b.count))),
+      values: metricKeys.map((mk) =>
+        buckets.map((b) => {
+          const acc = b.acc[mk] || 0
+          // 钻石取合计；其余取每场平均（见 SUM_METRICS 的说明）
+          return SUM_METRICS.includes(mk) ? Math.round(acc) : Math.round(acc / b.count)
+        })
+      ),
       points: buckets.flatMap((b) => b.sessions)
     }
   }
