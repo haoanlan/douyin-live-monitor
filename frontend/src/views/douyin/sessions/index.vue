@@ -514,6 +514,16 @@
   watch(
     () => route.query.hostId,
     (val) => {
+      /*
+       * 已经离开本页就不要再动状态。
+       *
+       * 点进某一场的详情（/douyin/detail/:id）时，query 里不再有 hostId，
+       * 这个 watch 照样会被触发；原来会把 hostId 清空 → 本页在「离开动画」的 175ms 里
+       * 重渲染成 `!hostId` 的空态「请先选择要查看的主播」，
+       * 表现就是"从场次历史进场次详情时闪一帧空状态"（用户反馈）。
+       * 只有当前路由仍是本页时才响应（路由切换的清理应该由 onDeactivated / 下次进入时做）。
+       */
+      if (!route.path.startsWith('/douyin/sessions')) return
       hostId.value = (val as string) || ''
       selectedIds.value = []
       page.value = 1
