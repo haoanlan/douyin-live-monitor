@@ -76,7 +76,22 @@
                 class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-success/12 text-success whitespace-nowrap"
                 :title="profile.profile.payName || '消费等级'"
               >
+                <img
+                  v-if="profile.profile.payIconUrl"
+                  :src="profile.profile.payIconUrl"
+                  class="inline-block h-[13px] mr-1 align-[-1px]"
+                  alt=""
+                  loading="lazy"
+                />
                 消费 Lv.{{ profile.profile.payLevel }}
+              </span>
+              <!-- 星守护：独立徽章，和粉丝团等级分开 -->
+              <span
+                v-if="profile?.profile?.starGuard"
+                class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-danger/12 text-danger whitespace-nowrap"
+                title="星守护"
+              >
+                星守护
               </span>
               <!-- 三个维度各一个 chip：消费力 / 偏好 / 弹幕形态 / 互动性 —— 手机上一行放得下，超出自动换行但不挤 -->
               <span v-if="profile?.giftStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftStyle }}</span>

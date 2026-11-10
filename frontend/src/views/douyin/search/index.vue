@@ -298,7 +298,25 @@
                         class="shrink-0"
                         :title="u.profile.payName || '消费等级'"
                       >
+                        <img
+                          v-if="u.profile.payIconUrl"
+                          :src="u.profile.payIconUrl"
+                          class="inline-block h-[14px] mr-1 align-[-2px]"
+                          alt=""
+                          loading="lazy"
+                        />
                         消费 Lv.{{ u.profile.payLevel }}
+                      </el-tag>
+                      <!-- 星守护：独立徽章（badge.icons['4']），有才显示 -->
+                      <el-tag
+                        v-if="u.profile && u.profile.starGuard"
+                        size="small"
+                        type="danger"
+                        effect="plain"
+                        class="shrink-0"
+                        title="星守护"
+                      >
+                        星守护
                       </el-tag>
                     </div>
                   </div>

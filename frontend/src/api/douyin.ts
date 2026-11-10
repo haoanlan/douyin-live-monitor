@@ -383,6 +383,14 @@ export interface AudienceProfile {
   clubAnchorName?: string | null
   /** 归属主播头像 */
   clubAnchorAvatar?: string | null
+  /** 消费等级图标 URL（pay_grade 自带，只跟 level 有关） */
+  payIconUrl?: string | null
+  /** 粉丝团等级徽章 URI（badge.icons['2']，带版本/亮灰状态，不能按 level 拼） */
+  clubBadgeUri?: string | null
+  /** 星守护徽章 URI（badge.icons['4']） */
+  clubGuardUri?: string | null
+  /** 是否星守护（userGuardStatus>0 或 guardExpiredTime 未过） */
+  starGuard?: boolean
 }
 
 export interface UserProfile {
