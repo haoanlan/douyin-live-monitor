@@ -286,8 +286,15 @@
                         :title="[u.profile.clubAnchorName ? '归属：' + u.profile.clubAnchorName : '', u.profile.clubStatus === 2 ? '已退团' : '在团'].filter(Boolean).join(' · ')"
                       >
                         <span class="truncate">
-                          粉丝团<template v-if="u.profile.clubAnchorName"> · {{ u.profile.clubAnchorName }}</template>
-                          {{ u.profile.clubLevel ?? '-' }}
+                          <!-- 星守护徽章（badge.icons['4']）贴在最前面，和抖音里一样 -->
+                          <img
+                            v-if="u.profile.starGuard && u.profile.clubGuardUrl"
+                            :src="u.profile.clubGuardUrl"
+                            class="inline-block h-[14px] mr-1 align-[-2px]"
+                            alt=""
+                            loading="lazy"
+                          />
+                          <template v-if="u.profile.clubAnchorName">{{ u.profile.clubAnchorName }} · </template>{{ u.profile.clubLevel ?? '-' }}{{ u.profile.clubName || '' }}
                         </span>
                       </el-tag>
                       <el-tag
@@ -307,17 +314,7 @@
                         />
                         消费 Lv.{{ u.profile.payLevel }}
                       </el-tag>
-                      <!-- 星守护：独立徽章（badge.icons['4']），有才显示 -->
-                      <el-tag
-                        v-if="u.profile && u.profile.starGuard"
-                        size="small"
-                        type="danger"
-                        effect="plain"
-                        class="shrink-0"
-                        title="星守护"
-                      >
-                        星守护
-                      </el-tag>
+                      <!-- 星守护已并入粉丝团徽章（图标），这里不再重复一枚文字标签 -->
                     </div>
                   </div>
                 </div>
