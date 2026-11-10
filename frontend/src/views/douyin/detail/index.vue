@@ -447,6 +447,41 @@
               <div class="min-w-0 flex-1">
                 <!-- 第一行：昵称 + 礼物标签（左）· 时间（右） -->
                 <div class="dy-feed-row__meta">
+                  <!--
+                    消费等级图标 + 粉丝团胶囊，挂在昵称前面（抖音聊天区就是这个顺序）。
+                    数据是**这条消息当时**的快照（danmaku/gifts.club_json），
+                    所以同一个人不同时刻挂不同的团会如实显示。
+                  -->
+                  <img
+                    v-if="m.club?.payIconUrl"
+                    :src="m.club.payIconUrl"
+                    class="h-[17px] w-auto shrink-0"
+                    :title="'消费等级 Lv.' + (m.club?.payLevel ?? '')"
+                    alt=""
+                    loading="lazy"
+                  />
+                  <span
+                    v-if="m.club && m.club.clubLevel != null"
+                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] pr-[6px] shrink-0 max-w-[150px]"
+                    :class="
+                      m.club.clubStatus === 2
+                        ? 'bg-[#c9c9c9]'
+                        : m.club.starGuard
+                          ? 'bg-[#ff8f3f]'
+                          : 'bg-[#f5c04e]'
+                    "
+                    :title="[
+                      m.club.clubName ? '团名：' + m.club.clubName : '',
+                      m.club.clubStatus === 2 ? '已退团/未点亮' : '在团',
+                      m.club.starGuard ? '星守护' : ''
+                    ].filter(Boolean).join(' · ')"
+                  >
+                    <span
+                      class="inline-flex items-center justify-center h-[12px] min-w-[18px] px-[3px] rounded-full bg-white/90 text-[9px] font-bold leading-none"
+                      :class="m.club.clubStatus === 2 ? 'text-[#8a8a8a]' : m.club.starGuard ? 'text-[#ff8f3f]' : 'text-[#b07d00]'"
+                    >{{ m.club.clubLevel }}</span>
+                    <span v-if="m.club.clubName" class="text-[10px] leading-none text-white truncate">{{ m.club.clubName }}</span>
+                  </span>
                   <span class="dy-feed-row__name">{{ m.nickname }}</span>
                   <span v-if="m._type === 'gift'" class="dy-feed-row__tag">礼物</span>
                   <span class="dy-feed-row__time">{{ fmtTime(m.timestamp) }}</span>
@@ -868,6 +903,16 @@
   import { useIsMobile } from '@/hooks/core/useIsMobile'
   import { usePermissionStore } from '@/store/modules/permission'
 
+  /** 按消息存的粉丝团快照（club_json 解析后） */
+  interface FeedClub {
+    payLevel?: number | null
+    payIconUrl?: string | null
+    clubLevel?: number | null
+    clubName?: string | null
+    clubStatus?: number | null
+    starGuard?: boolean
+  }
+
   interface FeedItem {
     _type: 'danmaku' | 'gift'
     _key: string
@@ -882,6 +927,8 @@
     timestamp?: number
     avatar_url?: string
     _top?: number
+    /** 这个人发这条消息时的消费等级/粉丝团 */
+    club?: FeedClub | null
   }
 
   defineOptions({ name: 'DouyinDetail' })
@@ -1357,6 +1404,28 @@
   }
 
   /** 弹幕 + 礼物 → 统一的时间线数组（按时间**降序**，最新在前） */
+  /**
+   * club_json（按消息存的粉丝团/消费等级快照）→ 渲染用对象。
+   * 短名：pl 消费等级、pi 图标、cl 团等级、cn 团名、ca 归属主播 id、cs 状态、gu 星守护徽章。
+   */
+  function parseClub(raw: any) {
+    if (!raw) return null
+    try {
+      const o = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (!o || (o.pl == null && o.cl == null)) return null
+      return {
+        payLevel: o.pl,
+        payIconUrl: o.pi,
+        clubLevel: o.cl,
+        clubName: o.cn,
+        clubStatus: o.cs,
+        starGuard: Boolean(o.gu && /star_guard/i.test(String(o.gu)) && !/gray/i.test(String(o.gu)))
+      }
+    } catch {
+      return null
+    }
+  }
+
   function buildFeedItems(dmList: any[], giftList: any[]): FeedItem[] {
     const items: FeedItem[] = []
     dmList.forEach((d: any) => {
@@ -1369,7 +1438,8 @@
         nickname: d.nickname,
         content: d.content,
         timestamp: d.timestamp || d.create_time,
-        avatar_url: d.avatar_url || d.avatar
+        avatar_url: d.avatar_url || d.avatar,
+        club: parseClub(d.club_json)
       })
     })
     giftList.forEach((g) => {
@@ -1385,7 +1455,8 @@
         to_nickname: g.to_nickname || '',
         gift_icon: g.gift_icon || '',
         timestamp: g.create_time,
-        avatar_url: g.avatar_url || ''
+        avatar_url: g.avatar_url || '',
+        club: parseClub(g.club_json)
       })
     })
     // 按时间降序：监测场景关注"刚刚发生了什么"。

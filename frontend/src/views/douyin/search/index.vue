@@ -267,67 +267,16 @@
                     <span class="text-base font-medium text-g-900 truncate leading-snug max-w-full">
                       {{ u.nickname || '未知用户' }}
                     </span>
-                    <!-- ID = 抖音号（user_display_id）；接口没返回时用 -- 占位，位置固定不跳动 -->
+                    <!--
+                      ID = 抖音号（user_display_id）；接口没返回时用 -- 占位，位置固定不跳动。
+                      注意：查询卡片**不显示**消费等级和粉丝团 —— 一个人可能同时是
+                      本房间多个主播的粉丝团、甚至别的房间的粉丝团，放在"人"这一层会误导。
+                      粉丝团改到场次详情里、按"当时那条消息"展示。
+                    -->
                     <div class="flex items-center gap-1 flex-wrap">
                       <el-tag size="small" effect="plain" class="shrink-0 tabular-nums">
                         ID {{ u.unique_id || u.user_display_id || '--' }}
                       </el-tag>
-                      <!--
-                        抖音样式的粉丝团胶囊（纯 CSS 复刻，不依赖远程图）：
-                        左边小圆里是等级数字，右边白字是团名；星守护用橙色，普通团用黄色，退团变灰。
-                      -->
-                      <span
-                        v-if="u.profile && (u.profile.clubName || u.profile.clubLevel)"
-                        class="inline-flex items-center gap-[3px] shrink-0 h-[17px] rounded-full pl-[2px] pr-[6px] max-w-[230px]"
-                        :class="
-                          u.profile.clubStatus === 2
-                            ? 'bg-[#c9c9c9]'
-                            : u.profile.starGuard
-                              ? 'bg-[#ff8f3f]'
-                              : 'bg-[#f5c04e]'
-                        "
-                        :title="[
-                          u.profile.clubName ? '团名：' + u.profile.clubName : '',
-                          u.profile.clubAnchorName ? '归属主播：' + u.profile.clubAnchorName + '（简称）' : '',
-                          u.profile.clubStatus === 2 ? '已退团/未点亮' : '在团',
-                          u.profile.starGuard ? '星守护' : ''
-                        ].filter(Boolean).join(' · ')"
-                      >
-                        <span
-                          class="inline-flex items-center justify-center h-[13px] min-w-[19px] rounded-full px-[3px] text-[9.5px] font-bold leading-none"
-                          :class="
-                            u.profile.clubStatus === 2
-                              ? 'bg-white/85 text-[#8a8a8a]'
-                              : u.profile.starGuard
-                                ? 'bg-white/90 text-[#ff8f3f]'
-                                : 'bg-white/90 text-[#b07d00]'
-                          "
-                        >
-                          {{ u.profile.clubLevel ?? '-' }}
-                        </span>
-                        <span class="text-[10px] leading-none text-white font-medium truncate">
-                          {{ u.profile.clubName || '' }}
-                        </span>
-                      </span>
-                      <!-- 消费等级：用平台自带的图标（数在图标里，形状也是官方的）；没图才退回 CSS 数字块 -->
-                      <span
-                        v-if="u.profile && u.profile.payLevel != null"
-                        class="shrink-0 inline-flex items-center"
-                        :title="'消费等级 Lv.' + u.profile.payLevel + (u.profile.payName ? ' · ' + u.profile.payName : '')"
-                      >
-                        <img
-                          v-if="u.profile.payIconUrl"
-                          :src="u.profile.payIconUrl"
-                          class="h-[19px] w-auto"
-                          alt=""
-                          loading="lazy"
-                        />
-                        <span
-                          v-else
-                          class="inline-flex items-center justify-center h-[17px] min-w-[26px] px-[4px] rounded-[4px] bg-gradient-to-b from-[#8d6bff] to-[#5b3df0] text-white text-[10px] font-semibold leading-none"
-                        >{{ u.profile.payLevel }}</span>
-                      </span>
-                      <!-- 星守护已并入粉丝团徽章（图标），这里不再重复一枚文字标签 -->
                     </div>
                   </div>
                 </div>

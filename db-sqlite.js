@@ -1006,14 +1006,16 @@ async function updateSessionStats(sessionId, stats) {
 async function insertDanmaku(sessionId, items) {
   if (!items || items.length === 0) return;
   const d = getDb();
+  // 粉丝团/消费等级快照（按消息存：同一个人不同时刻可能挂不同的团）
+  try { d.exec('ALTER TABLE danmaku ADD COLUMN club_json TEXT'); } catch (e) {}
   const stmt = d.prepare(
-    'INSERT INTO danmaku (session_id, msg_id, nickname, avatar, content, user_display_id, user_sec_uid, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO danmaku (session_id, msg_id, nickname, avatar, content, user_display_id, user_sec_uid, create_time, club_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const tx = d.transaction((rows) => {
     for (const item of rows) {
       stmt.run(sessionId, item.msgId || null, item.nickname || null, item.avatar || null,
         item.content || null, item.userDisplayId || null, item.userSecUid || null,
-        item.createTime || null);
+        item.createTime || null, item.clubJson || null);
     }
   });
   tx(items);
@@ -1028,9 +1030,10 @@ async function insertGifts(sessionId, items) {
   const iconStmt = d.prepare('SELECT icon_url FROM gift_icons WHERE name = ?');
   const iconFuzzyStmt = d.prepare('SELECT icon_url FROM gift_icons WHERE REPLACE(REPLACE(name,\'邮轮\',\'游轮\'),\'游轮\',\'邮轮\') = ? OR name LIKE ?');
   const iconCheck = d.prepare('SELECT 1 FROM gift_icons WHERE name = ?');
+  try { d.exec('ALTER TABLE gifts ADD COLUMN club_json TEXT'); } catch (e) {}
   const iconUpsert = d.prepare('INSERT OR IGNORE INTO gift_icons (gift_id, name, icon_url, diamond_count) VALUES (?, ?, ?, ?)');
   const stmt = d.prepare(
-    'INSERT INTO gifts (session_id, msg_id, nickname, avatar, to_nickname, to_avatar, to_user_display_id, to_user_sec_uid, gift_name, diamond_count, repeat_count, total_diamonds, user_display_id, user_sec_uid, create_time, trace_id, combo_count, repeat_end, group_count, send_type, icon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO gifts (session_id, msg_id, nickname, avatar, to_nickname, to_avatar, to_user_display_id, to_user_sec_uid, gift_name, diamond_count, repeat_count, total_diamonds, user_display_id, user_sec_uid, create_time, trace_id, combo_count, repeat_end, group_count, send_type, icon, club_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const tx = d.transaction((rows) => {
     for (const item of rows) {
@@ -1044,7 +1047,7 @@ async function insertGifts(sessionId, items) {
         item.giftName || null, item.diamondCount || 0, item.repeatCount || 1,
         item.totalDiamonds || 0, item.userDisplayId || null, item.userSecUid || null,
         item.createTime || null, item.traceId || null, item.comboCount || 0, item.repeatEnd ?? null,
-        item.groupCount || 1, item.sendType || null, icon);
+        item.groupCount || 1, item.sendType || null, icon, item.clubJson || null);
     }
   });
   tx(items);
