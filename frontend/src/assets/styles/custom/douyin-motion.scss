@@ -670,7 +670,8 @@
 
 .dy-feed-row__meta {
   display: flex;
-  align-items: baseline;
+  /* 原来是 baseline：图标/胶囊按文字基线对齐，看着"名字和徽章不齐"。徽章是图片+胶囊，必须按中线对齐。 */
+  align-items: center;
   gap: 6px;
   min-width: 0;
 }
