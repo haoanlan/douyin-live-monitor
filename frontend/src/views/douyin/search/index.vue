@@ -273,58 +273,50 @@
                         ID {{ u.unique_id || u.user_display_id || '--' }}
                       </el-tag>
                       <!--
-                        粉丝团徽章（实测样式）：胶囊图里已经含等级数字，右侧空位放团名文字。
-                        星守护是另一枚橙色胶囊（badge.icons['4']），有就优先用它。
+                        抖音样式的粉丝团胶囊（纯 CSS 复刻，不依赖远程图）：
+                        左边小圆里是等级数字，右边白字是团名；星守护用橙色，普通团用黄色，退团变灰。
                       -->
                       <span
                         v-if="u.profile && (u.profile.clubName || u.profile.clubLevel)"
-                        class="inline-flex items-center gap-[3px] shrink-0 h-[18px] rounded-full pl-[2px] pr-1.5 max-w-[210px]"
-                        :class="[
-                          u.profile.clubStatus === 2 ? 'bg-g-200/70' : '',
-                          u.profile.starGuard && u.profile.clubGuardUrl ? 'bg-[#ff8a3d]/15' : 'bg-[#f5c25c]/25'
-                        ]"
+                        class="inline-flex items-center gap-[3px] shrink-0 h-[17px] rounded-full pl-[2px] pr-[6px] max-w-[230px]"
+                        :class="
+                          u.profile.clubStatus === 2
+                            ? 'bg-[#c9c9c9]'
+                            : u.profile.starGuard
+                              ? 'bg-[#ff8f3f]'
+                              : 'bg-[#f5c04e]'
+                        "
                         :title="[
                           u.profile.clubAnchorName ? '归属：' + u.profile.clubAnchorName : '',
-                          u.profile.clubStatus === 2 ? '已退团/未点亮' : '在团'
+                          u.profile.clubStatus === 2 ? '已退团/未点亮' : '在团',
+                          u.profile.starGuard ? '星守护' : ''
                         ].filter(Boolean).join(' · ')"
                       >
-                        <img
-                          v-if="u.profile.starGuard && u.profile.clubGuardUrl"
-                          :src="u.profile.clubGuardUrl"
-                          class="h-[17px] w-auto"
-                          alt=""
-                          loading="lazy"
-                        />
-                        <img
-                          v-else-if="u.profile.clubBadgeUrl"
-                          :src="u.profile.clubBadgeUrl"
-                          class="h-[17px] w-auto"
-                          alt=""
-                          loading="lazy"
-                        />
                         <span
-                          class="text-[10.5px] leading-none truncate"
-                          :class="u.profile.clubStatus === 2 ? 'text-g-500' : 'text-g-700'"
+                          class="inline-flex items-center justify-center h-[13px] min-w-[19px] rounded-full px-[3px] text-[9.5px] font-bold leading-none"
+                          :class="
+                            u.profile.clubStatus === 2
+                              ? 'bg-white/85 text-[#8a8a8a]'
+                              : u.profile.starGuard
+                                ? 'bg-white/90 text-[#ff8f3f]'
+                                : 'bg-white/90 text-[#b07d00]'
+                          "
                         >
+                          {{ u.profile.clubLevel ?? '-' }}
+                        </span>
+                        <span class="text-[10px] leading-none text-white font-medium truncate">
                           <template v-if="u.profile.clubAnchorName">{{ u.profile.clubAnchorName }}</template>
                           <template v-if="u.profile.clubAnchorName && u.profile.clubName"> · </template>
                           {{ u.profile.clubName || '' }}
                         </span>
                       </span>
-                      <!-- 消费等级：图标本身带数字（紫色六边形），所以只显示图，不再写 "Lv.N" 文字 -->
+                      <!-- 消费等级：紫色小方块里是数字（纯 CSS 复刻，和抖音那种一致） -->
                       <span
                         v-if="u.profile && u.profile.payLevel != null"
-                        class="shrink-0 inline-flex items-center"
+                        class="shrink-0 inline-flex items-center justify-center h-[17px] min-w-[26px] px-[4px] rounded-[4px] bg-gradient-to-b from-[#8d6bff] to-[#5b3df0] text-white text-[10px] font-semibold leading-none"
                         :title="'消费等级 Lv.' + u.profile.payLevel + (u.profile.payName ? ' · ' + u.profile.payName : '')"
                       >
-                        <img
-                          v-if="u.profile.payIconUrl"
-                          :src="u.profile.payIconUrl"
-                          class="h-[18px] w-auto"
-                          alt=""
-                          loading="lazy"
-                        />
-                        <span v-else class="text-[10.5px] leading-none text-g-600">消费 Lv.{{ u.profile.payLevel }}</span>
+                        {{ u.profile.payLevel }}
                       </span>
                       <!-- 星守护已并入粉丝团徽章（图标），这里不再重复一枚文字标签 -->
                     </div>
