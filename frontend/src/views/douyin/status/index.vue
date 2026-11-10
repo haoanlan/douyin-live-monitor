@@ -1626,7 +1626,17 @@
           confirmButtonText: '确认执行',
           cancelButtonText: '取消',
           type: 'warning',
-          dangerouslyUseHTMLString: true
+          dangerouslyUseHTMLString: true,
+          /*
+           * 窄屏不锁页面滚动（2026-11-10 用户反馈：手机端点开/关闭这个弹窗时，
+           * 底部内容会上下抖一下）。
+           *
+           * 原因：ElMessageBox 默认 lockScroll:true，会给 body 加 overflow:hidden；
+           * 手机浏览器据此收起底部工具栏，视口高度变化 → 依赖 vh 的高度重算 →
+           * 弹窗背后那层内容整体位移。锁滚动在这里没有收益（遮罩照样挡点击），
+           * 关掉即可根除这类抖动。桌面端滚动条占位已被 reset.scss 处理过，保持锁滚动。
+           */
+          lockScroll: !(typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches)
         }
       )
       return true
