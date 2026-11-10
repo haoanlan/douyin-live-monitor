@@ -287,7 +287,8 @@
                               : 'bg-[#f5c04e]'
                         "
                         :title="[
-                          u.profile.clubAnchorName ? '归属：' + u.profile.clubAnchorName : '',
+                          u.profile.clubName ? '团名：' + u.profile.clubName : '',
+                          u.profile.clubAnchorName ? '归属主播：' + u.profile.clubAnchorName + '（简称）' : '',
                           u.profile.clubStatus === 2 ? '已退团/未点亮' : '在团',
                           u.profile.starGuard ? '星守护' : ''
                         ].filter(Boolean).join(' · ')"
@@ -305,18 +306,26 @@
                           {{ u.profile.clubLevel ?? '-' }}
                         </span>
                         <span class="text-[10px] leading-none text-white font-medium truncate">
-                          <template v-if="u.profile.clubAnchorName">{{ u.profile.clubAnchorName }}</template>
-                          <template v-if="u.profile.clubAnchorName && u.profile.clubName"> · </template>
                           {{ u.profile.clubName || '' }}
                         </span>
                       </span>
-                      <!-- 消费等级：紫色小方块里是数字（纯 CSS 复刻，和抖音那种一致） -->
+                      <!-- 消费等级：用平台自带的图标（数在图标里，形状也是官方的）；没图才退回 CSS 数字块 -->
                       <span
                         v-if="u.profile && u.profile.payLevel != null"
-                        class="shrink-0 inline-flex items-center justify-center h-[17px] min-w-[26px] px-[4px] rounded-[4px] bg-gradient-to-b from-[#8d6bff] to-[#5b3df0] text-white text-[10px] font-semibold leading-none"
+                        class="shrink-0 inline-flex items-center"
                         :title="'消费等级 Lv.' + u.profile.payLevel + (u.profile.payName ? ' · ' + u.profile.payName : '')"
                       >
-                        {{ u.profile.payLevel }}
+                        <img
+                          v-if="u.profile.payIconUrl"
+                          :src="u.profile.payIconUrl"
+                          class="h-[19px] w-auto"
+                          alt=""
+                          loading="lazy"
+                        />
+                        <span
+                          v-else
+                          class="inline-flex items-center justify-center h-[17px] min-w-[26px] px-[4px] rounded-[4px] bg-gradient-to-b from-[#8d6bff] to-[#5b3df0] text-white text-[10px] font-semibold leading-none"
+                        >{{ u.profile.payLevel }}</span>
                       </span>
                       <!-- 星守护已并入粉丝团徽章（图标），这里不再重复一枚文字标签 -->
                     </div>
