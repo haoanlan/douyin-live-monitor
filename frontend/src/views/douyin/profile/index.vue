@@ -58,19 +58,7 @@
                 等级体系（worker 顺手记的 user_profiles）：只显示真有的字段。
                 徽章用浅色底 + 深色字，和下面那排"风格/偏好"chip 区分开（那些是分析结论，这两个是平台事实）。
               -->
-              <span
-                v-if="profile?.profile && (profile.profile.clubName || profile.profile.clubLevel)"
-                class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] whitespace-nowrap"
-                :class="profile.profile.clubStatus === 2 ? 'bg-g-100 text-g-500' : 'bg-warning/12 text-warning'"
-                :title="[
-                  profile.profile.clubAnchorName ? '归属主播：' + profile.profile.clubAnchorName : '',
-                  profile.profile.clubStatus === 2 ? '已退团/未点亮' : '在团'
-                ].filter(Boolean).join(' · ')"
-              >
-                粉丝团
-                <template v-if="profile.profile.clubAnchorName"> · {{ profile.profile.clubAnchorName }}</template>
-                {{ profile.profile.clubLevel ?? '-' }}
-              </span>
+              <!-- 画像页只放消费等级（用户要求）：粉丝团/星守护只在信息查询卡片上显示 -->
               <span
                 v-if="profile?.profile && profile.profile.payLevel != null"
                 class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-success/12 text-success whitespace-nowrap"
@@ -84,14 +72,6 @@
                   loading="lazy"
                 />
                 消费 Lv.{{ profile.profile.payLevel }}
-              </span>
-              <!-- 星守护：独立徽章，和粉丝团等级分开 -->
-              <span
-                v-if="profile?.profile?.starGuard"
-                class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-danger/12 text-danger whitespace-nowrap"
-                title="星守护"
-              >
-                星守护
               </span>
               <!-- 三个维度各一个 chip：消费力 / 偏好 / 弹幕形态 / 互动性 —— 手机上一行放得下，超出自动换行但不挤 -->
               <span v-if="profile?.giftStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftStyle }}</span>
