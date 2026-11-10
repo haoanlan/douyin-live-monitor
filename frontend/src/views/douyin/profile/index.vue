@@ -52,27 +52,19 @@
             <el-avatar :size="56" :src="profile?.avatar">{{ profile?.nickname?.[0] }}</el-avatar>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-lg font-bold text-g-900 leading-snug line-clamp-2 pr-10 md:truncate md:pr-[86px]">{{ profile?.nickname || '-' }}</div>
+            <!-- 名字旁边直接挂等级图标（用户要求：不要文字徽章，一枚图标即可） -->
+            <div class="flex items-center gap-1.5 min-w-0 pr-10 md:pr-[86px]">
+              <span class="text-lg font-bold text-g-900 leading-snug line-clamp-2 md:truncate">{{ profile?.nickname || '-' }}</span>
+              <img
+                v-if="profile?.profile?.payIconUrl"
+                :src="profile.profile.payIconUrl"
+                class="shrink-0 h-[17px] w-auto"
+                :alt="'消费 Lv.' + (profile.profile.payLevel ?? '')"
+                :title="'消费等级 Lv.' + (profile.profile.payLevel ?? '')"
+                loading="lazy"
+              />
+            </div>
             <div class="mt-1.5 flex flex-wrap items-center gap-1">
-              <!--
-                等级体系（worker 顺手记的 user_profiles）：只显示真有的字段。
-                徽章用浅色底 + 深色字，和下面那排"风格/偏好"chip 区分开（那些是分析结论，这两个是平台事实）。
-              -->
-              <!-- 画像页只放消费等级（用户要求）：粉丝团/星守护只在信息查询卡片上显示 -->
-              <span
-                v-if="profile?.profile && profile.profile.payLevel != null"
-                class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-success/12 text-success whitespace-nowrap"
-                :title="profile.profile.payName || '消费等级'"
-              >
-                <img
-                  v-if="profile.profile.payIconUrl"
-                  :src="profile.profile.payIconUrl"
-                  class="inline-block h-[13px] mr-1 align-[-1px]"
-                  alt=""
-                  loading="lazy"
-                />
-                消费 Lv.{{ profile.profile.payLevel }}
-              </span>
               <!-- 三个维度各一个 chip：消费力 / 偏好 / 弹幕形态 / 互动性 —— 手机上一行放得下，超出自动换行但不挤 -->
               <span v-if="profile?.giftStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftStyle }}</span>
               <span v-if="profile?.giftPref" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftPref }}</span>
