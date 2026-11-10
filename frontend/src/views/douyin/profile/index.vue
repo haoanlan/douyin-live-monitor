@@ -54,6 +54,25 @@
           <div class="flex-1 min-w-0">
             <div class="text-lg font-bold text-g-900 leading-snug line-clamp-2 pr-10 md:truncate md:pr-[86px]">{{ profile?.nickname || '-' }}</div>
             <div class="mt-1.5 flex flex-wrap items-center gap-1">
+              <!--
+                等级体系（worker 顺手记的 user_profiles）：只显示真有的字段。
+                徽章用浅色底 + 深色字，和下面那排"风格/偏好"chip 区分开（那些是分析结论，这两个是平台事实）。
+              -->
+              <span
+                v-if="profile?.profile && (profile.profile.clubName || profile.profile.clubLevel)"
+                class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-warning/12 text-warning whitespace-nowrap"
+                :title="profile.profile.clubName || '粉丝团'"
+              >
+                粉丝团 {{ profile.profile.clubLevel ?? '-' }}
+                <template v-if="profile.profile.clubName">· {{ profile.profile.clubName }}</template>
+              </span>
+              <span
+                v-if="profile?.profile && profile.profile.payLevel != null"
+                class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-success/12 text-success whitespace-nowrap"
+                :title="profile.profile.payName || '消费等级'"
+              >
+                消费 Lv.{{ profile.profile.payLevel }}
+              </span>
               <!-- 三个维度各一个 chip：消费力 / 偏好 / 弹幕形态 / 互动性 —— 手机上一行放得下，超出自动换行但不挤 -->
               <span v-if="profile?.giftStyle" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftStyle }}</span>
               <span v-if="profile?.giftPref" class="inline-flex items-center rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-g-100 text-g-600 whitespace-nowrap">{{ profile.giftPref }}</span>

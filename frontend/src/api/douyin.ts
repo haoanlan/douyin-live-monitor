@@ -357,9 +357,34 @@ export interface AnonymousLookup {
  * （fans_count / gift_profile / top_anchors …），后端一个都没返回，
  * 导致画像页除了头像和昵称全是空的。
  */
+/**
+ * 观众档案（等级 / 消费等级 / 粉丝团）。
+ *
+ * 字段来源：proto 里的 User.level、User.pay_grade.level/name、
+ * User.fans_club.data.club_name/level（不是猜的，见 lib/profile/store.js 注释）。
+ * 任一字段没有数据就是 null —— 界面按"有才显示"处理。
+ */
+export interface AudienceProfile {
+  /** 用户等级（User.level） */
+  userLevel?: number | null
+  /** 消费等级（User.pay_grade.level） */
+  payLevel?: number | null
+  /** 消费等级名称（如「殿堂」），pay_grade.name */
+  payName?: string | null
+  /** 粉丝团名称（fans_club.data.club_name） */
+  clubName?: string | null
+  /** 粉丝团等级（fans_club.data.level） */
+  clubLevel?: number | null
+}
+
 export interface UserProfile {
   nickname: string
   avatar?: string
+  /**
+   * 观众档案（等级体系）：worker 收消息时顺手写进 user_profiles。
+   * 没有数据时后端返回 null，界面不显示任何徽章（不要用 0 兜底成"Lv.0"）。
+   */
+  profile?: AudienceProfile | null
   /**
    * 库里出现过的全部名字（按出现次数降序），含抖音自动生成的游客名。
    * generated=true 表示 douxxx / 神秘人… 这类自动生成的名字。

@@ -268,9 +268,35 @@
                       {{ u.nickname || '未知用户' }}
                     </span>
                     <!-- ID = 抖音号（user_display_id）；接口没返回时用 -- 占位，位置固定不跳动 -->
-                    <el-tag size="small" effect="plain" class="shrink-0 tabular-nums">
-                      ID {{ u.unique_id || u.user_display_id || '--' }}
-                    </el-tag>
+                    <div class="flex items-center gap-1 flex-wrap">
+                      <el-tag size="small" effect="plain" class="shrink-0 tabular-nums">
+                        ID {{ u.unique_id || u.user_display_id || '--' }}
+                      </el-tag>
+                      <!--
+                        等级体系（来自 worker 顺手记的 user_profiles）：
+                        只显示真有的字段；没有数据就什么都不显示，不摆"Lv.0"这种假信息。
+                      -->
+                      <el-tag
+                        v-if="u.profile && (u.profile.clubName || u.profile.clubLevel)"
+                        size="small"
+                        type="warning"
+                        effect="light"
+                        class="shrink-0"
+                        :title="u.profile.clubName || '粉丝团'"
+                      >
+                        粉丝团 {{ u.profile.clubLevel ?? '-' }}
+                      </el-tag>
+                      <el-tag
+                        v-if="u.profile && u.profile.payLevel != null"
+                        size="small"
+                        type="success"
+                        effect="light"
+                        class="shrink-0"
+                        :title="u.profile.payName || '消费等级'"
+                      >
+                        消费 Lv.{{ u.profile.payLevel }}
+                      </el-tag>
+                    </div>
                   </div>
                 </div>
                 <el-button

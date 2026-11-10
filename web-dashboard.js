@@ -429,6 +429,8 @@ async function start() {
      */
     // 通知表在这里建一次，路由里就不用每次判存在
     try { require('./lib/notify/store').ensure(db.getDb()); } catch (e) { console.warn('[notify] 建表失败:', e.message); }
+  // 观众档案表（等级 / 粉丝团）：worker 收进场消息时写入，启动时先建好
+  try { require('./lib/profile/store').ensure(db.getDb()); } catch (e) { console.warn('[profile] 建表失败:', e.message); }
     try {
       require('./lib/upstage/store').ensureAll(db.getDb());
       require('./lib/upstage/ingest').setDb(db.getDb());
