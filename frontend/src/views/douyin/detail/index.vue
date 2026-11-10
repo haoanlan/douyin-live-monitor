@@ -447,10 +447,11 @@
               <div class="min-w-0 flex-1">
                 <!-- 第一行：昵称 + 礼物标签（左）· 时间（右） -->
                 <div class="dy-feed-row__meta">
+                  <span class="dy-feed-row__name">{{ m.nickname }}</span>
                   <!--
-                    消费等级图标 + 粉丝团胶囊，挂在昵称前面（抖音聊天区就是这个顺序）。
-                    数据是**这条消息当时**的快照（danmaku/gifts.club_json），
-                    所以同一个人不同时刻挂不同的团会如实显示。
+                    消费等级图标 + 粉丝团胶囊，放在昵称**后面**（用户要求：放前面和头像不协调）。
+                    数据优先用这条消息当时的快照；历史数据后端会退回该用户最新档案。
+                    胶囊文字：有团名用团名，没团名用归属主播名，都没有就只留等级圆牌。
                   -->
                   <img
                     v-if="m.club?.payIconUrl"
@@ -462,7 +463,7 @@
                   />
                   <span
                     v-if="m.club && m.club.clubLevel != null"
-                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] pr-[6px] shrink-0 max-w-[150px]"
+                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] pr-[6px] shrink-0 max-w-[170px]"
                     :class="
                       m.club.clubStatus === 2
                         ? 'bg-[#c9c9c9]'
@@ -472,6 +473,7 @@
                     "
                     :title="[
                       m.club.clubName ? '团名：' + m.club.clubName : '',
+                      m.club.an ? '归属主播：' + m.club.an : '',
                       m.club.clubStatus === 2 ? '已退团/未点亮' : '在团',
                       m.club.starGuard ? '星守护' : ''
                     ].filter(Boolean).join(' · ')"
@@ -480,9 +482,11 @@
                       class="inline-flex items-center justify-center h-[12px] min-w-[18px] px-[3px] rounded-full bg-white/90 text-[9px] font-bold leading-none"
                       :class="m.club.clubStatus === 2 ? 'text-[#8a8a8a]' : m.club.starGuard ? 'text-[#ff8f3f]' : 'text-[#b07d00]'"
                     >{{ m.club.clubLevel }}</span>
-                    <span v-if="m.club.clubName" class="text-[10px] leading-none text-white truncate">{{ m.club.clubName }}</span>
+                    <span
+                      v-if="m.club.clubName || m.club.an"
+                      class="text-[10px] leading-none text-white truncate"
+                    >{{ m.club.clubName || m.club.an }}</span>
                   </span>
-                  <span class="dy-feed-row__name">{{ m.nickname }}</span>
                   <span v-if="m._type === 'gift'" class="dy-feed-row__tag">礼物</span>
                   <span class="dy-feed-row__time">{{ fmtTime(m.timestamp) }}</span>
                 </div>
@@ -911,6 +915,10 @@
     clubName?: string | null
     clubStatus?: number | null
     starGuard?: boolean
+    /** 归属主播名（后端把 club_json.ca 解出来的） */
+    an?: string | null
+    /** 是否来自"该用户最新档案"回退（历史数据没有快照） */
+    fallback?: boolean
   }
 
   interface FeedItem {
@@ -1419,6 +1427,7 @@
         clubLevel: o.cl,
         clubName: o.cn,
         clubStatus: o.cs,
+        an: o.an || null,
         starGuard: Boolean(o.gu && /star_guard/i.test(String(o.gu)) && !/gray/i.test(String(o.gu)))
       }
     } catch {
@@ -1439,7 +1448,7 @@
         content: d.content,
         timestamp: d.timestamp || d.create_time,
         avatar_url: d.avatar_url || d.avatar,
-        club: parseClub(d.club_json)
+        club: parseClub(d.club || d.club_json)
       })
     })
     giftList.forEach((g) => {
@@ -1456,7 +1465,7 @@
         gift_icon: g.gift_icon || '',
         timestamp: g.create_time,
         avatar_url: g.avatar_url || '',
-        club: parseClub(g.club_json)
+        club: parseClub(g.club || g.club_json)
       })
     })
     // 按时间降序：监测场景关注"刚刚发生了什么"。
