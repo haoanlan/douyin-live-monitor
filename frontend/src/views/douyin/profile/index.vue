@@ -60,11 +60,16 @@
               -->
               <span
                 v-if="profile?.profile && (profile.profile.clubName || profile.profile.clubLevel)"
-                class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] bg-warning/12 text-warning whitespace-nowrap"
-                :title="profile.profile.clubName || '粉丝团'"
+                class="inline-flex items-center gap-1 rounded px-1.5 py-[1px] text-[10.5px] leading-[15px] whitespace-nowrap"
+                :class="profile.profile.clubStatus === 2 ? 'bg-g-100 text-g-500' : 'bg-warning/12 text-warning'"
+                :title="[
+                  profile.profile.clubAnchorName ? '归属主播：' + profile.profile.clubAnchorName : '',
+                  profile.profile.clubStatus === 2 ? '已退团/未点亮' : '在团'
+                ].filter(Boolean).join(' · ')"
               >
-                粉丝团 {{ profile.profile.clubLevel ?? '-' }}
-                <template v-if="profile.profile.clubName">· {{ profile.profile.clubName }}</template>
+                粉丝团
+                <template v-if="profile.profile.clubAnchorName"> · {{ profile.profile.clubAnchorName }}</template>
+                {{ profile.profile.clubLevel ?? '-' }}
               </span>
               <span
                 v-if="profile?.profile && profile.profile.payLevel != null"

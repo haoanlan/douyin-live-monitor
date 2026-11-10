@@ -371,10 +371,18 @@ export interface AudienceProfile {
   payLevel?: number | null
   /** 消费等级名称（如「殿堂」），pay_grade.name */
   payName?: string | null
-  /** 粉丝团名称（fans_club.data.club_name） */
+  /** 粉丝团名称（fans_club.data.club_name）—— 实测只有少数人才下发 */
   clubName?: string | null
   /** 粉丝团等级（fans_club.data.level） */
   clubLevel?: number | null
+  /** 粉丝团状态：1=在团、2=已退团/未点亮（图标会变成 lightdown/gray） */
+  clubStatus?: number | null
+  /** 粉丝团归属主播的数字 user id（fans_club.data.anchor_id）—— 团播里靠它区分是谁的团 */
+  clubAnchorId?: number | null
+  /** 归属主播昵称（后端用礼物消息里的 toUser 建的映射表 join 出来） */
+  clubAnchorName?: string | null
+  /** 归属主播头像 */
+  clubAnchorAvatar?: string | null
 }
 
 export interface UserProfile {

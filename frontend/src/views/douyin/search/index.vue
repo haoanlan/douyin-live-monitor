@@ -273,18 +273,22 @@
                         ID {{ u.unique_id || u.user_display_id || '--' }}
                       </el-tag>
                       <!--
-                        等级体系（来自 worker 顺手记的 user_profiles）：
-                        只显示真有的字段；没有数据就什么都不显示，不摆"Lv.0"这种假信息。
+                        粉丝团：团播里一场有多个主播，所以要带"是谁的团"。
+                        归属靠 clubAnchorId → 主播昵称（后端 join anchor_ids，名字来自礼物消息的 toUser）。
+                        没名字就退化成「粉丝团 Lv.N」；已退团（status=2）灰掉。
                       -->
                       <el-tag
                         v-if="u.profile && (u.profile.clubName || u.profile.clubLevel)"
                         size="small"
-                        type="warning"
+                        :type="u.profile.clubStatus === 2 ? 'info' : 'warning'"
                         effect="light"
-                        class="shrink-0"
-                        :title="u.profile.clubName || '粉丝团'"
+                        class="shrink-0 max-w-[190px]"
+                        :title="[u.profile.clubAnchorName ? '归属：' + u.profile.clubAnchorName : '', u.profile.clubStatus === 2 ? '已退团' : '在团'].filter(Boolean).join(' · ')"
                       >
-                        粉丝团 {{ u.profile.clubLevel ?? '-' }}
+                        <span class="truncate">
+                          粉丝团<template v-if="u.profile.clubAnchorName"> · {{ u.profile.clubAnchorName }}</template>
+                          {{ u.profile.clubLevel ?? '-' }}
+                        </span>
                       </el-tag>
                       <el-tag
                         v-if="u.profile && u.profile.payLevel != null"
