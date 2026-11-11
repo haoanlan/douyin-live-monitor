@@ -144,7 +144,7 @@
         <!-- 操作：只有「修改」 -->
         <!-- 操作：用模板统一的 ArtButtonTable 图标按钮（原来那个自造 pill 按钮风格和系统其它表格不一致） -->
         <template #actions="{ row }">
-          <div style="display:flex;justify-content:flex-end;width:100%">
+          <div style="display:flex;justify-content:flex-start;width:100%">
             <ArtButtonTable v-if="can('gift_price.write')" type="edit" @click="openEdit(row)" />
           </div>
         </template>
@@ -350,13 +350,13 @@ const columns = computed<ColumnOption[]>(() =>
     ? [
         { prop: 'gift_name', label: '礼物', minWidth: 130, useSlot: true, slotName: 'gift_name' },
         { prop: 'price', label: '单价', width: 100, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '操作', width: 72, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
+        { prop: 'actions', label: '操作', width: 72, align: 'left', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
     : [
         { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
         { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
         { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '操作', width: 88, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
+        { prop: 'actions', label: '操作', width: 88, align: 'left', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
 

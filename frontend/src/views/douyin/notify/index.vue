@@ -535,11 +535,11 @@
       // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
       prop: 'operation',
       label: '操作',
-      align: 'right',
+      align: 'left',
       width: isMobile.value ? 92 : 120,
       fixed: 'right',
       formatter: (row: NotifyRule) =>
-        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }, [
           ...(can('notify.manage')
             ? [
                 h(ArtButtonTable, { type: 'edit', onClick: () => openRuleDialog(row) }),
@@ -568,11 +568,11 @@
       // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
       prop: 'operation',
       label: '操作',
-      align: 'right',
+      align: 'left',
       width: 160,
       fixed: 'right',
       formatter: (row: NotifyChannel) =>
-        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }, [
           ...(can('notify.test')
             ? [
                 h(ArtButtonTable, {
@@ -611,11 +611,11 @@
     {
       prop: 'operation',
       label: '操作',
-      align: 'right',
+      align: 'left',
       width: 90,
       fixed: 'right',
       formatter: (row: UpstageWatch) =>
-        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }, [
           ...(can('upstage.manage')
             ? [h(ArtButtonTable, { type: 'delete', onClick: () => removeWatch(row) })]
             : [])

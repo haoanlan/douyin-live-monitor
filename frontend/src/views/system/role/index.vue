@@ -155,10 +155,10 @@
           prop: 'operation',
           label: '操作',
           width: 88,
-          align: 'right',
+          align: 'left',
           fixed: 'right',
           formatter: (row) =>
-            h('div', { class: 'flex-c justify-end' }, [
+            h('div', { class: 'flex-c' }, [
               h(ArtButtonMore, {
                 list: [
                   {

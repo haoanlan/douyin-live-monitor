@@ -197,10 +197,10 @@
       prop: 'operation',
       label: '操作',
       width: 160,
-      align: 'right',
+      align: 'left',
       fixed: 'right', // 移动端横向滚动时操作列钉在右边
       formatter: (row: AppRouteRecord) => {
-        const buttonStyle = { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }
+        const buttonStyle = { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }
 
         if (row.meta?.isAuthButton) {
           return h('div', buttonStyle, [

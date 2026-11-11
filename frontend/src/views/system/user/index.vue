@@ -189,10 +189,10 @@
           prop: 'operation',
           label: '操作',
           width: 160,
-          align: 'right',
+          align: 'left',
           fixed: 'right', // 固定列
           formatter: (row) =>
-            h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
+            h('div', { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }, [
               h(ArtButtonTable, { type: 'edit', onClick: () => showDialog('edit', row) }),
               h(ArtButtonTable, {
                 icon: 'ri:lock-password-line',
