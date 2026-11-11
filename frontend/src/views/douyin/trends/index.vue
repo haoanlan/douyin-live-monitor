@@ -24,8 +24,14 @@
       之前标题只写「趋势分析」，正文里看不出这堆数字属于哪个直播间（多选时更糊），
       所以左上角直接放主播头像 + 名字，多选时把每个直播间列成一行。
     -->
-    <div class="art-card p-4 mb-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="art-card p-4 mb-4 dy-trend-head">
+      <!--
+        移动端两行、桌面一行：
+          · 身份（头像 + 名字 + 徽标）永远在最左
+          · 桌面：两组分段控件在中间、操作在右
+          · 手机：操作（选择直播间 / 粒度 / 刷新）跟身份同一行，分段控件单独一行
+      -->
+      <div class="flex flex-wrap items-center justify-between gap-2 lg:gap-3">
         <div class="flex min-w-0 items-center gap-3">
           <el-avatar
             v-if="currentHosts.length === 1"
@@ -40,14 +46,15 @@
           </el-avatar>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
-              <h4 class="m-0 text-base font-semibold text-g-900">
+              <h4 class="m-0 truncate text-base font-semibold text-g-900">
                 {{ currentHosts.length === 1 ? currentHosts[0]?.name : '已选 ' + currentHosts.length + ' 个直播间' }}
               </h4>
-              <span class="rounded bg-g-100 px-1.5 py-0.5 text-[10px] text-g-500">
+              <!-- 手机上"近 30 天 · 按日 · 33 场"已由下方「数据统计范围」说明，这里只在 ≥sm 显示 -->
+              <span class="hidden rounded bg-g-100 px-1.5 py-0.5 text-[10px] text-g-500 sm:inline-block">
                 {{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场
               </span>
             </div>
-            <p class="m-0 mt-0.5 truncate text-[11px] text-g-500">
+            <p class="m-0 mt-0.5 hidden truncate text-[11px] text-g-500 sm:block">
               <template v-if="currentHosts.length > 1">
                 {{ currentHosts.map((h) => h.name).join(' / ') }}
               </template>
@@ -58,17 +65,41 @@
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <!--
-            直播间选择：原来是一个多选 el-select（大框 + 标签 + 下拉），
-            用户反馈"这个选择器很难看"。改成按钮 + 弹层勾选：
-            平时只占一个按钮，点开是一列带头像/场次的复选列表。
-          -->
+        <!-- 桌面：时间范围 + 粒度（中间一组） -->
+        <div class="hidden items-center gap-2 sm:order-1 sm:flex">
+          <div class="dy-seg shrink-0">
+            <button
+              v-for="r in RANGE_OPTIONS"
+              :key="r.value"
+              type="button"
+              class="dy-seg__item"
+              :class="{ 'is-active': range === r.value }"
+              @click="range = r.value; refresh()"
+            >
+              {{ r.label }}
+            </button>
+          </div>
+          <div class="dy-seg shrink-0">
+            <button
+              v-for="m in MODE_OPTIONS"
+              :key="m.value"
+              type="button"
+              class="dy-seg__item"
+              :class="{ 'is-active': xMode === m.value }"
+              @click="xMode = m.value; redraw()"
+            >
+              {{ m.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 操作：选择直播间 / 粒度（仅手机）/ 刷新 -->
+        <div class="order-2 flex shrink-0 items-center gap-2">
           <el-popover placement="bottom-end" :width="280" trigger="click" popper-class="dy-host-pop">
             <template #reference>
               <button type="button" class="dy-picker-btn">
                 <ArtSvgIcon icon="ri:live-line" />
-                <span>选择直播间</span>
+                <span class="hidden sm:inline">选择直播间</span>
                 <span v-if="selectedHosts.length" class="dy-picker-btn__count">{{ selectedHosts.length }}</span>
                 <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
               </button>
@@ -95,8 +126,35 @@
             </div>
           </el-popover>
 
-          <!-- 时间范围 / 粒度：自绘分段控件（el-radio-group 默认方角样式偏老气） -->
-          <div class="dy-seg">
+          <!-- 手机：粒度收成一个下拉，省掉一整行（用 div 包住：el-dropdown 自身的 display 会盖掉 Tailwind 的 sm:hidden） -->
+          <div class="sm:hidden">
+          <el-dropdown
+            trigger="click"
+            @command="(v: string) => { xMode = v as typeof xMode.value; redraw() }"
+          >
+            <button type="button" class="dy-picker-btn">
+              <span>{{ modeLabel }}</span>
+              <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="m in MODE_OPTIONS" :key="m.value" :command="m.value">
+                  {{ m.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          </div>
+
+          <el-button class="dy-refresh-btn" :loading="loading" @click="refresh">
+            <ArtSvgIcon v-if="!loading" icon="ri:refresh-line" class="sm:mr-1" />
+            <span class="hidden sm:inline">刷新</span>
+          </el-button>
+        </div>
+
+        <!-- 手机：时间范围单独一行（可横滑） -->
+        <div class="order-3 w-full overflow-x-auto sm:hidden">
+          <div class="dy-seg w-max shrink-0">
             <button
               v-for="r in RANGE_OPTIONS"
               :key="r.value"
@@ -108,23 +166,6 @@
               {{ r.label }}
             </button>
           </div>
-          <div class="dy-seg">
-            <button
-              v-for="m in MODE_OPTIONS"
-              :key="m.value"
-              type="button"
-              class="dy-seg__item"
-              :class="{ 'is-active': xMode === m.value }"
-              @click="xMode = m.value; redraw()"
-            >
-              {{ m.label }}
-            </button>
-          </div>
-
-          <el-button class="dy-refresh-btn !min-w-[80px]" :loading="loading" @click="refresh">
-            <ArtSvgIcon v-if="!loading" icon="ri:refresh-line" class="mr-1" />
-            <span>刷新</span>
-          </el-button>
         </div>
       </div>
     </div>
@@ -988,3 +1029,50 @@ ext`，不能再按当前状态取反一次 ——
     disposeCharts()
   })
 </script>
+
+<style scoped>
+  /*
+   * 移动端：页头压缩成两行
+   *   row1  头像 + 主播名 + 徽标   ……   [选择直播间(仅图标)] [刷新(仅图标)]
+   *   row2  时间范围 + 粒度（一行，放不下就横滑）
+   * 之前是 4 行（身份 / 副标题 / 选择器 / 两组筛选），手机上占掉小半屏。
+   */
+  @media (max-width: 640px) {
+    .dy-trend-head {
+      padding: 12px 14px;
+    }
+
+    .dy-trend-head .dy-seg {
+      height: 30px;
+      padding: 2px;
+    }
+
+    .dy-trend-head .dy-seg__item {
+      height: 26px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
+    .dy-trend-head .dy-picker-btn {
+      height: 30px;
+      padding: 0 8px;
+    }
+
+    /* 刷新按钮在手机上只留图标（文字已隐藏）：收成 40px 方块，样式对齐旁边的 dy-picker-btn */
+    .dy-trend-head .dy-refresh-btn {
+      width: 40px !important;
+      min-width: 40px !important;
+      padding: 0 !important;
+      height: 30px !important;
+      min-height: 30px !important;
+      border: 0;
+      background: var(--art-gray-100, #f4f5f7);
+      color: var(--art-gray-600, #5b6068);
+    }
+
+    .dy-trend-head .dy-refresh-btn:hover {
+      background: var(--theme-color, #3b82f6);
+      color: #fff;
+    }
+  }
+</style>
