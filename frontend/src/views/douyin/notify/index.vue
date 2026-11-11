@@ -77,7 +77,7 @@
             :content="watchNames(row.conditions).join('、')"
             placement="top"
           >
-            <span class="text-xs text-g-700 cursor-help">{{ watchNames(row.conditions).length }} 人</span>
+            <span class="text-xs text-g-700 cursor-help">{{ watchLabelOf(row.conditions) }}</span>
           </el-tooltip>
           <span v-else class="text-xs text-g-500">全部</span>
         </template>
@@ -380,8 +380,19 @@
             </div>
           </el-popover>
         </el-form-item>
+        <el-form-item v-if="ruleForm.event === 'anchor_on_stage'" label="关注方式">
+          <el-radio-group v-model="ruleForm.match_mode">
+            <el-radio value="any">谁上场都提醒</el-radio>
+            <el-radio value="listed">只提醒我选的人</el-radio>
+            <el-radio value="listed_or_new">我选的人 + 新人</el-radio>
+          </el-radio-group>
+          <p class="m-0 mt-1 text-[11px] text-g-400">
+            「新人」= 这条规则保存之后才第一次出现的人（uid 从没记录过），用来兜住流动性大的房间。
+          </p>
+        </el-form-item>
+
         <!-- 只对「主播上场」有意义：不选 = 任何一个主播上场都提醒 -->
-        <el-form-item v-if="ruleForm.event === 'anchor_on_stage'" label="关注的人">
+        <el-form-item v-if="ruleForm.event === 'anchor_on_stage' && ruleForm.match_mode !== 'any'" label="关注的人">
           <el-popover placement="bottom-end" :width="300" trigger="click" popper-class="dy-host-pop">
             <template #reference>
               <button type="button" class="rule-room-btn rule-people-btn">
@@ -872,6 +883,14 @@
     })
   }
 
+  /** 表格「关注的人」列：N 人 / N 人 + 新人 / 全部 */
+  function watchLabelOf(conditions: unknown): string {
+    const count = watchNames(conditions).length
+    if (!count) return '全部'
+    const mode = (conditions as { mode?: string })?.mode
+    return mode === 'listed_or_new' ? `${count} 人 + 新人` : `${count} 人`
+  }
+
   /** 按钮上显示的文案 */
   const watchLabel = computed(() => {
     const uids = ruleForm.value.watch_uids
@@ -893,9 +912,23 @@
      * 存进 conditions.watch_uids，dispatch 按 uid 过滤。
      */
     watch_uids: string[]
+    /**
+     * 关注方式：
+     *   any           这个房间谁上场都提醒
+     *   listed        只提醒名单里的人
+     *   listed_or_new 名单里的人 + 规则保存后新出现的人（兜底防漏）
+     */
+    match_mode: 'any' | 'listed' | 'listed_or_new'
     channel_ids: number[]
     enabled: boolean
-  }>({ event: '', channel_ids: [], room_ids: [], watch_uids: [], enabled: true })
+  }>({
+    event: '',
+    channel_ids: [],
+    room_ids: [],
+    watch_uids: [],
+    match_mode: 'any',
+    enabled: true
+  })
 
   function openRuleDialog(row?: NotifyRule) {
     if (!channels.value.length) {
@@ -911,6 +944,12 @@
           watch_uids: Array.isArray((row.conditions as { watch_uids?: unknown })?.watch_uids)
             ? ((row.conditions as { watch_uids: unknown[] }).watch_uids || []).map(String)
             : [],
+          match_mode:
+            ((row.conditions as { mode?: string })?.mode as 'any' | 'listed' | 'listed_or_new') ||
+            (Array.isArray((row.conditions as { watch_uids?: unknown })?.watch_uids) &&
+            ((row.conditions as { watch_uids: unknown[] }).watch_uids || []).length
+              ? 'listed'
+              : 'any'),
           channel_ids: [...row.channel_ids],
           enabled: !!row.enabled
         }
@@ -918,6 +957,7 @@
           event: events.value[0]?.key || '',
           room_ids: [],
           watch_uids: [],
+          match_mode: 'any',
           channel_ids: [],
           enabled: true
         }
@@ -1003,7 +1043,10 @@
         id: ruleForm.value.id,
         event: ruleForm.value.event,
         room_id: ruleForm.value.room_ids.length ? ruleForm.value.room_ids.join(',') : null,
-        conditions: { watch_uids: ruleForm.value.watch_uids },
+        conditions: {
+          mode: ruleForm.value.match_mode,
+          watch_uids: ruleForm.value.match_mode === 'any' ? [] : ruleForm.value.watch_uids
+        },
         channel_ids: ruleForm.value.channel_ids,
         quiet_hours:
           quietStart.value && quietEnd.value ? { start: quietStart.value, end: quietEnd.value } : null,
