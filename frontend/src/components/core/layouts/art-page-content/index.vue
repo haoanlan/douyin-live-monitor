@@ -26,26 +26,21 @@
     </div>
 
     <RouterView v-if="isRefresh" v-slot="{ Component, route }" :style="contentStyle">
-      <!-- 缓存路由动画 -->
-      <Transition :name="showTransitionMask ? '' : actualTransition" mode="out-in" appear>
-        <KeepAlive :max="10" :exclude="keepAliveExclude">
-          <component
-            class="art-page-view"
-            :is="Component"
-            :key="route.path"
-            v-if="route.meta.keepAlive"
-          />
-        </KeepAlive>
-      </Transition>
+      <!--
+        只用一个 Transition（2026-11-11 修「移动端进场次详情闪帧」）
 
-      <!-- 非缓存路由动画 -->
+        原来是两个 Transition：缓存页一个、非缓存页一个。从"场次历史"（keepAlive）
+        进"场次详情"（非 keepAlive）时**两个容器同时在渲染**，而 mode="out-in"
+        只对自己容器内的元素生效 —— 于是旧页（1756px）和新页（876px）同时留在文档流里，
+        文档高度到 2736px，移动端就会看到一帧明显的跳动/闪白。
+
+        合成一个 Transition 后，out-in 对整棵子树生效：旧页走完 → 新页才进场，
+        任何时刻只有一页在文档流里。KeepAlive 保留（用 exclude 排除不该缓存的页面）。
+      -->
       <Transition :name="showTransitionMask ? '' : actualTransition" mode="out-in" appear>
-        <component
-          class="art-page-view"
-          :is="Component"
-          :key="route.path"
-          v-if="!route.meta.keepAlive"
-        />
+        <KeepAlive :max="10" :exclude="pageKeepAliveExclude">
+          <component class="art-page-view" :is="Component" :key="route.path" />
+        </KeepAlive>
       </Transition>
     </RouterView>
 
@@ -71,6 +66,18 @@
   const { containerMinHeight } = useAutoLayoutHeight()
   const { pageTransition, containerWidth, refresh } = storeToRefs(useSettingStore())
   const { keepAliveExclude } = storeToRefs(useWorktabStore())
+
+  /**
+   * 不允许被 KeepAlive 缓存的页面（参数型详情页）。
+   *
+   * KeepAlive 的 include/exclude 按**组件 name** 匹配：
+   *   · 场次详情 DouyinDetail —— 每场数据都在变，缓存没意义，还会让轮询停不下来
+   *   · 用户画像 DouyinProfile
+   * 这两个页面路由里本来就没写 keepAlive，这里显式排除，
+   * 保证合成单一 Transition 后它们仍是"每次进都重新挂载"。
+   */
+  const NON_CACHED_PAGE_NAMES = ['DouyinDetail', 'DouyinProfile']
+  const pageKeepAliveExclude = computed(() => [...keepAliveExclude.value, ...NON_CACHED_PAGE_NAMES])
 
   const isRefresh = shallowRef(true)
   const isOpenRouteInfo = import.meta.env.VITE_OPEN_ROUTE_INFO
