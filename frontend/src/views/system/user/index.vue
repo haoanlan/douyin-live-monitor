@@ -189,9 +189,10 @@
           prop: 'operation',
           label: '操作',
           width: 160,
+          align: 'right',
           fixed: 'right', // 固定列
           formatter: (row) =>
-            h('div', { class: 'flex-c gap-1' }, [
+            h('div', { class: 'flex-c justify-end gap-1' }, [
               h(ArtButtonTable, { type: 'edit', onClick: () => showDialog('edit', row) }),
               h(ArtButtonTable, {
                 icon: 'ri:lock-password-line',

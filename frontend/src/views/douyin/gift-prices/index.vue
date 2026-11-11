@@ -352,13 +352,13 @@ const columns = computed<ColumnOption[]>(() =>
     ? [
         { prop: 'gift_name', label: '礼物', minWidth: 130, useSlot: true, slotName: 'gift_name' },
         { prop: 'price', label: '单价', width: 100, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '', width: 96, align: 'right', useSlot: true, slotName: 'actions' }
+        { prop: 'actions', label: '操作', width: 96, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
     : [
         { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
         { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
         { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '操作', width: 140, align: 'right', useSlot: true, slotName: 'actions' }
+        { prop: 'actions', label: '操作', width: 140, align: 'right', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
 

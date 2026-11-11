@@ -45,12 +45,12 @@
             {{ currentHosts.length }}
           </el-avatar>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-1.5">
-              <h4 class="m-0 truncate text-base font-semibold text-g-900">
+            <div class="flex min-w-0 items-center gap-1.5">
+              <h4 class="m-0 min-w-0 flex-1 truncate text-base font-semibold text-g-900">
                 {{ currentHosts.length === 1 ? currentHosts[0]?.name : '已选 ' + currentHosts.length + ' 个直播间' }}
               </h4>
               <!-- 手机上"近 30 天 · 按日 · 33 场"已由下方「数据统计范围」说明，这里只在 ≥sm 显示 -->
-              <span class="hidden rounded bg-g-100 px-1.5 py-0.5 text-[10px] text-g-500 sm:inline-block">
+              <span class="hidden shrink-0 rounded bg-g-100 px-1.5 py-0.5 text-[10px] text-g-500 sm:inline-block">
                 {{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场
               </span>
             </div>
@@ -259,9 +259,18 @@
       <!-- 全局 KPI 行（聚合所有已选房间）：钻石 / 送礼用户 / 弹幕 / 时长 / 钻时 / Top10 占比。
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
       <!-- 明确写一句：下面这些数字统计的是谁 -->
-      <div class="mb-2 flex items-center gap-1.5 text-[11px] text-g-400">
-        <ArtSvgIcon icon="ri:information-line" />
-        以下数据统计范围：<b class="text-g-600">{{ scopeLabel }}</b> · {{ rangeLabel }} · {{ modeLabel }}口径
+      <!--
+        统计范围：原来是一整句「以下数据统计范围：<主播们> · 近 30 天 · 按日口径」，
+        名字一长就在手机上折成两行、断句还很难看（截图反馈）。
+        现在拆成「固定部分 + 可省略的名字」：口径在前且不换行，名字单行省略、悬停看全。
+      -->
+      <div class="mb-2 flex min-w-0 items-center gap-1.5 text-[11px] text-g-400">
+        <ArtSvgIcon icon="ri:information-line" class="shrink-0" />
+        <span class="shrink-0">{{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场</span>
+        <span class="shrink-0 text-g-300">|</span>
+        <el-tooltip :content="scopeLabel" placement="top" :show-after="300">
+          <b class="min-w-0 truncate font-normal text-g-600 cursor-help">{{ scopeLabel }}</b>
+        </el-tooltip>
       </div>
       <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">

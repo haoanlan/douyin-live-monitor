@@ -154,10 +154,11 @@
         {
           prop: 'operation',
           label: '操作',
-          width: 80,
+          width: 100,
+          align: 'right',
           fixed: 'right',
           formatter: (row) =>
-            h('div', [
+            h('div', { class: 'flex-c justify-end' }, [
               h(ArtButtonMore, {
                 list: [
                   {

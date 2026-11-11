@@ -198,8 +198,9 @@
       label: '操作',
       width: 180,
       align: 'right',
+      fixed: 'right', // 移动端横向滚动时操作列钉在右边
       formatter: (row: AppRouteRecord) => {
-        const buttonStyle = { style: 'text-align: right' }
+        const buttonStyle = { class: 'flex-c justify-end gap-1' }
 
         if (row.meta?.isAuthButton) {
           return h('div', buttonStyle, [

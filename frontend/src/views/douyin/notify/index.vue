@@ -48,12 +48,44 @@
         row-key="id"
         empty-text="还没有规则，先建一条"
       >
+        <template #room="{ row }">
+          <span class="block truncate text-xs text-g-600" :title="roomName(row.room_id)">
+            {{ roomName(row.room_id) }}
+          </span>
+        </template>
         <template #event="{ row }">
-          <span class="text-sm text-g-800">{{ eventLabel(row.event) }}</span>
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm text-g-800" :title="eventLabel(row.event)">
+                {{ eventLabel(row.event) }}
+              </span>
+              <span v-if="isMobile" class="block truncate text-[10px] text-g-400">
+                {{ roomName(row.room_id) }}
+              </span>
+            </span>
+            <!-- 手机上「状态」列被去掉（宽度不够），开关放在这里 -->
+            <el-switch
+              v-if="isMobile"
+              :model-value="!!row.enabled"
+              :disabled="!can('notify.manage')"
+              size="small"
+              class="shrink-0"
+              @change="(v: any) => toggleRule(row as NotifyRule, !!v)"
+            />
+          </div>
         </template>
         <template #channels="{ row }">
-          <span v-if="!row.channel_ids.length" class="text-xs text-danger">未配置</span>
-          <span v-for="cid in row.channel_ids" :key="cid" class="dy-chip">{{ channelName(cid) }}</span>
+          <div class="flex min-w-0 flex-wrap items-center gap-1">
+            <span v-if="!row.channel_ids.length" class="text-xs text-danger">未配置</span>
+            <span
+              v-for="cid in row.channel_ids"
+              :key="cid"
+              class="dy-chip max-w-full truncate"
+              :title="channelName(cid)"
+            >
+              {{ channelName(cid) }}
+            </span>
+          </div>
         </template>
         <template #quiet="{ row }">
           <span class="text-xs text-g-500">
@@ -289,7 +321,7 @@
         <el-button link @click="frameHelpVisible = true">外部采集接入说明</el-button>
       </div>
 
-      <el-dialog v-model="frameHelpVisible" title="外部采集接入说明" width="620">
+      <el-dialog v-model="frameHelpVisible" title="外部采集接入说明" :width="isMobile ? '92%' : '620px'">
         <p class="m-0 mb-2 text-xs text-g-600">
           人脸识别消息（OnCamRecognition）在 Go 代理里没有 proto 定义，需要外部采集进程解码后提交到这个接口：
         </p>
@@ -310,8 +342,8 @@
     </template>
 
     <!-- ============ 规则弹窗 ============ -->
-    <el-dialog v-model="ruleDialogVisible" :title="ruleForm.id ? '编辑规则' : '新建规则'" width="520">
-      <el-form label-width="88px" label-position="left">
+    <el-dialog v-model="ruleDialogVisible" :title="ruleForm.id ? '编辑规则' : '新建规则'" :width="isMobile ? '92%' : '520px'">
+      <el-form :label-width="isMobile ? '68px' : '88px'" label-position="left">
         <el-form-item label="事件">
           <el-select v-model="ruleForm.event" placeholder="选择事件" class="w-full">
             <el-option-group v-for="g in eventGroups" :key="g.name" :label="g.name">
@@ -319,17 +351,36 @@
             </el-option-group>
           </el-select>
         </el-form-item>
+        <el-form-item label="直播间">
+          <el-select v-model="ruleForm.room_id" placeholder="全部直播间" class="w-full" clearable>
+            <el-option label="全部直播间" value="" />
+            <el-option
+              v-for="r in roomOptions"
+              :key="r.room_id"
+              :label="r.name"
+              :value="r.room_id"
+            />
+          </el-select>
+          <p class="m-0 mt-1 text-[11px] text-g-400">只通知指定直播间；留空＝所有直播间都通知</p>
+        </el-form-item>
         <el-form-item label="推送渠道">
           <el-select v-model="ruleForm.channel_ids" multiple placeholder="至少选一个" class="w-full">
             <el-option v-for="c in channels" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="免打扰">
-          <div class="flex items-center gap-2">
-            <el-time-select v-model="quietStart" start="00:00" step="00:30" end="23:30" placeholder="开始" style="width: 110px" />
-            <span class="text-xs text-g-400">至</span>
-            <el-time-select v-model="quietEnd" start="00:00" step="00:30" end="23:30" placeholder="结束" style="width: 110px" />
-            <el-button link @click="clearQuiet">清除</el-button>
+          <div class="flex w-full items-center gap-2">
+            <el-time-picker
+              v-model="quietRange"
+              is-range
+              format="HH:mm"
+              value-format="HH:mm"
+              range-separator="至"
+              start-placeholder="开始"
+              end-placeholder="结束"
+              class="min-w-0 flex-1"
+            />
+            <el-button link class="shrink-0" @click="clearQuiet">清除</el-button>
           </div>
         </el-form-item>
         <el-form-item label="启用">
@@ -343,7 +394,7 @@
     </el-dialog>
 
     <!-- ============ 渠道弹窗 ============ -->
-    <el-dialog v-model="channelDialogVisible" :title="channelForm.id ? '编辑渠道' : '新增渠道'" width="520">
+    <el-dialog v-model="channelDialogVisible" :title="channelForm.id ? '编辑渠道' : '新增渠道'" :width="isMobile ? '92%' : '520px'">
       <el-form label-width="88px" label-position="left">
         <el-form-item label="类型">
           <el-select v-model="channelForm.type" class="w-full">
@@ -407,11 +458,13 @@
   } from '@/api/upstage'
   import { fetchRooms } from '@/api/douyin'
   import { usePermissionStore } from '@/store/modules/permission'
+  import { useIsMobile } from '@/hooks/core/useIsMobile'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtTime } from '@/utils/format'
 
   defineOptions({ name: 'DouyinNotify' })
 
+  const { isMobile } = useIsMobile()
   const permissionStore = usePermissionStore()
   const can = (key: string) => permissionStore.hasPerm(key)
 
@@ -445,19 +498,33 @@
   const logStatus = ref('')
 
   /* ---------------- 列定义（高级表格） ---------------- */
-  const ruleColumns: ColumnOption[] = [
-    { prop: 'event', label: '事件', width: 160, useSlot: true, slotName: 'event' },
-    { prop: 'channels', label: '推送渠道', useSlot: true, slotName: 'channels' },
-    { prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' },
-    { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
+  /*
+   * 列按屏幕宽度分两套：手机上一屏只有 ~350px，塞「事件 + 渠道 + 免打扰 + 状态 + 操作」
+   * 会把「推送渠道」表头挤成竖排（截图反馈）。手机上只留 事件 / 渠道 / 状态 / 操作，
+   * 免打扰在手机上去掉（改规则时仍能看到）。
+   */
+  const ruleColumns = computed<ColumnOption[]>(() => [
+    { prop: 'event', label: '事件', width: isMobile.value ? undefined : 160, minWidth: isMobile.value ? 130 : undefined, useSlot: true, slotName: 'event' },
+    // 手机上没有「直播间」列，房间名跟在事件下面（见 #event 插槽）
+    ...(isMobile.value
+      ? []
+      : [{ prop: 'room_id', label: '直播间', width: 120, useSlot: true, slotName: 'room' } as ColumnOption]),
+    { prop: 'channels', label: '推送渠道', width: isMobile.value ? 100 : undefined, minWidth: isMobile.value ? undefined : 180, useSlot: true, slotName: 'channels' },
+    ...(isMobile.value
+      ? []
+      : [{ prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' } as ColumnOption]),
+    // 手机上没有「状态」列 —— 开关挪进事件单元格（见 #event 插槽），否则固定右列会盖住开关
+    ...(isMobile.value
+      ? []
+      : [{ prop: 'enabled', label: '状态', width: 72, align: 'center', useSlot: true, slotName: 'enabled' } as ColumnOption]),
     {
       // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
       prop: 'operation',
       label: '操作',
-      width: 120,
+      width: isMobile.value ? 92 : 120,
       fixed: 'right',
       formatter: (row: NotifyRule) =>
-        h('div', { class: 'flex-c gap-1' }, [
+        h('div', { class: 'flex-c justify-end gap-1' }, [
           ...(can('notify.manage')
             ? [
                 h(ArtButtonTable, { type: 'edit', onClick: () => openRuleDialog(row) }),
@@ -466,18 +533,22 @@
             : [])
         ])
     }
-  ]
+  ])
 
   /*
    * 列宽要能"收"：之前地址列 minWidth 280 + 其余固定宽度，加起来超过表格容器宽度，
    * 最后一列（操作）就压到卡片右边框上（截图里三个图标正好压在竖线上）。
    * 现在只给必要列固定宽度，地址列自适应。
    */
-  const channelColumns: ColumnOption[] = [
-    { prop: 'name', label: '名称', minWidth: 150, useSlot: true, slotName: 'name' },
-    { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' },
-    { prop: 'url', label: '地址', useSlot: true, slotName: 'url' },
-    { prop: 'enabled', label: '状态', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
+  const channelColumns = computed<ColumnOption[]>(() => [
+    { prop: 'name', label: '名称', minWidth: isMobile.value ? 120 : 150, useSlot: true, slotName: 'name' },
+    ...(isMobile.value
+      ? []
+      : [
+          { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' } as ColumnOption,
+          { prop: 'url', label: '地址', useSlot: true, slotName: 'url' } as ColumnOption
+        ]),
+    { prop: 'enabled', label: '状态', width: 72, align: 'center', useSlot: true, slotName: 'enabled' },
     {
       // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
       prop: 'operation',
@@ -485,7 +556,7 @@
       width: 160,
       fixed: 'right',
       formatter: (row: NotifyChannel) =>
-        h('div', { class: 'flex-c gap-1' }, [
+        h('div', { class: 'flex-c justify-end gap-1' }, [
           ...(can('notify.test')
             ? [
                 h(ArtButtonTable, {
@@ -503,15 +574,19 @@
             : [])
         ])
     }
-  ]
+  ])
 
-  const logColumns: ColumnOption[] = [
-    { prop: 'created_at', label: '时间', width: 180, useSlot: true, slotName: 'created_at' },
-    { prop: 'event', label: '事件', width: 140, useSlot: true, slotName: 'event' },
-    { prop: 'channel_name', label: '渠道', minWidth: 140 },
-    { prop: 'status', label: '状态', width: 90, useSlot: true, slotName: 'status' },
-    { prop: 'error', label: '失败原因', minWidth: 220, useSlot: true, slotName: 'error' }
-  ]
+  const logColumns = computed<ColumnOption[]>(() => [
+    { prop: 'created_at', label: '时间', width: isMobile.value ? 118 : 180, useSlot: true, slotName: 'created_at' },
+    { prop: 'event', label: '事件', width: isMobile.value ? 92 : 140, useSlot: true, slotName: 'event' },
+    ...(isMobile.value
+      ? []
+      : [
+          { prop: 'channel_name', label: '渠道', minWidth: 140 } as ColumnOption,
+          { prop: 'error', label: '失败原因', minWidth: 220, useSlot: true, slotName: 'error' } as ColumnOption
+        ]),
+    { prop: 'status', label: '状态', width: 84, useSlot: true, slotName: 'status' }
+  ])
 
   const watchColumns: ColumnOption[] = [
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
@@ -523,7 +598,7 @@
       width: 90,
       fixed: 'right',
       formatter: (row: UpstageWatch) =>
-        h('div', { class: 'flex-c gap-1' }, [
+        h('div', { class: 'flex-c justify-end gap-1' }, [
           ...(can('upstage.manage')
             ? [h(ArtButtonTable, { type: 'delete', onClick: () => removeWatch(row) })]
             : [])
@@ -673,12 +748,27 @@
   const ruleDialogVisible = ref(false)
   const quietStart = ref('')
   const quietEnd = ref('')
+
+  /**
+   * 免打扰用一个「时间段选择器」（el-time-picker is-range）编辑，
+   * 内部仍然存 start/end 两个字段（后端 quiet_hours 的格式）。
+   */
+  const quietRange = computed({
+    get: (): [string, string] | null =>
+      quietStart.value && quietEnd.value ? [quietStart.value, quietEnd.value] : null,
+    set: (v: [string, string] | null) => {
+      quietStart.value = v?.[0] || ''
+      quietEnd.value = v?.[1] || ''
+    }
+  })
   const ruleForm = ref<{
     id?: number
     event: string
+    /** 空 = 所有直播间；否则只对这个房间生效（room_id 即 web_rid，和 dispatch 过滤用的是同一个） */
+    room_id?: string
     channel_ids: number[]
     enabled: boolean
-  }>({ event: '', channel_ids: [], enabled: true })
+  }>({ event: '', channel_ids: [], room_id: '', enabled: true })
 
   function openRuleDialog(row?: NotifyRule) {
     if (!channels.value.length) {
@@ -687,11 +777,24 @@
       return
     }
     ruleForm.value = row
-      ? { id: row.id, event: row.event, channel_ids: [...row.channel_ids], enabled: !!row.enabled }
-      : { event: events.value[0]?.key || '', channel_ids: [], enabled: true }
+      ? {
+          id: row.id,
+          event: row.event,
+          room_id: row.room_id || '',
+          channel_ids: [...row.channel_ids],
+          enabled: !!row.enabled
+        }
+      : { event: events.value[0]?.key || '', room_id: '', channel_ids: [], enabled: true }
     quietStart.value = row?.quiet_hours?.start || ''
     quietEnd.value = row?.quiet_hours?.end || ''
     ruleDialogVisible.value = true
+  }
+
+  /** 规则上的 room_id → 直播间名（空 = 全部直播间） */
+  function roomName(id?: string | null) {
+    if (!id) return '全部直播间'
+    const hit = roomOptions.value.find((r) => r.room_id === String(id))
+    return hit?.name || String(id)
   }
 
   function clearQuiet() {
@@ -707,6 +810,7 @@
       const r = await saveNotifyRule({
         id: ruleForm.value.id,
         event: ruleForm.value.event,
+        room_id: ruleForm.value.room_id || null,
         channel_ids: ruleForm.value.channel_ids,
         quiet_hours:
           quietStart.value && quietEnd.value ? { start: quietStart.value, end: quietEnd.value } : null,
@@ -727,6 +831,7 @@
       const r = await saveNotifyRule({
         id: row.id,
         event: row.event,
+        room_id: row.room_id || null,
         channel_ids: row.channel_ids,
         conditions: row.conditions,
         quiet_hours: row.quiet_hours,
