@@ -68,12 +68,6 @@
             @change="(v: any) => toggleRule(row as NotifyRule, !!v)"
           />
         </template>
-        <template #actions="{ row }">
-          <div class="flex items-center justify-end gap-1 pr-2">
-            <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openRuleDialog(row as NotifyRule)" />
-            <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeRule(row as NotifyRule)" />
-          </div>
-        </template>
       </ArtTable>
     </ElCard>
 
@@ -116,22 +110,6 @@
             size="small"
             @change="(v: any) => toggleChannel(row as NotifyChannel, !!v)"
           />
-        </template>
-        <template #actions="{ row }">
-          <div class="flex items-center justify-end gap-1 pr-2">
-            <button
-              v-if="can('notify.test')"
-              type="button"
-              class="dy-act-btn"
-              title="测试发送"
-              :disabled="testingId === row.id"
-              @click="testChannel(row as NotifyChannel)"
-            >
-              <ArtSvgIcon icon="ri:send-plane-line" />
-            </button>
-            <ArtButtonTable v-if="can('notify.manage')" type="edit" @click="openChannelDialog(row as NotifyChannel)" />
-            <ArtButtonTable v-if="can('notify.manage')" type="delete" @click="removeChannel(row as NotifyChannel)" />
-          </div>
         </template>
       </ArtTable>
     </ElCard>
@@ -271,9 +249,6 @@
                 size="small"
                 @change="(v: any) => toggleWatch(row as UpstageWatch, !!v)"
               />
-            </template>
-            <template #actions="{ row }">
-              <ArtButtonTable v-if="can('upstage.manage')" type="delete" @click="removeWatch(row as UpstageWatch)" />
             </template>
           </ArtTable>
         </ElCard>
