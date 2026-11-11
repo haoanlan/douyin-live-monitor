@@ -344,7 +344,7 @@
         <el-form-item label="直播间">
           <el-popover placement="bottom-end" :width="280" trigger="click" popper-class="dy-host-pop">
             <template #reference>
-              <button type="button" class="dy-picker-btn w-full">
+              <button type="button" class="rule-room-btn">
                 <ArtSvgIcon icon="ri:live-line" />
                 <span class="min-w-0 flex-1 truncate text-left">{{ ruleRoomLabel }}</span>
                 <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
@@ -1058,6 +1058,31 @@
 </script>
 
 <style scoped>
+  /*
+   * 规则弹窗里的「直播间」按钮：外观对齐上面的 el-select（不是 chip 样式）。
+   * 数值来自实测 el-select__wrapper：高 36px、圆角 6px、1px inset 阴影当边框、白底、字号 14px。
+   */
+  .rule-room-btn {
+    display: flex;
+    width: 100%;
+    height: 36px;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--el-fill-color-blank, #fff);
+    box-shadow: 0 0 0 1px var(--el-border-color, #dcdfe6) inset;
+    font-size: 14px;
+    color: var(--el-text-color-regular, #606266);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .rule-room-btn:hover {
+    box-shadow: 0 0 0 1px var(--el-border-color-hover, #c0c4cc) inset;
+  }
+
   .dy-chip {
     display: inline-block;
     margin-right: 4px;
