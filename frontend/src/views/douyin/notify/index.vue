@@ -54,25 +54,9 @@
           </span>
         </template>
         <template #event="{ row }">
-          <div class="flex min-w-0 items-center gap-2">
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm text-g-800" :title="eventLabel(row.event)">
-                {{ eventLabel(row.event) }}
-              </span>
-              <span v-if="isMobile" class="block truncate text-[10px] text-g-400">
-                {{ roomName(row.room_id) }}
-              </span>
-            </span>
-            <!-- 手机上「状态」列被去掉（宽度不够），开关放在这里 -->
-            <el-switch
-              v-if="isMobile"
-              :model-value="!!row.enabled"
-              :disabled="!can('notify.manage')"
-              size="small"
-              class="shrink-0"
-              @change="(v: any) => toggleRule(row as NotifyRule, !!v)"
-            />
-          </div>
+          <span class="block truncate text-sm text-g-800" :title="eventLabel(row.event)">
+            {{ eventLabel(row.event) }}
+          </span>
         </template>
         <template #channels="{ row }">
           <div class="flex min-w-0 flex-wrap items-center gap-1">
@@ -517,26 +501,21 @@
    * 会把「推送渠道」表头挤成竖排（截图反馈）。手机上只留 事件 / 渠道 / 状态 / 操作，
    * 免打扰在手机上去掉（改规则时仍能看到）。
    */
-  const ruleColumns = computed<ColumnOption[]>(() => [
-    { prop: 'event', label: '事件', width: isMobile.value ? undefined : 160, minWidth: isMobile.value ? 130 : undefined, useSlot: true, slotName: 'event' },
-    // 手机上没有「直播间」列，房间名跟在事件下面（见 #event 插槽）
-    ...(isMobile.value
-      ? []
-      : [{ prop: 'room_id', label: '直播间', width: 120, useSlot: true, slotName: 'room' } as ColumnOption]),
-    { prop: 'channels', label: '推送渠道', width: isMobile.value ? 100 : undefined, minWidth: isMobile.value ? undefined : 180, useSlot: true, slotName: 'channels' },
-    ...(isMobile.value
-      ? []
-      : [{ prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' } as ColumnOption]),
-    // 手机上没有「状态」列 —— 开关挪进事件单元格（见 #event 插槽），否则固定右列会盖住开关
-    ...(isMobile.value
-      ? []
-      : [{ prop: 'enabled', label: '状态', width: 72, align: 'left', useSlot: true, slotName: 'enabled' } as ColumnOption]),
+  /*
+   * 规则表：列不再按屏幕宽度删减（手机上横向滚动，操作列固定右侧）。
+   * 之前为了挤进 350px 删了「直播间 / 免打扰 / 状态」，反而看不见自己配了什么。
+   */
+  const ruleColumns: ColumnOption[] = [
+    { prop: 'event', label: '事件', width: 150, useSlot: true, slotName: 'event' },
+    { prop: 'room_id', label: '直播间', width: 150, useSlot: true, slotName: 'room' },
+    { prop: 'channels', label: '推送渠道', minWidth: 180, useSlot: true, slotName: 'channels' },
+    { prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' },
+    { prop: 'enabled', label: '状态', width: 80, align: 'left', useSlot: true, slotName: 'enabled' },
     {
-      // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
       prop: 'operation',
       label: '操作',
       align: 'left',
-      width: isMobile.value ? 92 : 120,
+      width: 120,
       fixed: 'right',
       formatter: (row: NotifyRule) =>
         h('div', { style: 'display:flex;align-items:center;justify-content:flex-start;gap:4px;width:100%' }, [
@@ -548,24 +527,19 @@
             : [])
         ])
     }
-  ])
+  ]
 
   /*
    * 列宽要能"收"：之前地址列 minWidth 280 + 其余固定宽度，加起来超过表格容器宽度，
    * 最后一列（操作）就压到卡片右边框上（截图里三个图标正好压在竖线上）。
    * 现在只给必要列固定宽度，地址列自适应。
    */
-  const channelColumns = computed<ColumnOption[]>(() => [
-    { prop: 'name', label: '名称', minWidth: isMobile.value ? 120 : 150, useSlot: true, slotName: 'name' },
-    ...(isMobile.value
-      ? []
-      : [
-          { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' } as ColumnOption,
-          { prop: 'url', label: '地址', useSlot: true, slotName: 'url' } as ColumnOption
-        ]),
-    { prop: 'enabled', label: '状态', width: 72, align: 'left', useSlot: true, slotName: 'enabled' },
+  const channelColumns: ColumnOption[] = [
+    { prop: 'name', label: '名称', minWidth: 150, useSlot: true, slotName: 'name' },
+    { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' },
+    { prop: 'url', label: '地址', minWidth: 240, useSlot: true, slotName: 'url' },
+    { prop: 'enabled', label: '状态', width: 80, align: 'left', useSlot: true, slotName: 'enabled' },
     {
-      // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
       prop: 'operation',
       label: '操作',
       align: 'left',
@@ -590,19 +564,15 @@
             : [])
         ])
     }
-  ])
+  ]
 
-  /*
-   * 发送记录：只留 时间 / 事件 / 渠道 / 状态。
-   * 「失败原因」原来单独一列 260px，把别的列挤得很窄，而且绝大多数行是「—」；
-   * 现在失败原因挂在「状态」标签的 tooltip 上（鼠标停上去就能看完整报错）。
-   */
-  const logColumns = computed<ColumnOption[]>(() => [
-    { prop: 'created_at', label: '时间', width: isMobile.value ? 118 : 176, useSlot: true, slotName: 'created_at' },
-    { prop: 'event', label: '事件', width: isMobile.value ? 92 : 130, useSlot: true, slotName: 'event' },
-    ...(isMobile.value ? [] : [{ prop: 'channel_name', label: '渠道', minWidth: 180 } as ColumnOption]),
-    { prop: 'status', label: '状态', width: 92, align: 'left', useSlot: true, slotName: 'status' }
-  ])
+  const logColumns: ColumnOption[] = [
+    { prop: 'created_at', label: '时间', width: 180, useSlot: true, slotName: 'created_at' },
+    { prop: 'event', label: '事件', width: 140, useSlot: true, slotName: 'event' },
+    { prop: 'channel_name', label: '渠道', minWidth: 160 },
+    { prop: 'status', label: '状态', width: 90, align: 'left', useSlot: true, slotName: 'status' },
+    { prop: 'error', label: '失败原因', minWidth: 260, useSlot: true, slotName: 'error' }
+  ]
 
   const watchColumns: ColumnOption[] = [
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },

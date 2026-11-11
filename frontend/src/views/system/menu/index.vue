@@ -151,12 +151,13 @@
     {
       prop: 'meta.title',
       label: '菜单名称',
-      minWidth: 120,
+      minWidth: 200,
       formatter: (row: AppRouteRecord) => formatMenuTitle(row.meta?.title)
     },
     {
       prop: 'type',
       label: '菜单类型',
+      width: 90,
       formatter: (row: AppRouteRecord) => {
         return h(ElTag, { type: getMenuTypeTag(row) }, () => getMenuTypeText(row))
       }
@@ -164,6 +165,7 @@
     {
       prop: 'path',
       label: '路由',
+      minWidth: 180,
       formatter: (row: AppRouteRecord) => {
         if (row.meta?.isAuthButton) return ''
         return row.meta?.link || row.path || ''
@@ -172,6 +174,7 @@
     {
       prop: 'meta.authList',
       label: '权限标识',
+      minWidth: 150,
       formatter: (row: AppRouteRecord) => {
         if (row.meta?.isAuthButton) {
           return row.meta?.authMark || ''
@@ -183,11 +186,13 @@
     {
       prop: 'date',
       label: '编辑时间',
+      width: 170,
       formatter: (row: AppRouteRecord) => (row.meta as any)?.updatedAt || '—'
     },
     {
       prop: 'status',
       label: '状态',
+      width: 90,
       formatter: (row: AppRouteRecord) =>
         h(ElTag, { type: (row.meta as any)?.visible === false ? 'info' : 'success' }, () =>
           (row.meta as any)?.visible === false ? '停用' : '启用'
