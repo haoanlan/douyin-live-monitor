@@ -185,9 +185,15 @@
           <span class="text-sm text-g-800">{{ eventLabel(row.event) }}</span>
         </template>
         <template #status="{ row }">
-          <el-tag :type="row.status === 'sent' ? 'success' : row.status === 'skipped' ? 'warning' : 'danger'" size="small" effect="light">
-            {{ row.status === 'sent' ? '成功' : row.status === 'skipped' ? '跳过' : '失败' }}
-          </el-tag>
+          <el-tooltip :content="row.error || '没有报错'" placement="top" :show-after="200">
+            <el-tag
+              :type="row.status === 'sent' ? 'success' : row.status === 'skipped' ? 'warning' : 'danger'"
+              size="small"
+              effect="light"
+            >
+              {{ row.status === 'sent' ? '成功' : row.status === 'skipped' ? '跳过' : '失败' }}
+            </el-tag>
+          </el-tooltip>
         </template>
         <template #error="{ row }">
           <span class="text-xs" :class="row.error ? 'text-danger' : 'text-g-400'">{{ row.error || '—' }}</span>
@@ -352,8 +358,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="直播间">
-          <el-select v-model="ruleForm.room_id" placeholder="全部直播间" class="w-full" clearable>
-            <el-option label="全部直播间" value="" />
+          <el-select
+            v-model="ruleForm.room_ids"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            placeholder="全部直播间"
+            class="w-full"
+          >
             <el-option
               v-for="r in roomOptions"
               :key="r.room_id"
@@ -361,7 +373,9 @@
               :value="r.room_id"
             />
           </el-select>
-          <p class="m-0 mt-1 text-[11px] text-g-400">只通知指定直播间；留空＝所有直播间都通知</p>
+          <p class="m-0 mt-1 text-[11px] text-g-400">
+            可多选；一个都不选＝所有直播间。不想通知某个房间，就只勾其它的。
+          </p>
         </el-form-item>
         <el-form-item label="推送渠道">
           <el-select v-model="ruleForm.channel_ids" multiple placeholder="至少选一个" class="w-full">
@@ -521,10 +535,11 @@
       // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
       prop: 'operation',
       label: '操作',
+      align: 'right',
       width: isMobile.value ? 92 : 120,
       fixed: 'right',
       formatter: (row: NotifyRule) =>
-        h('div', { class: 'flex-c justify-end gap-1' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
           ...(can('notify.manage')
             ? [
                 h(ArtButtonTable, { type: 'edit', onClick: () => openRuleDialog(row) }),
@@ -553,10 +568,11 @@
       // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
       prop: 'operation',
       label: '操作',
+      align: 'right',
       width: 160,
       fixed: 'right',
       formatter: (row: NotifyChannel) =>
-        h('div', { class: 'flex-c justify-end gap-1' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
           ...(can('notify.test')
             ? [
                 h(ArtButtonTable, {
@@ -576,16 +592,16 @@
     }
   ])
 
+  /*
+   * 发送记录：只留 时间 / 事件 / 渠道 / 状态。
+   * 「失败原因」原来单独一列 260px，把别的列挤得很窄，而且绝大多数行是「—」；
+   * 现在失败原因挂在「状态」标签的 tooltip 上（鼠标停上去就能看完整报错）。
+   */
   const logColumns = computed<ColumnOption[]>(() => [
-    { prop: 'created_at', label: '时间', width: isMobile.value ? 118 : 180, useSlot: true, slotName: 'created_at' },
-    { prop: 'event', label: '事件', width: isMobile.value ? 92 : 140, useSlot: true, slotName: 'event' },
-    ...(isMobile.value
-      ? []
-      : [
-          { prop: 'channel_name', label: '渠道', minWidth: 140 } as ColumnOption,
-          { prop: 'error', label: '失败原因', minWidth: 220, useSlot: true, slotName: 'error' } as ColumnOption
-        ]),
-    { prop: 'status', label: '状态', width: 84, useSlot: true, slotName: 'status' }
+    { prop: 'created_at', label: '时间', width: isMobile.value ? 118 : 176, useSlot: true, slotName: 'created_at' },
+    { prop: 'event', label: '事件', width: isMobile.value ? 92 : 130, useSlot: true, slotName: 'event' },
+    ...(isMobile.value ? [] : [{ prop: 'channel_name', label: '渠道', minWidth: 180 } as ColumnOption]),
+    { prop: 'status', label: '状态', width: 92, align: 'center', useSlot: true, slotName: 'status' }
   ])
 
   const watchColumns: ColumnOption[] = [
@@ -595,10 +611,11 @@
     {
       prop: 'operation',
       label: '操作',
+      align: 'right',
       width: 90,
       fixed: 'right',
       formatter: (row: UpstageWatch) =>
-        h('div', { class: 'flex-c justify-end gap-1' }, [
+        h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
           ...(can('upstage.manage')
             ? [h(ArtButtonTable, { type: 'delete', onClick: () => removeWatch(row) })]
             : [])
@@ -764,11 +781,14 @@
   const ruleForm = ref<{
     id?: number
     event: string
-    /** 空 = 所有直播间；否则只对这个房间生效（room_id 即 web_rid，和 dispatch 过滤用的是同一个） */
-    room_id?: string
+    /**
+     * 空数组 = 所有直播间；否则只对选中的这几个生效。
+     * 存库时拼成逗号串写进 notify_rules.room_id（room_id 即 web_rid，和 dispatch 过滤用的是同一个）。
+     */
+    room_ids: string[]
     channel_ids: number[]
     enabled: boolean
-  }>({ event: '', channel_ids: [], room_id: '', enabled: true })
+  }>({ event: '', channel_ids: [], room_ids: [], enabled: true })
 
   function openRuleDialog(row?: NotifyRule) {
     if (!channels.value.length) {
@@ -780,11 +800,11 @@
       ? {
           id: row.id,
           event: row.event,
-          room_id: row.room_id || '',
+          room_ids: row.room_id ? String(row.room_id).split(',').filter(Boolean) : [],
           channel_ids: [...row.channel_ids],
           enabled: !!row.enabled
         }
-      : { event: events.value[0]?.key || '', room_id: '', channel_ids: [], enabled: true }
+      : { event: events.value[0]?.key || '', room_ids: [], channel_ids: [], enabled: true }
     quietStart.value = row?.quiet_hours?.start || ''
     quietEnd.value = row?.quiet_hours?.end || ''
     ruleDialogVisible.value = true
@@ -793,8 +813,11 @@
   /** 规则上的 room_id → 直播间名（空 = 全部直播间） */
   function roomName(id?: string | null) {
     if (!id) return '全部直播间'
-    const hit = roomOptions.value.find((r) => r.room_id === String(id))
-    return hit?.name || String(id)
+    return String(id)
+      .split(',')
+      .filter(Boolean)
+      .map((rid) => roomOptions.value.find((r) => r.room_id === rid)?.name || rid)
+      .join('、')
   }
 
   function clearQuiet() {
@@ -810,7 +833,7 @@
       const r = await saveNotifyRule({
         id: ruleForm.value.id,
         event: ruleForm.value.event,
-        room_id: ruleForm.value.room_id || null,
+        room_id: ruleForm.value.room_ids.length ? ruleForm.value.room_ids.join(',') : null,
         channel_ids: ruleForm.value.channel_ids,
         quiet_hours:
           quietStart.value && quietEnd.value ? { start: quietStart.value, end: quietEnd.value } : null,

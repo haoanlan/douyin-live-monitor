@@ -69,6 +69,8 @@ export interface ColumnOption<T = any> {
   filterPlacement?: string
   // 是否禁用
   disabled?: boolean
+  // 内容超长时省略并显示 tooltip（Element 原生属性）
+  showOverflowTooltip?: boolean
   // 是否显示列
   visible?: boolean
   // 是否选中显示

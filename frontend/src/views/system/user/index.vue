@@ -192,7 +192,7 @@
           align: 'right',
           fixed: 'right', // 固定列
           formatter: (row) =>
-            h('div', { class: 'flex-c justify-end gap-1' }, [
+            h('div', { style: 'display:flex;align-items:center;justify-content:flex-end;gap:4px;width:100%' }, [
               h(ArtButtonTable, { type: 'edit', onClick: () => showDialog('edit', row) }),
               h(ArtButtonTable, {
                 icon: 'ri:lock-password-line',

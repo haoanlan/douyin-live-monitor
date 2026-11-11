@@ -154,7 +154,7 @@
         {
           prop: 'operation',
           label: '操作',
-          width: 100,
+          width: 88,
           align: 'right',
           fixed: 'right',
           formatter: (row) =>
