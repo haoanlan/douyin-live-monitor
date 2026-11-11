@@ -462,27 +462,31 @@
                     loading="lazy"
                   />
                   <!--
-                    粉丝团徽章：直接用平台下发的那张图（数字在图里、形状也一致）。
-                    没有团名时只显示图的数字部分（裁掉右侧空白）；有团名时把图横向拉伸，
-                    文字排在数字右侧的空白区 —— 和抖音里一模一样。
+                    粉丝灯牌（纯 CSS，保证形状/数字永远对齐）：
+                      · 左边圆牌 = 团等级；右边文字 = 团名，没有团名就显示归属主播名
+                        （归属 100% 有：每条消息都带 anchorId，锚点表能翻出名字）
+                      · 有团名 = 星守护 → 橙色描边样式；普通团 = 黄色；退团 = 灰色
                   -->
                   <span
                     v-if="m.club && m.club.clubLevel != null"
-                    class="inline-flex items-center shrink-0 h-[16px] bg-no-repeat overflow-hidden"
-                    :class="m.club.clubName ? 'rounded-full pl-[26px] pr-[7px] text-[10px] leading-none text-white' : 'rounded-full'"
-                    :style="
-                      m.club.clubName
-                        ? { backgroundImage: `url(${clubBadgeUrl(m.club)})`, backgroundSize: '100% 100%', maxWidth: '170px' }
-                        : {
-                            backgroundImage: `url(${clubBadgeUrl(m.club)})`,
-                            backgroundSize: 'auto 16px',
-                            backgroundPosition: 'left center',
-                            width: '20px'
-                          }
+                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] pr-[6px] shrink-0 max-w-[190px]"
+                    :class="
+                      m.club.clubStatus === 2
+                        ? 'bg-[#bdbdbd] ring-1 ring-black/5'
+                        : m.club.starGuard
+                          ? 'bg-[#ff8f3f] ring-1 ring-white/70 shadow-[0_0_0_1px_rgba(255,143,63,.35)]'
+                          : 'bg-[#f5c04e]'
                     "
                     :title="clubTitle(m.club)"
                   >
-                    <span v-if="m.club.clubName" class="truncate">{{ m.club.clubName }}</span>
+                    <span
+                      class="inline-flex items-center justify-center h-[12px] min-w-[18px] px-[3px] rounded-full bg-white/90 text-[9px] font-bold leading-none"
+                      :class="m.club.clubStatus === 2 ? 'text-[#8a8a8a]' : m.club.starGuard ? 'text-[#ff8f3f]' : 'text-[#b07d00]'"
+                    >{{ m.club.clubLevel }}</span>
+                    <span
+                      v-if="m.club.clubName || m.club.an"
+                      class="text-[10px] leading-none text-white font-medium truncate"
+                    >{{ m.club.clubName || m.club.an }}</span>
                   </span>
                   <span v-if="m._type === 'gift'" class="dy-feed-row__tag">礼物</span>
                   <span class="dy-feed-row__time">{{ fmtTime(m.timestamp) }}</span>
@@ -1434,14 +1438,6 @@
    *   退团   fansclub_level_v6_lightdown_<lv>.png
    *   星守护 star_guard_advanced_badge_<lv>_xmp.png（次级徽章，用户没要求就先不用）
    */
-  function clubBadgeUrl(c: FeedClub): string {
-    if (c.cbu) return c.cbu
-    const lv = c.clubLevel
-    if (lv == null) return ''
-    const uri = c.clubStatus === 2 ? `webcast/fansclub_level_v6_lightdown_${lv}.png` : `webcast/fansclub_level_v6_${lv}.png`
-    return `https://p11-webcast.douyinpic.com/img/${uri}~tplv-obj.image`
-  }
-
   function parseClub(raw: any) {
     if (!raw) return null
     try {
