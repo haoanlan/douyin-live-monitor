@@ -530,7 +530,7 @@
     // 手机上没有「状态」列 —— 开关挪进事件单元格（见 #event 插槽），否则固定右列会盖住开关
     ...(isMobile.value
       ? []
-      : [{ prop: 'enabled', label: '状态', width: 72, align: 'center', useSlot: true, slotName: 'enabled' } as ColumnOption]),
+      : [{ prop: 'enabled', label: '状态', width: 72, align: 'left', useSlot: true, slotName: 'enabled' } as ColumnOption]),
     {
       // 和「用户管理」完全同一套：固定右列 + h() 渲染 ArtButtonTable，图标间距一致
       prop: 'operation',
@@ -563,7 +563,7 @@
           { prop: 'type', label: '类型', width: 130, useSlot: true, slotName: 'type' } as ColumnOption,
           { prop: 'url', label: '地址', useSlot: true, slotName: 'url' } as ColumnOption
         ]),
-    { prop: 'enabled', label: '状态', width: 72, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'enabled', label: '状态', width: 72, align: 'left', useSlot: true, slotName: 'enabled' },
     {
       // 测试 / 编辑 / 删除：三个图标，结构和「用户管理」一致（固定右列 + flex-c gap-1）
       prop: 'operation',
@@ -601,13 +601,13 @@
     { prop: 'created_at', label: '时间', width: isMobile.value ? 118 : 176, useSlot: true, slotName: 'created_at' },
     { prop: 'event', label: '事件', width: isMobile.value ? 92 : 130, useSlot: true, slotName: 'event' },
     ...(isMobile.value ? [] : [{ prop: 'channel_name', label: '渠道', minWidth: 180 } as ColumnOption]),
-    { prop: 'status', label: '状态', width: 92, align: 'center', useSlot: true, slotName: 'status' }
+    { prop: 'status', label: '状态', width: 92, align: 'left', useSlot: true, slotName: 'status' }
   ])
 
   const watchColumns: ColumnOption[] = [
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },
     { prop: 'uid', label: 'UID', minWidth: 150, useSlot: true, slotName: 'uid' },
-    { prop: 'enabled', label: '推送', width: 80, align: 'center', useSlot: true, slotName: 'enabled' },
+    { prop: 'enabled', label: '推送', width: 80, align: 'left', useSlot: true, slotName: 'enabled' },
     {
       prop: 'operation',
       label: '操作',

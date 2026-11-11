@@ -122,7 +122,7 @@
 
         <!-- 单价：当前采用的价 + 历史出现过的价（最多两种） -->
         <template #price="{ row }">
-          <div class="flex flex-col items-end leading-tight">
+          <div class="flex flex-col items-start leading-tight">
             <span class="tabular-nums font-semibold text-g-900 price-main">{{ fmtPrice(currentPrice(row)) }}</span>
             <span
               v-if="(row.unit_variants?.length || 0) > 1"
@@ -349,14 +349,16 @@ const columns = computed<ColumnOption[]>(() =>
   isMobile.value
     ? [
         { prop: 'gift_name', label: '礼物', minWidth: 130, useSlot: true, slotName: 'gift_name' },
-        { prop: 'price', label: '单价', width: 100, align: 'right', useSlot: true, slotName: 'price' },
+        { prop: 'price', label: '单价', width: 100, align: 'left', useSlot: true, slotName: 'price' },
         { prop: 'actions', label: '操作', width: 72, align: 'left', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
     : [
-        { prop: 'gift_name', label: '礼物', minWidth: 380, useSlot: true, slotName: 'gift_name' },
-        { prop: 'tag', label: '标签', width: 130, align: 'center', useSlot: true, slotName: 'tag' },
-        { prop: 'price', label: '单价（钻石）', minWidth: 220, align: 'right', useSlot: true, slotName: 'price' },
-        { prop: 'actions', label: '操作', width: 88, align: 'left', fixed: 'right', useSlot: true, slotName: 'actions' }
+        // 只有「礼物」列吃多余宽度；单价/操作定宽，否则单价会被撑到 500px、
+        // 操作列被顶出卡片（截图里按钮看着贴在最右边还缺一截）
+        { prop: 'gift_name', label: '礼物', minWidth: 320, useSlot: true, slotName: 'gift_name' },
+        { prop: 'tag', label: '标签', width: 120, align: 'left', useSlot: true, slotName: 'tag' },
+        { prop: 'price', label: '单价（钻石）', width: 140, align: 'left', useSlot: true, slotName: 'price' },
+        { prop: 'actions', label: '操作', width: 100, align: 'left', fixed: 'right', useSlot: true, slotName: 'actions' }
       ]
 )
 
