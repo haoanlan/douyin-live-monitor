@@ -249,7 +249,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 pr-12">
           <div class="size-10 rounded-lg flex-cc bg-theme/10 shrink-0">
             <ArtSvgIcon icon="ri:merge-cells-horizontal" class="text-lg text-theme" />
           </div>
@@ -264,11 +264,10 @@
             </div>
           </div>
           <!--
-            总数据报告：和场次历史页那张同一套模板。按钮定位复用全局 .rank-dl-btn 规则
-            （绝对定位、与关闭键同一中心线），否则又会像上次那样"按钮没对齐"。
+            总数据报告：和场次历史页那张同一套模板。按钮走正常 flex 流，标题用 min-w-0 + truncate 让位 —— 不再绝对定位（长昵称会压住按钮）。
           -->
           <button
-            class="rank-dl-btn flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            class="size-8 flex-cc shrink-0 rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
             :disabled="reportDownloading || !result"
             :title="reportDownloading ? '正在生成合并报告…' : '下载总数据报告'"
             aria-label="下载总数据报告"
@@ -454,18 +453,19 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 pr-12">
           <el-avatar :size="40" :src="avatarSrc(peopleAnchorAvatar)" class="shrink-0">
             {{ peopleAnchorName?.[0] || '?' }}
           </el-avatar>
           <div class="min-w-0 flex-1">
             <div class="text-base font-medium text-g-900 truncate">{{ peopleAnchorName }}</div>
-            <div class="text-xs text-g-500 mt-0.5">
-              所选 {{ selectedIds.size }} 场里收到礼物的人 · {{ peopleList.length }} 人
+            <div class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-g-500">
+              <span class="truncate">所选 {{ selectedIds.size }} 场里收到礼物的人</span>
+              <span class="shrink-0">· {{ peopleList.length }} 人</span>
             </div>
           </div>
           <button
-            class="rank-dl-btn flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            class="size-8 flex-cc shrink-0 rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
             :disabled="rankDownloading || !rankThemes.length"
             :title="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"
             :aria-label="rankPickerOpen ? '返回榜单' : '下载感谢榜单'"

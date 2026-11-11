@@ -538,7 +538,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-[120px]">
+        <div class="flex items-center gap-3 pr-12">
           <el-avatar :size="40" :src="giftDialogAvatar" class="shrink-0">{{
             giftDialogUser?.[0]
           }}</el-avatar>
@@ -598,15 +598,16 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-[120px]">
+        <div class="flex items-center gap-3 pr-12">
           <el-avatar :size="40" :src="peopleAnchorAvatar" class="shrink-0">{{
             peopleAnchorName?.[0]
           }}</el-avatar>
           <div class="min-w-0 flex-1">
             <div class="text-base font-medium text-g-900 truncate">{{ peopleAnchorName }}</div>
-            <div class="text-xs text-g-500 mt-0.5"
-              >送出礼物的人员榜单 · {{ peopleDialogList.length }} 人</div
-            >
+            <div class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-g-500">
+              <span class="truncate">送出礼物的人员榜单</span>
+              <span class="shrink-0">· {{ peopleDialogList.length }} 人</span>
+            </div>
           </div>
           <!--
             下载榜单图片：图标按钮，放在标题栏、绝对定位（不占布局高度 —— 实测头部仍是 58px）。
@@ -621,7 +622,7 @@
           -->
           <button
             v-if="manualGiftOpen || can('manual_gift.add')"
-            class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme !right-[96px]"
+            class="dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme shrink-0"
             :title="manualGiftOpen ? '返回榜单' : '补录礼物'"
             :aria-label="manualGiftOpen ? '返回榜单' : '补录礼物'"
             @click="toggleManualGift"
@@ -629,7 +630,7 @@
             <ArtSvgIcon :icon="manualGiftOpen ? 'ri:arrow-left-line' : 'ri:add-line'" class="text-base" />
           </button>
           <button
-            class="rank-dl-btn dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50"
+            class="dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme disabled:opacity-50 shrink-0"
             :disabled="rankDownloading || !rankThemes.length"
             :title="rankPickerOpen ? '返回榜单' : '下载榜单图片'"
             :aria-label="rankPickerOpen ? '返回榜单' : '下载榜单图片'"
