@@ -834,8 +834,21 @@
   const people = ref<UpstagePerson[]>([])
   async function loadPeople() {
     try {
-      const r = await fetchUpstagePeople()
+      // 候选按规则里选中的直播间过滤；没选直播间 = 所有房间
+      const rooms = ruleForm.value.room_ids.join(',')
+      const r = await fetchUpstagePeople(rooms ? { rooms } : {})
       people.value = r.items || []
+      /*
+       * 房间一改，原来勾的人可能已经不在候选里了（他不在这些房间）。
+       * 这里不强行删掉已选的（用户可能就是要跨房间），但把不在候选里的保留在列表末尾，
+       * 避免"勾了的人突然消失"。
+       */
+      const known = new Set(people.value.map((x) => x.uid))
+      for (const uid of ruleForm.value.watch_uids) {
+        if (!known.has(uid)) {
+          people.value.push({ uid, nickname: '', last_seen_at: 0, rooms: 0, from: 'manual' })
+        }
+      }
     } catch {
       people.value = []
     }
@@ -885,7 +898,6 @@
   }>({ event: '', channel_ids: [], room_ids: [], watch_uids: [], enabled: true })
 
   function openRuleDialog(row?: NotifyRule) {
-    void loadPeople()
     if (!channels.value.length) {
       ElMessage.warning('先去「推送渠道」加一个渠道，规则才有地方推')
       activeTab.value = 'channels'
@@ -912,6 +924,7 @@
     quietStart.value = row?.quiet_hours?.start || ''
     quietEnd.value = row?.quiet_hours?.end || ''
     ruleDialogVisible.value = true
+    void loadPeople()
   }
 
   /** 弹层里勾选/取消某个直播间 */
@@ -939,6 +952,14 @@
       .map((rid) => roomOptions.value.find((r) => r.room_id === rid)?.name || rid)
       .join('、')
   }
+
+  /** 弹窗里改了直播间 → 候选人跟着变 */
+  watch(
+    () => ruleForm.value.room_ids.slice().sort().join(','),
+    () => {
+      if (ruleDialogVisible.value) void loadPeople()
+    }
+  )
 
   function clearQuiet() {
     quietStart.value = ''

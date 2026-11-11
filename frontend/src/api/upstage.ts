@@ -88,11 +88,16 @@ export interface UpstagePerson {
   last_seen_at: number
   rooms: number
   conf?: number | null
+  /** seen=现场出现过 / rank=团员榜里有 / manual=当前规则里已选但不在候选 */
+  from?: 'seen' | 'rank' | 'manual'
 }
 
-/** 现场出现过的人（跨房间汇总，给规则里「关注的人」下拉用） */
-export function fetchUpstagePeople() {
-  return request.get<{ items: UpstagePerson[] }>({ url: '/api/upstage/people' })
+/**
+ * 候选人（给规则里「关注的人」下拉用）。
+ * rooms 传规则里选中的直播间（逗号分隔）；不传 = 所有房间。
+ */
+export function fetchUpstagePeople(params: { rooms?: string } = {}) {
+  return request.get<{ items: UpstagePerson[] }>({ url: '/api/upstage/people', params })
 }
 
 /** 切换某个主播的推送开关（enabled 0/1） */
