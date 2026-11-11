@@ -289,23 +289,25 @@ async function handleDynamicRoutes(
   pendingLoading = false
 
   try {
-    // 1. 获取用户信息
-    await fetchUserInfo()
-
     /*
-     * 2. 先取权限（页面 + 操作），再拿菜单并按 role_menus 裁剪。
-     *
-     * 以前侧边栏是纯前端路由（VITE_ACCESS_MODE=frontend），角色管理里
-     * 取消勾选某个页面并不会让它消失 —— 权限表只"存着"，没人读。
-     * 现在：/api/auth/permissions 返回当前角色能看的页面路径，
-     * 这里按路径把菜单树剪一遍，越权的页面既不出现在侧边栏，也进不去
-     * （下面的 RoutePermissionValidator 会拦）。
+     * 1-3 步并行（原来是一个 await 接一个 await）：
+     *   · 用户信息（/api/user/info）
+     *   · 权限（/api/auth/permissions）
+     *   · 菜单原始数据（getMenuList 内部会请求菜单接口）
+     * 三者互不依赖（菜单的裁剪在拿到权限之后做），串行会把三次网络往返叠加，
+     * 用户观感就是"登录后要缓一秒才进系统"（用户反馈）。
      */
     const permissionStore = usePermissionStore()
-    await permissionStore.load(true)
+    const userStoreForInit = useUserStore()
+    const needUserInfo = !userStoreForInit.getUserInfo?.userName
+    const [, , rawMenuList] = await Promise.all([
+      needUserInfo ? fetchUserInfo() : Promise.resolve(),
+      permissionStore.load(true),
+      menuProcessor.getMenuList()
+    ])
 
-    // 3. 获取菜单数据（按页面权限裁剪）
-    const menuList = permissionStore.filterMenus(await menuProcessor.getMenuList())
+    // 4. 获取菜单数据（按页面权限裁剪）
+    const menuList = permissionStore.filterMenus(rawMenuList)
 
     // 3. 验证菜单数据
     if (!menuProcessor.validateMenuList(menuList)) {
