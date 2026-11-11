@@ -1207,13 +1207,6 @@ export function saveGiftPrice(data: { giftName: string; diamondPerUnit: number; 
 }
 
 /** 删除覆盖价，回退到内置价/消息价 */
-export function deleteGiftPrice(name: string) {
-  // 注意：http 封装里的方法名是 del（不是 delete），写成 request.delete 会在运行时直接抛错
-  return request.del<{ ok: boolean; removed: number }>({
-    url: `/api/gift-prices?name=${encodeURIComponent(name)}`
-  })
-}
-
 /** 预览"改成这个价会影响多少数据"（不动库） */
 export function previewGiftPriceRepair(gift: string, price: number) {
   return request.get<{
@@ -1332,31 +1325,8 @@ export function deleteManualGift(id: number) {
 }
 
 /** 所有虚拟身份（manual:*），供"确认后合并"用 */
-export function fetchManualUsers() {
-  return request.get<{ users: { user_sec_uid: string; nickname: string; rows_n: number; diamonds: number; sessions: number }[] }>({
-    url: '/api/manual/users',
-    showErrorMessage: false
-  })
-}
-
 /** 把虚拟身份合并到真实 sec_uid（只改归属，不动金额；幂等） */
-export function mergeManualUser(from: string, to: string) {
-  return request.post<{ ok: boolean; merged: number; sessions: number[]; note?: string }>({
-    timeout: 60000,
-    url: '/api/manual/merge',
-    data: { from, to }
-  })
-}
-
 /** 最近的场次列表（补录礼物时选场次用） */
-export function fetchRecentSessions(limit = 200) {
-  return request.get<{ id: number; streamer_name?: string; start_time?: string }[]>({
-    timeout: 30000,
-    url: `/api/sessions?limit=${limit}`,
-    showErrorMessage: false
-  })
-}
-
 export interface ManualGiftRow {
   id: number
   nickname: string
@@ -1412,10 +1382,6 @@ export function adminMenus() {
 }
 
 /** 角色清单（含菜单数/操作数） */
-export function adminRoles() {
-  return request.get<{ roles: AdminRole[]; count: number }>({ url: "/api/admin/roles", showErrorMessage: false })
-}
-
 /** 某角色的菜单勾选情况 + 全部菜单 + 操作 */
 export function adminRoleMenus(roleKey: string) {
   return request.get<{
@@ -1442,10 +1408,6 @@ export function adminMenuDelete(key: string) {
 }
 
 /** 批量重排序（按数组顺序写 sort = (i+1)*10） */
-export function adminMenuReorder(keys: string[]) {
-  return request.post<{ ok: boolean; count: number }>({ url: "/api/admin/menus/reorder", data: { keys }, showErrorMessage: false })
-}
-
 /** 整份替换某角色的菜单权限（超管会被后端拒绝） */
 export function adminRoleMenusSave(roleKey: string, keys: string[]) {
   return request.put<{ ok: boolean; count: number }>({ url: "/api/admin/roles/" + encodeURIComponent(roleKey) + "/menus", data: { keys }, showErrorMessage: false })

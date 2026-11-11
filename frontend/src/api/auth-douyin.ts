@@ -64,10 +64,6 @@ export function updateAvatar(avatar: string) {
   return request.post<{ ok: boolean; avatar: string }>({ url: '/api/user/avatar', data: { avatar } })
 }
 
-export function fetchUserList(params: Record<string, unknown>) {
-  return request.get<UserListResult>({ url: '/api/user/list', params })
-}
-
 /* ---------- 用户管理（仅管理员；后端会再校验一次角色与"最后一个管理员"保护） ---------- */
 
 export function createUser(data: { userName: string; password: string; role: string }) {

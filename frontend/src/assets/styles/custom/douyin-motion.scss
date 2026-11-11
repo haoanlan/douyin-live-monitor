@@ -130,11 +130,9 @@
 @keyframes dy-rise-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -167,6 +165,7 @@
 .dy-stagger > *:nth-child(6) { animation-delay: 150ms; }
 .dy-stagger > *:nth-child(7) { animation-delay: 180ms; }
 .dy-stagger > *:nth-child(n + 8) { animation-delay: 210ms; }
+
 
 /* ==========================================================================
  * 抖音页里的骨架元素：让它们**真的看得见**
@@ -251,9 +250,9 @@
     transition-duration: 1ms;
   }
 
-  /* 分组入场的位移去掉，只保留极短的淡入（同样用 backwards，播完不残留效果） */
+  /* 分组入场：只保留极短淡入（dy-rise-in 已改为纯透明度，不含位移） */
   .dy-stagger > * {
-    animation: dy-img-in 120ms linear backwards;
+    animation: dy-rise-in 120ms linear backwards;
   }
 
   .douyin-page .el-avatar img,
@@ -618,15 +617,10 @@
   color: var(--dy-text-muted);
 }
 
-/* 输入框内的加载转圈（按钮文字与尺寸保持不变） */
+/* 输入框内的加载转圈（按钮文字与尺寸保持不变）
+   注意：@keyframes dy-spin 已在 tailwind.css 定义，这里不重复（重复定义会互相覆盖）。 */
 .dy-feed-search-spin {
   animation: dy-spin 0.9s linear infinite;
-}
-
-@keyframes dy-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* ==========================================================================
@@ -760,15 +754,9 @@
  * ========================================================================== */
 
 /*
- * 每个房间一张 KPI 卡，横向铺开。
- * 用 auto-fit 而不是固定列数：选 1 个房间时卡片撑满，选 4 个时自动变 4 列，
- * 不用为不同数量写不同布局。
+ * （已删除 .dy-trend-kpis 规则：趋势页改版后「每个房间一张 KPI 卡」那块已经移除，
+ *   模板里 0 处引用，属于遗留死样式。）
  */
-.dy-trend-kpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
 
 /*
  * 指标开关标签（趋势分析页）。
@@ -1469,50 +1457,7 @@
  * 是 8px）—— 整页卡片同时上浮，观感就是"内容从下往上顶出来"，用户明确反馈难看。
  * 现在只保留透明度，纵向位移一律交给 hover/按下这类**由用户触发**的反馈。
  * ========================================================================== */
-@keyframes dy-card-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
 
-.douyin-page > .art-card,
-.douyin-page .dy-stat-row > .art-card,
-.douyin-page .dy-detail-grid > .art-card,
-.douyin-page .dy-trend-kpis > .art-card,
-.douyin-page > .el-row .art-card {
-  animation: dy-card-in var(--dy-dur-slow) var(--dy-ease-out) backwards;
-}
-
-/* 依次延迟：用 nth-child 覆盖前 8 个，避免为每页写内联 delay */
-@for $i from 1 through 8 {
-  .douyin-page > .art-card:nth-child(#{$i}),
-  .douyin-page .dy-stat-row > .art-card:nth-child(#{$i}),
-  .douyin-page .dy-detail-grid > .art-card:nth-child(#{$i}),
-  .douyin-page .dy-trend-kpis > .art-card:nth-child(#{$i}) {
-    animation-delay: #{($i - 1) * 40}ms;
-  }
-}
-
-/*
- * 减弱动效：位移全部去掉，只保留极短的淡入。
- * 颜色/透明度变化不影响前庭系统，可以留；位移/缩放必须去掉。
- */
-@media (prefers-reduced-motion: reduce) {
-  .douyin-page .art-card:hover {
-    transform: none;
-  }
-
-  .douyin-page > .art-card,
-  .douyin-page .dy-stat-row > .art-card,
-  .douyin-page .dy-detail-grid > .art-card,
-  .douyin-page .dy-trend-kpis > .art-card,
-  .douyin-page > .el-row .art-card {
-    animation: none;
-  }
-}
 
 
 
