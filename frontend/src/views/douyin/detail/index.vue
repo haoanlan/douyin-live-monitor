@@ -463,14 +463,11 @@
                   />
                   <span
                     v-if="m.club && m.club.clubLevel != null"
-                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] pr-[6px] shrink-0 max-w-[170px]"
-                    :class="
-                      m.club.clubStatus === 2
-                        ? 'bg-[#c9c9c9]'
-                        : m.club.starGuard
-                          ? 'bg-[#ff8f3f]'
-                          : 'bg-[#f5c04e]'
-                    "
+                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] shrink-0 max-w-[170px]"
+                    :class="[
+                      m.club.clubStatus === 2 ? 'bg-[#c9c9c9]' : m.club.starGuard ? 'bg-[#ff8f3f]' : 'bg-[#f5c04e]',
+                      m.club.clubName ? 'pr-[6px]' : 'pr-[2px]'
+                    ]"
                     :title="clubTitle(m.club)"
                   >
                     <span
