@@ -48,11 +48,29 @@ douyinRequest.interceptors.response.use(
     if (status === 401 && !isLoginRequest) {
       ElMessage.error(backendMsg || '登录已失效，请重新登录')
       useUserStore().logOut()
-    } else if (cfg.showErrorMessage !== false) {
-      // 优先展示后端给的真实原因，没有才退回状态码文案
+    } else if (cfg.showErrorMessage === false) {
+      // 调用方明确要求静默（轮询类请求基本都是这种）
+    } else if (!error.response) {
+      /*
+       * 没有响应 = 连不上服务（后端/Go 代理没起来、网络断）。
+       * 这才是"需要弹出来提醒"的那类问题。
+       */
       ElMessage.error(
-        backendMsg || (status ? `请求失败：HTTP ${status}` : error.message || '请求失败')
+        /timeout/i.test(String(error.code || error.message || ''))
+          ? '请求超时：服务响应过慢或未启动'
+          : '无法连接到服务：请检查后台服务 / Go 代理是否在运行'
       )
+    } else if ((status || 0) >= 500) {
+      // 服务端异常（代理/后端内部错误）
+      ElMessage.error(backendMsg || `服务异常：HTTP ${status}`)
+    } else if (cfg.showErrorMessage === true) {
+      /*
+       * 4xx 属于"业务性失败"（房间已在监控、参数不对、记录不存在…）：
+       * 默认不再弹全局提示 —— 具体页面自己会在表单/行内给出原因，
+       * 全局弹窗会把正常操作也变成"报错"（用户反馈：弹得太怪）。
+       * 确实需要全局提示的调用方可以显式传 showErrorMessage: true。
+       */
+      ElMessage.error(backendMsg || `请求失败：HTTP ${status}`)
     }
     return Promise.reject(error)
   }
