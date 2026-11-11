@@ -344,9 +344,9 @@ function magTopV2(users, meta) {
 function magListHTML(variant, users, meta, pageLabel) {
   const A = MAG_AMOUNT;
   const V2 = variant === 'magazine-v2';
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   // 行高按每栏行数算，保证整块装进 720 视口（100 人场次每栏 15 行，固定 45px 会溢出被裁）
-  const rows = Math.max(1, half);
+  const rows = 15; // 固定 15 行槽位（列优先填充）
   const avail = A ? 556 : 566;
   const rowH = Math.max(26, Math.min(A ? 40 : 45, Math.floor(avail / rows)));
   const av = A ? 20 : 24;
@@ -449,7 +449,7 @@ async function renderMagazine(variant, users, meta) {
   if (restCount > 0) {
     const perPage = 30;                                  // 固定每页 30 人 = 两栏各 15 行
     const listPages = Math.max(1, Math.ceil(restCount / perPage));
-    meta.rowsPerCol = Math.ceil(Math.min(restCount, perPage) / 2);        // 整批统一档位（每栏最大行数）
+    meta.rowsPerCol = 15;        // 固定每栏 15 行（一页 30 个槽位，列优先填充）
     for (let i = 0; i < listPages; i++) {
       const start = topN + perPage * i, end = Math.min(topN + perPage * (i + 1), n);
       if (start >= end) continue;
@@ -562,7 +562,7 @@ function nrTopHTML(users, meta) {
   </div>`);
 }
 function nrListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const col = (arr, off) => `<div class="lcol">${arr.map((u, i) => `<div class="lrow"><span class="li">${off + i + 1}</span>${nrAv(u.avatar, 22)}<span class="ln">${magName(u)}</span></div>`).join('')}</div>`;
   return nrDoc('园区充电榜 · ' + pageLabel, `<div class="page">
     <div class="lhead"><span class="t">园区充电榜</span><span class="p">${esc(pageLabel)}</span></div>
@@ -666,7 +666,7 @@ function tgTopHTML(users, meta) {
 }
 function tgListHTML(users, meta, pageLabel) {
   const cap = meta.rowsPerCol || 15;                                    // 每栏容量
-  const half = users.length > cap ? cap : Math.ceil(users.length / 2);   // 左栏排满再起右栏
+  const half = Math.min(cap, users.length);                              // 列优先：左栏排满 cap 行再起右栏
   const start = users.length ? users[0]._rank : 1;
   const end = users.length ? users[users.length - 1]._rank : start;
   const total = meta.count || Number(String(meta.gifters).replace(/[^0-9]/g, '')) || end;
@@ -824,8 +824,8 @@ function cuTopHTML(users, meta) {
   </div></body></html>`;
 }
 function cuListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
-  const n = users.length, rows = Math.max(1, half);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
+  const n = users.length, rows = 15;
   const avail = 508;                                  // 名次页去掉页头页脚后的可用高度（留出页脚 15px + 底边距）
   const gap = rows > 13 ? 4 : 7;
   const cardH = Math.floor((avail - gap * (rows - 1)) / rows);
@@ -991,7 +991,7 @@ function enTopHTML(users, meta) {
   </div></body></html>`;
 }
 function enListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">${arr.map((u, i) => enRow(u, off + i, 11, 17, 30)).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${enFont()}<style>${enCSS()}</style></head><body>
   <div class="page">
@@ -1062,7 +1062,7 @@ function cjTopHTML(users, meta) {
   </div></body></html>`;
 }
 function cjListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2), rows = Math.max(1, half);
+  const half = Math.min(15, users.length), rows = 15; // 列优先：左列最多 15 行，行数固定
   const av = rows > 14 ? 17 : 20, nmFs = rows > 14 ? 11.5 : 12.5;
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;min-height:0">${arr.map((u, i) => `<div style="flex:1;min-height:0;display:flex">${cjTape(u, off + i, av, nmFs, '0 10px')}</div>`).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${cuteFontLink()}<style>${cjCSS()}</style></head><body>
@@ -1119,7 +1119,7 @@ function ccTopHTML(users, meta) {
   </div></body></html>`;
 }
 function ccListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2), rows = Math.max(1, half);
+  const half = Math.min(15, users.length), rows = 15; // 列优先：左列最多 15 行，行数固定
   const av = rows > 14 ? 17 : 20, nmFs = rows > 14 ? 11.5 : 12.5;
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;min-height:0">${arr.map((u, i) => `<div style="flex:1;min-height:0;display:flex">${ccCap(u, off + i, av, nmFs, '0 12px 0 8px')}</div>`).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${cuteFontLink()}<style>${ccCSS()}</style></head><body>
@@ -1190,7 +1190,7 @@ function csTopHTML(users, meta) {
   </div></body></html>`;
 }
 function csListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2), rows = Math.max(1, half);
+  const half = Math.min(15, users.length), rows = 15; // 列优先：左列最多 15 行，行数固定
   const av = rows > 14 ? 17 : 20, nmFs = rows > 14 ? 11.5 : 12.5;
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">${arr.map((u, i) => {
     const r = off + i;
@@ -1256,7 +1256,7 @@ function chTopHTML(users, meta) {
   </div></body></html>`;
 }
 function chListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2), rows = Math.max(1, half);
+  const half = Math.min(15, users.length), rows = 15; // 列优先：左列最多 15 行，行数固定
   const av = rows > 14 ? 17 : 20, nmFs = rows > 14 ? 11.5 : 12.5;
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;min-height:0">${arr.map((u, i) => {
     const r = off + i;
@@ -1321,7 +1321,7 @@ function ghTopHTML(users, meta) {
   </div></body></html>`;
 }
 function ghListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">${arr.map((u, i) => {
     const r = off + i;
     return `<div class="row"><span class="gn" style="font-size:40px;left:-2px">${r < 10 ? '0' + r : r}</span>
@@ -1381,7 +1381,7 @@ function faTopHTML(users, meta) {
   </div></body></html>`;
 }
 function faListHTML(users, meta, pageLabel) {
-  const rows = Math.ceil(users.length / 5);
+  const rows = 6; // 5 列 × 6 行 = 30 个固定槽位
   const cells = users.map(u => {
     const r = u._rank, t = r <= 3 ? ' top3' : '';
     return `<div class="cell${t}"><span class="pic">${tbAv(u.avatar, 54, false)}<span class="badge">${r}</span></span>
@@ -1435,7 +1435,7 @@ function ruTopHTML(users, meta) {
   </div></body></html>`;
 }
 function ruListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const col = arr => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">${ruRows(arr, 20, 12.5)}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${numFontLink()}<style>${ruCSS()}</style></head><body>
   <div class="page">
@@ -1473,7 +1473,7 @@ function moTopHTML(users, meta) {
   </div></body></html>`;
 }
 function moListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const fs = half > 20 ? 13 : half > 15 ? 15 : 17;
   const col = (arr, off) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">${arr.map((u, i) => `<div class="row">
     <span class="rn" style="width:22px;font-size:11px">${u._rank}</span>${tbAv(u.avatar, fs + 6, false)}<span class="nm" style="font-size:${fs}px">${magName(u)}</span></div>`).join('')}</div>`;
@@ -1530,7 +1530,7 @@ function cbTopHTML(users, meta) {
   </div></body></html>`;
 }
 function cbListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const av = half > 14 ? 19 : 22, nmFs = half > 14 ? 11.5 : 12.5, pd = half > 14 ? 10 : 11;
   const col = arr => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;min-height:0">${arr.map(u => cbBar(u, av, nmFs, pd)).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${chromaFontLink()}<style>${cbCSS()}</style></head><body>
@@ -1634,7 +1634,7 @@ function crTopHTML(users, meta) {
   </div></body></html>`;
 }
 function crListHTML(users, meta, pageLabel) {
-  const half = Math.ceil(users.length / 2);
+  const half = Math.min(15, users.length); // 列优先：左列排满 15 行再起右列
   const av = half > 14 ? 20 : 22, nmFs = half > 14 ? 11.5 : 12.5;
   const col = arr => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;min-height:0">${arr.map(u => crBar(u, av, nmFs)).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${cxFontLink()}<style>${crCSS()}</style></head><body>
