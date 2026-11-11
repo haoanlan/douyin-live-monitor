@@ -1782,16 +1782,21 @@ function dgTopHTML(users, meta) {
 }
 function dgListHTML(users, meta, pageLabel) {
   /*
-   * 名次页是**固定槽位**：15 行 × 2 列 = 30 个位置（用户要求）。
-   * 所以行高不随人数变化 —— 一页只有 12 个人时，前 6 行有内容，后 9 行留空，
-   * 每个人的 y 坐标和满页时完全一致（位置固定，不会因为人数少而被拉高）。
+   * 名次页是**固定槽位 + 列优先填充**（用户要求）：
+   *   左列 15 个格子排满，才轮到右列从第 1 行继续。
+   *   例：41-47 这 7 个人全部在左列（第 1-7 行），右列空着。
+   * 行高写死，人少也不拉伸；每列固定 15 行 = 一页 30 个位置。
    */
   const SLOT_ROWS = 15;
-  const rowH = Math.floor((522 - 5 * (SLOT_ROWS - 1)) / SLOT_ROWS); // 满页时的行高
+  const rowH = Math.floor((522 - 5 * (SLOT_ROWS - 1)) / SLOT_ROWS);
   const av = 20, nmFs = 11.5;
-  const grid = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:${rowH}px;gap:5px 14px;align-content:start">${users
-    .map((u) => dpRow(u, av, nmFs, rowH))
-    .join('')}</div>`;
+  const col = (arr) =>
+    `<div style="flex:1;min-width:0;display:grid;grid-auto-rows:${rowH}px;gap:5px;align-content:start">${arr
+      .map((u) => dpRow(u, av, nmFs, rowH))
+      .join('')}</div>`;
+  const left = users.slice(0, SLOT_ROWS);
+  const right = users.slice(SLOT_ROWS, SLOT_ROWS * 2);
+  const grid = `<div style="display:flex;gap:14px;align-items:flex-start">${col(left)}${col(right)}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${dpFontLink()}<style>${dgCSS()}</style></head><body>
   <div class="page">${dpBgBlobs(users, meta, 58, 0.40)}
     <div class="inner">
