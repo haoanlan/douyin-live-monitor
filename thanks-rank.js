@@ -364,7 +364,7 @@ function magListHTML(variant, users, meta, pageLabel) {
       <div class="meta">${esc(pageLabel)}</div>
     </div>
     ${V2 ? `<div style="height:1px;background:rgba(26,26,30,0.24);margin:11px 0 4px"></div><div style="height:1px;background:rgba(26,26,30,0.075);margin-bottom:6px"></div>` : `<div class="rule" style="margin:11px 0 4px"></div>`}
-    <div style="flex:1;display:flex;gap:26px;align-items:stretch">${col(users.slice(0, half), users.length ? users[0]._rank - 1 : 0)}${col(users.slice(half), users.length ? users[half]._rank - 1 : 0)}</div>
+    <div style="flex:1;display:flex;gap:26px;align-items:stretch">${col(users.slice(0, half), users.length ? users[0]._rank - 1 : 0)}${col(users.slice(half), users[half] ? users[half]._rank - 1 : 0)}</div>
     <div class="rule"></div>
     <div class="meta" style="margin-top:10px">${esc(meta.target)} · ${esc(meta.sessionStr)} · 共 ${meta.gifters} 位送礼人</div>
   </div>`);
@@ -567,7 +567,7 @@ function nrListHTML(users, meta, pageLabel) {
   return nrDoc('园区充电榜 · ' + pageLabel, `<div class="page">
     <div class="lhead"><span class="t">园区充电榜</span><span class="p">${esc(pageLabel)}</span></div>
     <div class="grule" style="margin-top:14px"></div>
-    <div class="lgrid">${col(users.slice(0, half), users.length ? users[0]._rank - 1 : 0)}${col(users.slice(half), users.length ? users[half]._rank - 1 : 0)}</div>
+    <div class="lgrid">${col(users.slice(0, half), users.length ? users[0]._rank - 1 : 0)}${col(users.slice(half), users[half] ? users[half]._rank - 1 : 0)}</div>
     <div class="foot"><span>${rankMetaLine(meta)}</span><span>${esc(rankDate(meta.dateStr))}</span></div>
   </div>`);
 }
