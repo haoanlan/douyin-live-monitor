@@ -461,23 +461,28 @@
                     alt=""
                     loading="lazy"
                   />
+                  <!--
+                    粉丝团徽章：直接用平台下发的那张图（数字在图里、形状也一致）。
+                    没有团名时只显示图的数字部分（裁掉右侧空白）；有团名时把图横向拉伸，
+                    文字排在数字右侧的空白区 —— 和抖音里一模一样。
+                  -->
                   <span
                     v-if="m.club && m.club.clubLevel != null"
-                    class="inline-flex items-center gap-[3px] h-[16px] rounded-full pl-[2px] shrink-0 max-w-[170px]"
-                    :class="[
-                      m.club.clubStatus === 2 ? 'bg-[#c9c9c9]' : m.club.starGuard ? 'bg-[#ff8f3f]' : 'bg-[#f5c04e]',
-                      m.club.clubName ? 'pr-[6px]' : 'pr-[2px]'
-                    ]"
+                    class="inline-flex items-center shrink-0 h-[16px] bg-no-repeat overflow-hidden"
+                    :class="m.club.clubName ? 'rounded-full pl-[26px] pr-[7px] text-[10px] leading-none text-white' : 'rounded-full'"
+                    :style="
+                      m.club.clubName
+                        ? { backgroundImage: `url(${clubBadgeUrl(m.club)})`, backgroundSize: '100% 100%', maxWidth: '170px' }
+                        : {
+                            backgroundImage: `url(${clubBadgeUrl(m.club)})`,
+                            backgroundSize: 'auto 16px',
+                            backgroundPosition: 'left center',
+                            width: '30px'
+                          }
+                    "
                     :title="clubTitle(m.club)"
                   >
-                    <span
-                      class="inline-flex items-center justify-center h-[12px] min-w-[18px] px-[3px] rounded-full bg-white/90 text-[9px] font-bold leading-none"
-                      :class="m.club.clubStatus === 2 ? 'text-[#8a8a8a]' : m.club.starGuard ? 'text-[#ff8f3f]' : 'text-[#b07d00]'"
-                    >{{ m.club.clubLevel }}</span>
-                    <span
-                      v-if="m.club.clubName"
-                      class="text-[10px] leading-none text-white truncate"
-                    >{{ m.club.clubName }}</span>
+                    <span v-if="m.club.clubName" class="truncate">{{ m.club.clubName }}</span>
                   </span>
                   <span v-if="m._type === 'gift'" class="dy-feed-row__tag">礼物</span>
                   <span class="dy-feed-row__time">{{ fmtTime(m.timestamp) }}</span>
@@ -909,6 +914,8 @@
     starGuard?: boolean
     /** 归属主播名（后端把 club_json.ca 解出来的） */
     an?: string | null
+    /** 粉丝团徽章图（后端拼好的完整 URL） */
+    cbu?: string | null
     /** 是否来自"该用户最新档案"回退（历史数据没有快照） */
     fallback?: boolean
   }
@@ -1420,6 +1427,21 @@
     return parts.length ? parts.join(' · ') : undefined
   }
 
+  /**
+   * 平台下发的粉丝团徽章图（数字在图上，位置固定）。
+   * 老数据没有存 uri，就按等级/状态拼出来（图名规则实测稳定）：
+   *   在团   fansclub_level_v6_<lv>.png
+   *   退团   fansclub_level_v6_lightdown_<lv>.png
+   *   星守护 star_guard_advanced_badge_<lv>_xmp.png（次级徽章，用户没要求就先不用）
+   */
+  function clubBadgeUrl(c: FeedClub): string {
+    if (c.cbu) return c.cbu
+    const lv = c.clubLevel
+    if (lv == null) return ''
+    const uri = c.clubStatus === 2 ? `webcast/fansclub_level_v6_lightdown_${lv}.png` : `webcast/fansclub_level_v6_${lv}.png`
+    return `https://p11-webcast.douyinpic.com/img/${uri}~tplv-obj.image`
+  }
+
   function parseClub(raw: any) {
     if (!raw) return null
     try {
@@ -1432,6 +1454,7 @@
         clubName: o.cn,
         clubStatus: o.cs,
         an: o.an || null,
+        cbu: o.cbu || null,
         starGuard: Boolean(o.gu && /star_guard/i.test(String(o.gu)) && !/gray/i.test(String(o.gu)))
       }
     } catch {
