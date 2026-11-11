@@ -71,6 +71,16 @@
             </span>
           </div>
         </template>
+        <template #watch="{ row }">
+          <el-tooltip
+            v-if="watchNames(row.conditions).length"
+            :content="watchNames(row.conditions).join('、')"
+            placement="top"
+          >
+            <span class="text-xs text-g-700 cursor-help">{{ watchNames(row.conditions).length }} 人</span>
+          </el-tooltip>
+          <span v-else class="text-xs text-g-500">全部</span>
+        </template>
         <template #quiet="{ row }">
           <span class="text-xs text-g-500">
             {{ row.quiet_hours?.start ? `${row.quiet_hours.start}–${row.quiet_hours.end}` : '不限' }}
@@ -370,6 +380,42 @@
             </div>
           </el-popover>
         </el-form-item>
+        <!-- 只对「主播上场」有意义：不选 = 任何一个主播上场都提醒 -->
+        <el-form-item v-if="ruleForm.event === 'anchor_on_stage'" label="关注的人">
+          <el-popover placement="bottom-end" :width="300" trigger="click" popper-class="dy-host-pop">
+            <template #reference>
+              <button type="button" class="rule-room-btn rule-people-btn">
+                <ArtSvgIcon icon="ri:user-voice-line" />
+                <span class="min-w-0 flex-1 truncate text-left">{{ watchLabel }}</span>
+                <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
+              </button>
+            </template>
+            <div class="dy-host-list max-h-[320px] overflow-y-auto">
+              <div class="px-1 pb-1 text-[11px] text-g-400">不选 = 任何主播上场都提醒</div>
+              <label
+                v-for="pp in people"
+                :key="pp.uid"
+                class="dy-host-row"
+                :class="{ 'is-checked': ruleForm.watch_uids.includes(pp.uid) }"
+                @click.prevent="toggleWatchUid(pp.uid)"
+              >
+                <el-checkbox
+                  :model-value="ruleForm.watch_uids.includes(pp.uid)"
+                  @click.stop
+                  @change="toggleWatchUid(pp.uid)"
+                />
+                <span class="min-w-0 flex-1 truncate text-sm text-g-800">
+                  {{ pp.nickname || pp.uid }}
+                </span>
+                <span class="shrink-0 text-[11px] text-g-400">{{ pp.rooms }} 房</span>
+              </label>
+              <div v-if="!people.length" class="px-1 py-2 text-[11px] text-g-400">
+                还没记录到任何人（等有直播间开播、有人出现在麦上）
+              </div>
+            </div>
+          </el-popover>
+        </el-form-item>
+
         <el-form-item label="推送渠道">
           <el-select v-model="ruleForm.channel_ids" multiple placeholder="至少选一个" class="w-full">
             <el-option v-for="c in channels" :key="c.id" :label="c.name" :value="c.id" />
@@ -453,12 +499,14 @@
     deleteUpstageWatch,
     fetchUpstageEvents,
     fetchUpstageMembers,
+    fetchUpstagePeople,
     fetchUpstageSeen,
     fetchUpstageStatus,
     fetchUpstageWatch,
     resetUpstage,
     setUpstageWatchEnabled,
     type UpstageEvent,
+    type UpstagePerson,
     type UpstageSeen,
     type UpstageStatus,
     type UpstageWatch
@@ -520,6 +568,9 @@
     { prop: 'event', label: '事件', width: 150, useSlot: true, slotName: 'event' },
     { prop: 'room_id', label: '直播间', width: 150, useSlot: true, slotName: 'room' },
     { prop: 'channels', label: '推送渠道', minWidth: 180, useSlot: true, slotName: 'channels' },
+    ...(isMobile.value
+      ? []
+      : [{ prop: 'watch', label: '关注的人', width: 130, useSlot: true, slotName: 'watch' } as ColumnOption]),
     { prop: 'quiet', label: '免打扰', width: 140, useSlot: true, slotName: 'quiet' },
     { prop: 'enabled', label: '状态', width: 80, align: 'left', useSlot: true, slotName: 'enabled' },
     {
@@ -770,6 +821,43 @@
       quietEnd.value = v?.[1] || ''
     }
   })
+  /** 现场出现过的人（跨房间汇总），给"关注的人"下拉用 */
+  const people = ref<UpstagePerson[]>([])
+  async function loadPeople() {
+    try {
+      const r = await fetchUpstagePeople()
+      people.value = r.items || []
+    } catch {
+      people.value = []
+    }
+  }
+
+  /** 勾选/取消关注某个人 */
+  function toggleWatchUid(uid: string) {
+    const list = ruleForm.value.watch_uids
+    const i = list.indexOf(uid)
+    if (i >= 0) list.splice(i, 1)
+    else list.push(uid)
+  }
+
+  /** 规则上的 watch_uids → 名字（解析不到就用 uid） */
+  function watchNames(conditions: unknown): string[] {
+    const uids = (conditions as { watch_uids?: unknown })?.watch_uids
+    if (!Array.isArray(uids) || !uids.length) return []
+    return uids.map((uid) => {
+      const hit = people.value.find((x) => x.uid === String(uid))
+      return hit?.nickname || String(uid)
+    })
+  }
+
+  /** 按钮上显示的文案 */
+  const watchLabel = computed(() => {
+    const uids = ruleForm.value.watch_uids
+    if (!uids.length) return '全部主播'
+    const names = watchNames({ watch_uids: uids })
+    return names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个`
+  })
+
   const ruleForm = ref<{
     id?: number
     event: string
@@ -778,11 +866,17 @@
      * 存库时拼成逗号串写进 notify_rules.room_id（room_id 即 web_rid，和 dispatch 过滤用的是同一个）。
      */
     room_ids: string[]
+    /**
+     * 「关注的人」（只对「主播上场」有意义）：空数组 = 谁上场都提醒。
+     * 存进 conditions.watch_uids，dispatch 按 uid 过滤。
+     */
+    watch_uids: string[]
     channel_ids: number[]
     enabled: boolean
-  }>({ event: '', channel_ids: [], room_ids: [], enabled: true })
+  }>({ event: '', channel_ids: [], room_ids: [], watch_uids: [], enabled: true })
 
   function openRuleDialog(row?: NotifyRule) {
+    void loadPeople()
     if (!channels.value.length) {
       ElMessage.warning('先去「推送渠道」加一个渠道，规则才有地方推')
       activeTab.value = 'channels'
@@ -793,10 +887,19 @@
           id: row.id,
           event: row.event,
           room_ids: row.room_id ? String(row.room_id).split(',').filter(Boolean) : [],
+          watch_uids: Array.isArray((row.conditions as { watch_uids?: unknown })?.watch_uids)
+            ? ((row.conditions as { watch_uids: unknown[] }).watch_uids || []).map(String)
+            : [],
           channel_ids: [...row.channel_ids],
           enabled: !!row.enabled
         }
-      : { event: events.value[0]?.key || '', room_ids: [], channel_ids: [], enabled: true }
+      : {
+          event: events.value[0]?.key || '',
+          room_ids: [],
+          watch_uids: [],
+          channel_ids: [],
+          enabled: true
+        }
     quietStart.value = row?.quiet_hours?.start || ''
     quietEnd.value = row?.quiet_hours?.end || ''
     ruleDialogVisible.value = true
@@ -842,6 +945,7 @@
         id: ruleForm.value.id,
         event: ruleForm.value.event,
         room_id: ruleForm.value.room_ids.length ? ruleForm.value.room_ids.join(',') : null,
+        conditions: { watch_uids: ruleForm.value.watch_uids },
         channel_ids: ruleForm.value.channel_ids,
         quiet_hours:
           quietStart.value && quietEnd.value ? { start: quietStart.value, end: quietEnd.value } : null,

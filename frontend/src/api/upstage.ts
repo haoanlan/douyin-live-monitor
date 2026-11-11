@@ -81,6 +81,20 @@ export function fetchUpstageSeen(params: { webRid: string }) {
   return request.get<{ items: UpstageSeen[] }>({ url: '/api/upstage/seen', params })
 }
 
+export interface UpstagePerson {
+  uid: string
+  nickname?: string | null
+  /** 最近一次在哪个房间出现（不返回给页面，仅用于补昵称） */
+  last_seen_at: number
+  rooms: number
+  conf?: number | null
+}
+
+/** 现场出现过的人（跨房间汇总，给规则里「关注的人」下拉用） */
+export function fetchUpstagePeople() {
+  return request.get<{ items: UpstagePerson[] }>({ url: '/api/upstage/people' })
+}
+
 /** 切换某个主播的推送开关（enabled 0/1） */
 export function setUpstageWatchEnabled(data: { web_rid: string; uid: string; nickname?: string; enabled: number }) {
   return request.post<{ items: UpstageWatch[] }>({ url: '/api/upstage/watch', data })
