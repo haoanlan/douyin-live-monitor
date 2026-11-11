@@ -483,9 +483,9 @@
                       :class="m.club.clubStatus === 2 ? 'text-[#8a8a8a]' : m.club.starGuard ? 'text-[#ff8f3f]' : 'text-[#b07d00]'"
                     >{{ m.club.clubLevel }}</span>
                     <span
-                      v-if="m.club.clubName || m.club.an"
+                      v-if="m.club.clubName"
                       class="text-[10px] leading-none text-white truncate"
-                    >{{ m.club.clubName || m.club.an }}</span>
+                    >{{ m.club.clubName }}</span>
                   </span>
                   <span v-if="m._type === 'gift'" class="dy-feed-row__tag">礼物</span>
                   <span class="dy-feed-row__time">{{ fmtTime(m.timestamp) }}</span>
