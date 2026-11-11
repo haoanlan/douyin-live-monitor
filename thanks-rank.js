@@ -1785,7 +1785,12 @@ function dgListHTML(users, meta, pageLabel) {
   const half = dense ? CAP : Math.ceil(n / 2);
   const rowH = dense ? Math.floor((522 - 5 * (CAP - 1)) / CAP) : 0;
   const av = dense ? 20 : 22, nmFs = dense ? 11.5 : 12.5;
-  const col = arr => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;min-height:0">${arr.map(u => dpRow(u, av, nmFs, rowH)).join('')}</div>`;
+  /*
+   * 固定格子、按"先上后下、同一行先左后右"依次填入（用户要求）：
+   * 用 grid 的默认流（row-major）直接按原顺序铺，两列一行的填法，
+   * 不再按"左栏全排完再排右栏"那样切两半。
+   */
+  const grid = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;align-content:start">${users.map(u => dpRow(u, av, nmFs, rowH)).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${dpFontLink()}<style>${dgCSS()}</style></head><body>
   <div class="page">${dpBgBlobs(users, meta, 58, 0.40)}
     <div class="inner">
@@ -1793,7 +1798,7 @@ function dgListHTML(users, meta, pageLabel) {
         <span class="lbl">园区充电榜</span><span class="lbl">${esc(pageLabel)}</span></div>
       <div class="mt" style="margin-top:11px">${esc(meta.target)} · 共 ${meta.gifters} 位送礼人</div>
       <div class="glass" style="padding:12px 14px;justify-content:flex-start">
-        <div class="rows" style="flex:0 0 auto;flex-direction:row;gap:14px;align-items:flex-start">${col(users.slice(0, half))}${col(users.slice(half))}</div>
+        ${grid}
       </div>
       <div class="foot"><span class="lbl">${rankDate(meta.dateStr)}</span><span class="pg">${rankPageCodeOf(pageLabel, meta)}</span></div>
     </div>
