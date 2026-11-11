@@ -555,13 +555,13 @@
 
   /** 状态数据久未刷新 → 弹窗（连接异常时已由 connAlert 说明，避免重复） */
   watch(
-    () => (lastStatusAt.value && staleSeconds.value > 30 ? lastStatusAt.value : null),
+    () => (lastStatusAt.value && staleSeconds.value > 180 ? lastStatusAt.value : null),
     (v) => {
-      if (!v || statusError.value) return
+      if (!v || statusError.value || document.hidden) return
       notifyOnce('stale', `stale:${v}`, {
         title: '状态数据已停止更新',
         type: 'warning',
-        duration: 0,
+        duration: 8000,
         position: 'bottom-right',
         message: `状态数据 ${fmtAgo(v)}更新过，自动刷新可能已停止`
       })
@@ -573,11 +573,11 @@
   watch(
     () => (overviewStale.value ? (lastOverviewAt.value ?? 0) : null),
     (v) => {
-      if (v === null || overviewError.value) return
+      if (v === null || overviewError.value || document.hidden) return
       notifyOnce('overview', `overview-stale:${v}:${overviewError.value}`, {
         title: '历史总览数据不是最新的',
         type: 'warning',
-        duration: 0,
+        duration: 8000,
         position: 'bottom-right',
         message: () =>
           h('div', { class: 'flex flex-col gap-2' }, [
