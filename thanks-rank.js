@@ -394,8 +394,19 @@ function magTopHTML(variant, users, meta) {
   return magTopV1(users, meta);
 }
 
+/**
+ * 榜单标题（按主播区分，用户要求）：
+ *   萱萱的榜单叫「园区充电榜」，其他主播叫「直播感谢榜」。
+ * 所有主题的 HTML 都把标题写死成「园区充电榜」，这里在渲染前统一替换，
+ * 这样不必去改十几处模板。
+ */
+function rankTitleFor(target) {
+  return String(target || '').includes('萱萱') ? '园区充电榜' : '直播感谢榜';
+}
+
 /** 杂志风渲染：540×720 CSS px @2x = 1080×1440，等字体与头像加载完成再截图 */
-async function renderMag(html, outPath) {
+async function renderMag(html, outPath, title) {
+  if (title) html = html.replace(/园区充电榜/g, title);
   const br = await chromium.launch({ headless: true, executablePath: chromiumExe() });
   const page = await br.newPage({ viewport: { width: 540, height: 720 }, deviceScaleFactor: 2 });
   await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -421,6 +432,8 @@ async function renderMagazine(variant, users, meta) {
    * 撞名（后渲染覆盖前一个，路由还找不到 diamonds 那批）。
    */
   const suffix = IS_AMOUNT_THEME ? THEME_ARG : variant;
+  // 标题按主播区分：萱萱 = 园区充电榜，其他 = 直播感谢榜
+  const rankTitle = rankTitleFor(meta.target);
   const n = users.length;
   const topN = Math.min(10, n);
   const restCount = n - topN;
@@ -432,7 +445,7 @@ async function renderMagazine(variant, users, meta) {
   const base = path.join(outputDir, `thanks_rank_${sessionIds.join('-')}_${suffix}`);
   console.log(`📐 模板 ${variant}${THEME_ARG ? '' : '（默认）'} · ${n} 人${MAG_AMOUNT ? ' · 收礼合计 ' + fmtD(meta.total) : ''}`);
   console.log(`🎨 背景 ${BG.name} · 强度 ${BG.strength} · 饱和 ×${BG.sat} · 模糊 ×${BG.blur}${BG.on ? '' : '（无色场）'}`);
-  await renderMag(magTopHTML(variant, users.slice(0, topN), meta), `${base}_p1.jpg`);
+  await renderMag(magTopHTML(variant, users.slice(0, topN), meta), `${base}_p1.jpg`, rankTitle);
   if (restCount > 0) {
     const perPage = 30;                                  // 固定每页 30 人 = 两栏各 15 行
     const listPages = Math.max(1, Math.ceil(restCount / perPage));
@@ -443,7 +456,7 @@ async function renderMagazine(variant, users, meta) {
       const label = `第 ${start + 1}-${end} 名`;
       console.log(`🖼️  名次页 ${i + 2}/${listPages + 1} (${label})`);
       const listHtml = rankListHTML(variant, users.slice(start, end), meta, label);
-      await renderMag(listHtml, `${base}_p${i + 2}.jpg`);
+      await renderMag(listHtml, `${base}_p${i + 2}.jpg`, rankTitle);
     }
   }
 }

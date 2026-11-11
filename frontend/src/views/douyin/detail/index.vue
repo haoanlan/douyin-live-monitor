@@ -538,7 +538,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 pr-[120px]">
           <el-avatar :size="40" :src="giftDialogAvatar" class="shrink-0">{{
             giftDialogUser?.[0]
           }}</el-avatar>
@@ -598,7 +598,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 pr-[120px]">
           <el-avatar :size="40" :src="peopleAnchorAvatar" class="shrink-0">{{
             peopleAnchorName?.[0]
           }}</el-avatar>

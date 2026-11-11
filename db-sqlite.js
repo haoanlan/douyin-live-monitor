@@ -904,17 +904,17 @@ async function buildPrecomputed(d, sessionId, dedupedGifts) {
     if (g.nickname) anchorMap[key].users.add(g.nickname);
     if (g.to_nickname && !anchorMap[key].anchor_name) anchorMap[key].anchor_name = g.to_nickname;
   }
-  // 补全缺失的主播头像
+  // 补全主播头像：只要有 secUid 就查一次真实头像（抖音会给匿名下发"神秘人"占位图）
   try {
     const { fetchUserBySecUid } = require('../../douyin-user');
-    const missing = Object.values(anchorMap).filter(a => !a.anchor_avatar && a.anchor_sec_uid);
-    if (missing.length > 0) {
-      await Promise.all(missing.map(async a => {
+    const need = Object.values(anchorMap).filter(a => a.anchor_sec_uid);
+    if (need.length > 0) {
+      await Promise.all(need.map(async a => {
         try {
           const info = await fetchUserBySecUid(a.anchor_sec_uid);
           if (info && info.avatar) {
             a.anchor_avatar = info.avatar;
-            d.prepare('UPDATE gifts SET to_avatar = ? WHERE session_id = ? AND to_user_sec_uid = ? AND to_avatar IS NULL').run(info.avatar, sessionId, a.anchor_sec_uid);
+            d.prepare('UPDATE gifts SET to_avatar = ? WHERE session_id = ? AND to_user_sec_uid = ?').run(info.avatar, sessionId, a.anchor_sec_uid);
           }
         } catch (e) {}
       }));
