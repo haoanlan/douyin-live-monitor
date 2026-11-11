@@ -342,24 +342,33 @@
           </el-select>
         </el-form-item>
         <el-form-item label="直播间">
-          <el-select
-            v-model="ruleForm.room_ids"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="全部直播间"
-            class="w-full"
-          >
-            <el-option
-              v-for="r in roomOptions"
-              :key="r.room_id"
-              :label="r.name"
-              :value="r.room_id"
-            />
-          </el-select>
-          <p class="m-0 mt-1 text-[11px] text-g-400">
-            可多选；一个都不选＝所有直播间。不想通知某个房间，就只勾其它的。
-          </p>
+          <el-popover placement="bottom-end" :width="280" trigger="click" popper-class="dy-host-pop">
+            <template #reference>
+              <button type="button" class="dy-picker-btn w-full">
+                <ArtSvgIcon icon="ri:live-line" />
+                <span class="min-w-0 flex-1 truncate text-left">{{ ruleRoomLabel }}</span>
+                <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
+              </button>
+            </template>
+            <div class="max-h-[300px] overflow-y-auto">
+              <div class="px-1 pb-1 text-[11px] text-g-400">不选 = 全部直播间</div>
+              <label
+                v-for="r in roomOptions"
+                :key="r.room_id"
+                class="dy-host-row"
+                :class="{ 'is-checked': ruleForm.room_ids.includes(r.room_id) }"
+                @click.prevent="toggleRuleRoom(r.room_id)"
+              >
+                <el-checkbox
+                  :model-value="ruleForm.room_ids.includes(r.room_id)"
+                  @click.stop
+                  @change="toggleRuleRoom(r.room_id)"
+                />
+                <el-avatar :size="20" :src="r.avatar || undefined" class="shrink-0">{{ r.name?.[0] }}</el-avatar>
+                <span class="min-w-0 flex-1 truncate text-sm text-g-800">{{ r.name }}</span>
+              </label>
+            </div>
+          </el-popover>
         </el-form-item>
         <el-form-item label="推送渠道">
           <el-select v-model="ruleForm.channel_ids" multiple placeholder="至少选一个" class="w-full">
@@ -780,6 +789,22 @@
     ruleDialogVisible.value = true
   }
 
+  /** 弹层里勾选/取消某个直播间 */
+  function toggleRuleRoom(id: string) {
+    const list = ruleForm.value.room_ids
+    const i = list.indexOf(id)
+    if (i >= 0) list.splice(i, 1)
+    else list.push(id)
+  }
+
+  /** 按钮上显示的文案：没选=全部直播间，选了 1 个显示名字，多个显示「名字 等 N 个」 */
+  const ruleRoomLabel = computed(() => {
+    const ids = ruleForm.value.room_ids
+    if (!ids.length) return '全部直播间'
+    const names = ids.map((id) => roomOptions.value.find((r) => r.room_id === id)?.name || id)
+    return names.length === 1 ? names[0] : `${names[0]} 等 ${names.length} 个`
+  })
+
   /** 规则上的 room_id → 直播间名（空 = 全部直播间） */
   function roomName(id?: string | null) {
     if (!id) return '全部直播间'
@@ -867,7 +892,7 @@
   const upWebRid = ref('')
   const frameHelpVisible = ref(false)
   /** 已添加的直播间（下拉用，不再手填 web_rid） */
-  const roomOptions = ref<{ room_id: string; name: string }[]>([])
+  const roomOptions = ref<{ room_id: string; name: string; avatar?: string }[]>([])
   const upLoadingMembers = ref(false)
   const members = ref<{ uid: string; nickname: string }[]>([])
   const watchList = ref<UpstageWatch[]>([])
@@ -1011,7 +1036,11 @@
       const rooms = await fetchRooms()
       const list = Array.isArray(rooms) ? rooms : (rooms as any)?.rooms || []
       roomOptions.value = list
-        .map((r: any) => ({ room_id: String(r.room_id || r.roomId || ''), name: r.name || String(r.room_id || '') }))
+        .map((r: any) => ({
+          room_id: String(r.room_id || r.roomId || ''),
+          name: r.name || String(r.room_id || ''),
+          avatar: r.avatar || ''
+        }))
         .filter((r: { room_id: string }) => r.room_id)
       if (!upWebRid.value && roomOptions.value.length) upWebRid.value = roomOptions.value[0].room_id
     } catch {
