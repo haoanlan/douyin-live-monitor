@@ -68,6 +68,14 @@ export function saveNotifyRule(data: Partial<NotifyRule>) {
   return request.post<{ id: number; items: NotifyRule[] }>({ url: '/api/notify/rules', data })
 }
 
+/** 规则「发送测试」：按当前选中的渠道各发一条样例，返回每个渠道的结果 */
+export function testNotifyRule(data: { event?: string; channel_ids: number[] }) {
+  return request.post<{ results: { channel_id: number; name?: string; type?: string; ok: boolean; error?: string }[] }>({
+    url: '/api/notify/rules/test',
+    data
+  })
+}
+
 export function deleteNotifyRule(id: number) {
   return request.post<{ items: NotifyRule[] }>({ url: '/api/notify/rules/delete', data: { id } })
 }

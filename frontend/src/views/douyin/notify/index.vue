@@ -441,6 +441,14 @@
         </el-form-item>
       </el-form>
       <template #footer>
+        <el-button
+          class="!min-w-[112px]"
+          :loading="testingRule"
+          :disabled="!ruleForm.channel_ids.length"
+          @click="testRuleChannels"
+        >
+          发送测试
+        </el-button>
         <el-button @click="ruleDialogVisible = false">取消</el-button>
         <el-button type="primary" class="!min-w-[88px]" :loading="saving" @click="submitRule">保存</el-button>
       </template>
@@ -489,6 +497,7 @@
     fetchNotifyRules,
     saveNotifyChannel,
     saveNotifyRule,
+    testNotifyRule,
     testNotifyChannel,
     type NotifyChannel,
     type NotifyLog,
@@ -934,6 +943,34 @@
   function clearQuiet() {
     quietStart.value = ''
     quietEnd.value = ''
+  }
+
+  const testingRule = ref(false)
+  /** 规则「发送测试」：按选中的渠道各发一条样例，把每个渠道的结果显示出来 */
+  async function testRuleChannels() {
+    if (!ruleForm.value.channel_ids.length) return ElMessage.warning('先选推送渠道')
+    testingRule.value = true
+    try {
+      const r = await testNotifyRule({
+        event: ruleForm.value.event,
+        channel_ids: ruleForm.value.channel_ids
+      })
+      const rows = r.results || []
+      const ok = rows.filter((x) => x.ok).length
+      const failed = rows.filter((x) => !x.ok)
+      if (failed.length) {
+        ElMessage.error(
+          `${ok} 个渠道已发送，${failed.length} 个失败：` +
+            failed.map((x) => `${x.name || x.channel_id}(${x.error || '未知错误'})`).join('；')
+        )
+      } else {
+        ElMessage.success(`已发送到 ${ok} 个渠道，去对应群里看看`)
+      }
+    } catch (e) {
+      ElMessage.error(apiErrorMessage(e, '发送测试失败'))
+    } finally {
+      testingRule.value = false
+    }
   }
 
   async function submitRule() {
