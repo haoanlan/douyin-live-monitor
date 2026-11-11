@@ -32,7 +32,8 @@
           · 手机：操作（选择直播间 / 粒度 / 刷新）跟身份同一行，分段控件单独一行
       -->
       <div class="flex flex-wrap items-center justify-between gap-2 lg:gap-3">
-        <div class="flex min-w-0 items-center gap-3">
+        <!-- flex-1 让身份这块可压缩：多选时名字变长也不会把右侧操作挤到下一行 -->
+        <div class="flex min-w-0 flex-1 items-center gap-3">
           <el-avatar
             v-if="currentHosts.length === 1"
             :size="34"
@@ -104,7 +105,7 @@
                 <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
               </button>
             </template>
-            <div class="max-h-[300px] overflow-y-auto">
+            <div class="dy-host-list max-h-[300px] overflow-y-auto">
               <div class="px-1 pb-1 text-[11px] text-g-400">最多选 4 个直播间对比</div>
               <label
                 v-for="h in hosts"
@@ -260,17 +261,24 @@
            每项带「环比上一个等长周期」，用后端已返回的 prevSummary，不额外请求；无比可数据时显式显示「环比 —」。 -->
       <!-- 明确写一句：下面这些数字统计的是谁 -->
       <!--
-        统计范围：原来是一整句「以下数据统计范围：<主播们> · 近 30 天 · 按日口径」，
-        名字一长就在手机上折成两行、断句还很难看（截图反馈）。
-        现在拆成「固定部分 + 可省略的名字」：口径在前且不换行，名字单行省略、悬停看全。
+        统计范围（2026-11-11 第二次调整：长昵称/多直播间依然换行）
+
+        试过"口径 + 可省略的名字"，但名字再长仍是正文，truncate 对内联元素无效、
+        而且一行里塞两个信息本身就容易被挤断。现在只留**固定长度**的口径，
+        主播名全部挪进 ⓘ 的 tooltip —— 结构上不可能再换行。
       -->
-      <div class="mb-2 flex min-w-0 items-center gap-1.5 text-[11px] text-g-400">
-        <ArtSvgIcon icon="ri:information-line" class="shrink-0" />
-        <span class="shrink-0">{{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场</span>
-        <span class="shrink-0 text-g-300">|</span>
-        <el-tooltip :content="scopeLabel" placement="top" :show-after="300">
-          <b class="min-w-0 truncate font-normal text-g-600 cursor-help">{{ scopeLabel }}</b>
+      <div class="mb-2 flex items-center gap-1.5 text-[11px] text-g-400">
+        <el-tooltip placement="top" :show-after="200">
+          <template #content>
+            <div class="max-w-[320px] whitespace-normal leading-relaxed">
+              统计范围：{{ scopeLabel }}<br />
+              {{ rangeLabel }} · {{ modeLabel }} · 共 {{ totalSessions }} 场
+            </div>
+          </template>
+          <ArtSvgIcon icon="ri:information-line" class="shrink-0 cursor-help" />
         </el-tooltip>
+        <span class="shrink-0">{{ rangeLabel }} · {{ modeLabel }} · {{ totalSessions }} 场</span>
+        <span class="min-w-0 truncate text-g-500">{{ currentHosts.length > 1 ? `（${currentHosts.length} 个直播间）` : '' }}</span>
       </div>
       <div class="dy-kpi-row mb-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div v-for="k in kpiCards" :key="k.key" class="art-card p-4">

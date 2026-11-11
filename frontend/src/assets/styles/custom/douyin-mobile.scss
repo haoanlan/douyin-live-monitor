@@ -1270,6 +1270,13 @@ html.dark .dy-seg__item.is-active {
 }
 
 /* 弹层里的一行：头像 + 名字 + 场次 */
+/* 弹层里的列表容器：行之间留 2px，否则相邻选中行的浅蓝底会连成一块（截图反馈"重叠"） */
+.dy-host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .dy-host-row {
   display: flex;
   align-items: center;
@@ -1277,6 +1284,12 @@ html.dark .dy-seg__item.is-active {
   padding: 6px 8px;
   border-radius: var(--dy-radius-md);
   cursor: pointer;
+}
+
+/* el-checkbox 自带 margin-right: 30px，和头像之间会拉出一大段空白 */
+.dy-host-row .el-checkbox {
+  margin-right: 0;
+  height: auto;
 }
 
 .dy-host-row:hover {

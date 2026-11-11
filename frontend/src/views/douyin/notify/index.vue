@@ -350,7 +350,7 @@
                 <ArtSvgIcon icon="ri:arrow-down-s-line" class="dy-picker-btn__caret" />
               </button>
             </template>
-            <div class="max-h-[300px] overflow-y-auto">
+            <div class="dy-host-list max-h-[300px] overflow-y-auto">
               <div class="px-1 pb-1 text-[11px] text-g-400">不选 = 全部直播间</div>
               <label
                 v-for="r in roomOptions"
