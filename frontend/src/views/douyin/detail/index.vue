@@ -538,7 +538,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-12">
+        <div class="flex items-center gap-3">
           <el-avatar :size="40" :src="giftDialogAvatar" class="shrink-0">{{
             giftDialogUser?.[0]
           }}</el-avatar>
@@ -595,10 +595,11 @@
       :width="isMobile ? '92%' : '500px'"
       class="detail-dialog"
       align-center
+      :show-close="false"
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-12">
+        <div class="flex items-center gap-3">
           <el-avatar :size="40" :src="peopleAnchorAvatar" class="shrink-0">{{
             peopleAnchorName?.[0]
           }}</el-avatar>
@@ -647,6 +648,15 @@
               class="text-base"
               :class="rankDownloading ? 'animate-spin' : ''"
             />
+          </button>
+          <!-- 关闭键放进同一行 flex：三个按钮由布局保证中心线一致（不再靠绝对定位对齐） -->
+          <button
+            class="dy-pressable size-8 flex-cc shrink-0 rounded-lg text-g-600 hover:bg-g-100 hover:text-theme"
+            title="关闭"
+            aria-label="关闭"
+            @click="peopleDialogVisible = false"
+          >
+            <ArtSvgIcon icon="ri:close-line" class="text-base" />
           </button>
         </div>
       </template>

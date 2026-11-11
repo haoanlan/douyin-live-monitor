@@ -246,10 +246,11 @@
       width="1180"
       class="dy-combined-dialog"
       align-center
+      :show-close="false"
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-12">
+        <div class="flex items-center gap-3">
           <div class="size-10 rounded-lg flex-cc bg-theme/10 shrink-0">
             <ArtSvgIcon icon="ri:merge-cells-horizontal" class="text-lg text-theme" />
           </div>
@@ -278,6 +279,15 @@
               class="text-base"
               :class="reportDownloading ? 'animate-spin' : ''"
             />
+          </button>
+          <!-- 关闭键放进同一行 flex，两个按钮由布局保证中心线一致 -->
+          <button
+            class="size-8 flex-cc shrink-0 rounded-lg text-g-600 hover:bg-g-100 hover:text-theme"
+            title="关闭"
+            aria-label="关闭"
+            @click="dialogVisible = false"
+          >
+            <ArtSvgIcon icon="ri:close-line" class="text-base" />
           </button>
         </div>
       </template>
@@ -450,10 +460,11 @@
       width="520"
       class="combined-people-dialog"
       align-center
+      :show-close="false"
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3 pr-12">
+        <div class="flex items-center gap-3">
           <el-avatar :size="40" :src="avatarSrc(peopleAnchorAvatar)" class="shrink-0">
             {{ peopleAnchorName?.[0] || '?' }}
           </el-avatar>
@@ -482,6 +493,15 @@
               class="text-base"
               :class="rankDownloading ? 'animate-spin' : ''"
             />
+          </button>
+          <!-- 关闭键放进同一行 flex，三个按钮由布局保证中心线一致 -->
+          <button
+            class="size-8 flex-cc shrink-0 rounded-lg text-g-600 hover:bg-g-100 hover:text-theme"
+            title="关闭"
+            aria-label="关闭"
+            @click="peopleDialogVisible = false"
+          >
+            <ArtSvgIcon icon="ri:close-line" class="text-base" />
           </button>
         </div>
       </template>
