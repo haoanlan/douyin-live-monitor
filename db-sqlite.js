@@ -870,11 +870,35 @@ async function buildPrecomputed(d, sessionId, dedupedGifts) {
   giftRanking.forEach((g, i) => insGR.run(sessionId, i + 1, g.nickname, g.avatar_url, g.user_sec_uid, g.total_diamonds, g.gift_count));
 
   // 主播排名
+  /*
+   * 补录礼物可能只有 to_nickname、没有 to_user_sec_uid：先按昵称映射回真实主播，
+   * 映射不到又只是些匿名占位名，就别让它变成一个"多出来的主播"。
+   */
+  const nickToAnchor = {};
+  for (const g of dedupedGifts) {
+    const name = String(g.to_nickname || '').trim();
+    if (!name || !g.to_user_sec_uid) continue;
+    if (!nickToAnchor[name] || (!nickToAnchor[name].avatar && g.to_avatar)) {
+      nickToAnchor[name] = { sec: g.to_user_sec_uid, avatar: g.to_avatar || '' };
+    }
+  }
+  const isAnon = (name) => {
+    const s = String(name || '').trim();
+    if (!s) return true;
+    if (/^(神秘人|匿名|游客)/.test(s)) return true;
+    if (/^(dou|user|用户)\d{3,}$/i.test(s)) return true;
+    return false;
+  };
   const anchorMap = {};
   for (const g of dedupedGifts) {
-    const key = g.to_user_sec_uid || '';
+    const nick = String(g.to_nickname || '').trim();
+    const mapped = nick ? nickToAnchor[nick] : null;
+    const sec = g.to_user_sec_uid || (mapped && mapped.sec) || '';
+    const key = sec || nick;
     if (!key) continue;
-    if (!anchorMap[key]) anchorMap[key] = { anchor_sec_uid: key, anchor_name: g.to_nickname || '', anchor_avatar: g.to_avatar || null, total_diamonds: 0, gift_count: 0, users: new Set() };
+    if (!sec && isAnon(nick)) continue;
+    if (!anchorMap[key]) anchorMap[key] = { anchor_sec_uid: sec, anchor_name: nick, anchor_avatar: g.to_avatar || (mapped && mapped.avatar) || null, total_diamonds: 0, gift_count: 0, users: new Set() };
+    if (!anchorMap[key].anchor_avatar) anchorMap[key].anchor_avatar = g.to_avatar || (mapped && mapped.avatar) || null;
     anchorMap[key].total_diamonds += g.total_diamonds || 0;
     anchorMap[key].gift_count += g.repeat_count || 1;
     if (g.nickname) anchorMap[key].users.add(g.nickname);

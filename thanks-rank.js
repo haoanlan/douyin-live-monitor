@@ -351,7 +351,7 @@ function magListHTML(variant, users, meta, pageLabel) {
   const rowH = Math.max(26, Math.min(A ? 40 : 45, Math.floor(avail / rows)));
   const av = A ? 20 : 24;
   const pad = Math.max(3, Math.floor((rowH - av - 1) / 2));
-  const col = (arr, offset) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between">${arr.map((u, i) => `
+  const col = (arr, offset) => `<div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start">${arr.map((u, i) => `
     <div style="display:flex;align-items:center;gap:8px;height:${rowH}px;padding:${pad}px 0;border-bottom:${V2 ? MAG2_ROW_RULE : '1px solid ' + MAG.ruleLight}">
       <span class="num" style="width:22px;font-size:12px;color:${MAG.inkFaint}">${offset + i + 1}</span>
       ${magAvatar(u.avatar, av)}
@@ -1779,7 +1779,7 @@ function dgListHTML(users, meta, pageLabel) {
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid ${DP.hair}">
         <span class="lbl">园区充电榜</span><span class="lbl">${esc(pageLabel)}</span></div>
       <div class="mt" style="margin-top:11px">${esc(meta.target)} · 共 ${meta.gifters} 位送礼人</div>
-      <div class="glass" style="padding:12px 14px;justify-content:center">
+      <div class="glass" style="padding:12px 14px;justify-content:flex-start">
         <div class="rows" style="flex:0 0 auto;flex-direction:row;gap:14px;align-items:flex-start">${col(users.slice(0, half))}${col(users.slice(half))}</div>
       </div>
       <div class="foot"><span class="lbl">${rankDate(meta.dateStr)}</span><span class="pg">${rankPageCodeOf(pageLabel, meta)}</span></div>
