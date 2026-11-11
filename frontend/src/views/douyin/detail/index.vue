@@ -477,7 +477,7 @@
                             backgroundImage: `url(${clubBadgeUrl(m.club)})`,
                             backgroundSize: 'auto 16px',
                             backgroundPosition: 'left center',
-                            width: '30px'
+                            width: '20px'
                           }
                     "
                     :title="clubTitle(m.club)"
