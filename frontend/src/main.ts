@@ -25,6 +25,15 @@ document.addEventListener(
   { passive: false }
 )
 
+/*
+ * 构建戳：挂在 window 上而不是 console.log —— 打包时 esbuild 的 drop:['console']
+ * 会把 console 调用直接删掉，看不到。在控制台输入 __BUILD__ 即可核对当前加载的是哪次构建。
+ */
+;(window as unknown as Record<string, unknown>).__BUILD__ = {
+  version: __APP_VERSION__,
+  build: __APP_BUILD__
+}
+
 const app = createApp(App)
 initStore(app)
 

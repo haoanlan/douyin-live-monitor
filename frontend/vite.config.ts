@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath } from 'url'
+import { readFileSync } from 'node:fs'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import viteCompression from 'vite-plugin-compression'
 import Components from 'unplugin-vue-components/vite'
@@ -28,6 +29,19 @@ export default ({ mode }: { mode: string }) => {
    *   TypeError: Cannot read properties of undefined (reading 'replace')
    * 必须在打包期就保证它一定是字符串。
    */
+  /*
+   * 版本号以 package.json 为准：.env 里的 VITE_VERSION 之前停在 1.1.0，
+   * 而 package.json 已经到 1.3.2 —— 界面上显示 v1.1.0 会让人以为装的是旧版。
+   */
+  const PKG_VERSION = (() => {
+    try {
+      // 直接按 cwd 读：vite 有时把配置编译到临时目录再加载（import.meta.url 会指到那儿）
+      return JSON.parse(readFileSync(process.cwd() + '/package.json', 'utf8')).version || ''
+    } catch {
+      return ''
+    }
+  })()
+
   if (!VITE_VERSION) {
     console.warn(
       '⚠️ 未配置 VITE_VERSION，__APP_VERSION__ 回退为 0.0.0（见 .env.development / .env.production）'
@@ -36,7 +50,13 @@ export default ({ mode }: { mode: string }) => {
 
   return defineConfig({
     define: {
-      __APP_VERSION__: JSON.stringify(VITE_VERSION || '0.0.0')
+      __APP_VERSION__: JSON.stringify(PKG_VERSION || VITE_VERSION || '0.0.0'),
+      /*
+       * 构建时间戳：用来在界面上直观判断"我现在看到的是哪一次构建"。
+       * 之前排查"改了没生效"时完全靠猜（浏览器缓存 / 旧进程 / 旧的 dist），
+       * 有这个戳就能一眼确认。
+       */
+      __APP_BUILD__: JSON.stringify(new Date().toLocaleString('zh-CN', { hour12: false }))
     },
     base: VITE_BASE_URL,
     server: {

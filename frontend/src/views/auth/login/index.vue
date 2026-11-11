@@ -85,6 +85,9 @@
               重置密码的方法写在 README（运维看文档，不是看登录页）。
             -->
           </ElForm>
+
+          <!-- 构建戳：排查"改了没生效"时先看这里（浏览器缓存 / 旧进程 / 旧 dist 一眼区分） -->
+          <p class="buildStamp">{{ buildStamp }}</p>
         </div>
       </div>
     </div>
@@ -105,6 +108,9 @@
   const { isDark } = storeToRefs(settingStore)
   const { t, locale } = useI18n()
   const formKey = ref(0)
+
+  // 版本 + 构建时间（vite define 注入，见 vite.config.ts）
+  const buildStamp = `v${__APP_VERSION__} · 构建 ${__APP_BUILD__}`
 
   // 监听语言切换，重置表单
   watch(locale, () => {
@@ -235,6 +241,15 @@
 
 <style scoped>
   @import './style.css';
+
+  /* 登录页底部构建戳：小字灰字，不抢视觉 */
+  .buildStamp {
+    margin: 18px 0 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--art-gray-400, #9aa0a6);
+    user-select: text;
+  }
 </style>
 
 <style lang="scss" scoped>

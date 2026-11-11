@@ -59,6 +59,8 @@
           <div class="log-out c-p" @click="loginOut">
             {{ $t('topBar.user.logout') }}
           </div>
+          <!-- 构建戳：核对"现在跑的是哪次构建"，排查缓存问题用 -->
+          <div class="buildStamp">{{ buildStamp }}</div>
         </ul>
       </div>
     </template>
@@ -70,6 +72,8 @@
   import { useRouter } from 'vue-router'
   import { ElMessageBox } from 'element-plus'
   import { useUserStore } from '@/store/modules/user'
+
+  const buildStamp = `v${__APP_VERSION__} · ${__APP_BUILD__}`
   import { mittBus } from '@/utils/sys'
   import defaultAvatar from '@imgs/user/avatar.webp'
 
@@ -144,6 +148,14 @@
 </script>
 
 <style scoped>
+  .buildStamp {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--art-gray-400, #9aa0a6);
+    user-select: text;
+  }
+
   @reference '@styles/core/tailwind.css';
 
   @layer components {
