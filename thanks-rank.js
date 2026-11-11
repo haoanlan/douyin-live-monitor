@@ -1759,12 +1759,12 @@ body{background:${DP.bg};color:${DP.ink};font-family:'Noto Sans SC',system-ui,sa
              inset 0 -1px 0 rgba(255,255,255,0.28);
   -webkit-backdrop-filter:blur(34px) saturate(1.2);backdrop-filter:blur(34px) saturate(1.2)}
 .rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px}
-.row{flex:1;min-height:0;display:flex;align-items:center;gap:9px;border-radius:12px;padding:0 10px;
+.row{flex:1;min-height:0;display:flex;align-items:center;gap:9px;border-radius:12px;padding:0 10px;min-width:0;overflow:hidden;
   background:rgba(255,255,255,0.42);box-shadow:0 1px 3px rgba(34,38,42,0.04)}
 .row.top{background:rgba(255,255,255,0.74);box-shadow:0 2px 7px rgba(34,38,42,0.075)}
 .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-left:auto}
 .rn{font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:400;letter-spacing:0.5px;opacity:.55;width:20px;text-align:left;flex-shrink:0;font-variant-numeric:tabular-nums}
-.nm{font-size:14.5px;font-weight:500;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm{font-size:14.5px;font-weight:500;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
 .av{border-radius:50%;object-fit:cover;flex-shrink:0;display:block;box-shadow:0 2px 6px rgba(34,38,42,0.16), 0 0 0 1.5px rgba(255,255,255,0.85)}
 .foot{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px}
 .pg{font-family:'Roboto Mono',monospace;font-size:9.5px;letter-spacing:1px;color:${DP.soft}}`;
@@ -1790,7 +1790,7 @@ function dgListHTML(users, meta, pageLabel) {
    * 用 grid 的默认流（row-major）直接按原顺序铺，两列一行的填法，
    * 不再按"左栏全排完再排右栏"那样切两半。
    */
-  const grid = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;align-content:start">${users.map(u => dpRow(u, av, nmFs, rowH)).join('')}</div>`;
+  const grid = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 14px;align-content:start">${users.map(u => dpRow(u, av, nmFs, rowH)).join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${dpFontLink()}<style>${dgCSS()}</style></head><body>
   <div class="page">${dpBgBlobs(users, meta, 58, 0.40)}
     <div class="inner">
@@ -1830,7 +1830,7 @@ body{background:${DP.bg};color:${DP.ink};font-family:'Noto Sans SC',system-ui,sa
   background:rgba(244,243,241,0.66);box-shadow:0 1px 3px rgba(34,38,42,0.045)}
 .row.top{background:rgba(255,255,255,0.95);box-shadow:0 2px 7px rgba(34,38,42,0.08)}
 .rn{font-family:'Roboto Mono',monospace;font-size:10.5px;font-weight:400;letter-spacing:0.5px;opacity:.5;width:20px;text-align:left;flex-shrink:0;font-variant-numeric:tabular-nums}
-.nm{font-size:14.5px;font-weight:500;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm{font-size:14.5px;font-weight:500;letter-spacing:0.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
 .chip{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .av{border-radius:50%;object-fit:cover;flex-shrink:0;display:block;box-shadow:0 2px 6px rgba(34,38,42,0.18), 0 0 0 1.5px #FFFFFF}
 .foot{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px}
