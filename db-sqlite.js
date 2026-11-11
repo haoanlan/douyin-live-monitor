@@ -904,18 +904,22 @@ async function buildPrecomputed(d, sessionId, dedupedGifts) {
     if (g.nickname) anchorMap[key].users.add(g.nickname);
     if (g.to_nickname && !anchorMap[key].anchor_name) anchorMap[key].anchor_name = g.to_nickname;
   }
-  // 补全主播头像：只要有 secUid 就查一次真实头像（抖音会给匿名下发"神秘人"占位图）
+  // 补全主播头像：优先用"本场他自己发言/送礼时的头像"（和礼物排行同一套 getAvatarBySecUid），
+  // 因为 to_avatar 可能是抖音给匿名用户下发的"神秘人"占位图。
   try {
+    const { getAvatarBySecUid } = require('./lib/avatar-utils.js');
+    for (const a of Object.values(anchorMap)) {
+      if (!a.anchor_sec_uid) continue;
+      const local = getAvatarBySecUid(d, sessionId, a.anchor_sec_uid);
+      if (local) a.anchor_avatar = local;
+    }
     const { fetchUserBySecUid } = require('../../douyin-user');
-    const need = Object.values(anchorMap).filter(a => a.anchor_sec_uid);
-    if (need.length > 0) {
-      await Promise.all(need.map(async a => {
+    const missing = Object.values(anchorMap).filter(a => !a.anchor_avatar && a.anchor_sec_uid);
+    if (missing.length > 0) {
+      await Promise.all(missing.map(async a => {
         try {
           const info = await fetchUserBySecUid(a.anchor_sec_uid);
-          if (info && info.avatar) {
-            a.anchor_avatar = info.avatar;
-            d.prepare('UPDATE gifts SET to_avatar = ? WHERE session_id = ? AND to_user_sec_uid = ?').run(info.avatar, sessionId, a.anchor_sec_uid);
-          }
+          if (info && info.avatar) a.anchor_avatar = info.avatar;
         } catch (e) {}
       }));
     }
