@@ -1781,16 +1781,17 @@ function dgTopHTML(users, meta) {
   </div></body></html>`;
 }
 function dgListHTML(users, meta, pageLabel) {
-  const CAP = 15, n = users.length, dense = n > CAP;
-  const half = dense ? CAP : Math.ceil(n / 2);
-  const rowH = dense ? Math.floor((522 - 5 * (CAP - 1)) / CAP) : 0;
-  const av = dense ? 20 : 22, nmFs = dense ? 11.5 : 12.5;
   /*
-   * 固定格子、按"先上后下、同一行先左后右"依次填入（用户要求）：
-   * 用 grid 的默认流（row-major）直接按原顺序铺，两列一行的填法，
-   * 不再按"左栏全排完再排右栏"那样切两半。
+   * 名次页是**固定槽位**：15 行 × 2 列 = 30 个位置（用户要求）。
+   * 所以行高不随人数变化 —— 一页只有 12 个人时，前 6 行有内容，后 9 行留空，
+   * 每个人的 y 坐标和满页时完全一致（位置固定，不会因为人数少而被拉高）。
    */
-  const grid = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 14px;align-content:start">${users.map(u => dpRow(u, av, nmFs, rowH)).join('')}</div>`;
+  const SLOT_ROWS = 15;
+  const rowH = Math.floor((522 - 5 * (SLOT_ROWS - 1)) / SLOT_ROWS); // 满页时的行高
+  const av = 20, nmFs = 11.5;
+  const grid = `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:${rowH}px;gap:5px 14px;align-content:start">${users
+    .map((u) => dpRow(u, av, nmFs, rowH))
+    .join('')}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${dpFontLink()}<style>${dgCSS()}</style></head><body>
   <div class="page">${dpBgBlobs(users, meta, 58, 0.40)}
     <div class="inner">
