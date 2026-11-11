@@ -26,7 +26,7 @@
 
     <!-- ============ 事件规则 ============ -->
     <ElCard v-if="activeTab === 'rules'" class="art-table-card flex-1">
-      <ArtTableHeader :loading="loading" @refresh="reloadAll">
+      <ArtTableHeader v-model:columns="ruleColumnChecks" :loading="loading" @refresh="reloadAll">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
             <ElButton v-if="can('notify.manage')" type="primary" @click="openRuleDialog()">
@@ -42,7 +42,7 @@
 
       <ArtTable
         :data="rules"
-        :columns="ruleColumns"
+        :columns="ruleColumnsShown"
         :loading="loading"
         :show-table-header="false"
         row-key="id"
@@ -89,7 +89,7 @@
 
     <!-- ============ 推送渠道 ============ -->
     <ElCard v-else-if="activeTab === 'channels'" class="art-table-card flex-1">
-      <ArtTableHeader :loading="loading" @refresh="reloadAll">
+      <ArtTableHeader v-model:columns="channelColumnChecks" :loading="loading" @refresh="reloadAll">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
             <ElButton v-if="can('notify.manage')" type="primary" @click="openChannelDialog()">
@@ -104,7 +104,7 @@
 
       <ArtTable
         :data="channels"
-        :columns="channelColumns"
+        :columns="channelColumnsShown"
         :loading="loading"
         :show-table-header="false"
         row-key="id"
@@ -132,7 +132,7 @@
 
     <!-- ============ 发送记录 ============ -->
     <ElCard v-else-if="activeTab === 'logs'" class="art-table-card flex-1">
-      <ArtTableHeader :loading="false" @refresh="loadLogs(logPage)">
+      <ArtTableHeader v-model:columns="logColumnChecks" :loading="false" @refresh="loadLogs(logPage)">
         <template #left>
           <div class="flex flex-wrap items-center gap-2">
             <div class="dy-seg">
@@ -154,7 +154,7 @@
 
       <ArtTable
         :data="logs"
-        :columns="logColumns"
+        :columns="logColumnsShown"
         :loading="false"
         :pagination="{ current: logPage, size: logSize, total: logTotal }"
         :show-table-header="false"
@@ -466,6 +466,7 @@
   import { fetchRooms } from '@/api/douyin'
   import { usePermissionStore } from '@/store/modules/permission'
   import { useIsMobile } from '@/hooks/core/useIsMobile'
+  import { useTableColumns } from '@/hooks/core/useTableColumns'
   import { apiErrorMessage } from '@/utils/douyin-error'
   import { fmtTime } from '@/utils/format'
 
@@ -511,8 +512,9 @@
    * 免打扰在手机上去掉（改规则时仍能看到）。
    */
   /*
-   * 规则表：列不再按屏幕宽度删减（手机上横向滚动，操作列固定右侧）。
-   * 之前为了挤进 350px 删了「直播间 / 免打扰 / 状态」，反而看不见自己配了什么。
+   * 规则表：列不按屏幕宽度删减（手机上横向滚动，操作列固定右侧）。
+   * 注意：这里用普通常量而不是 computed —— 列设置弹层是 VueDraggable v-model + 勾选，
+   * computed 每次渲染都生成新数组，拖拽/隐藏写不回去，弹层就成空的了。
    */
   const ruleColumns: ColumnOption[] = [
     { prop: 'event', label: '事件', width: 150, useSlot: true, slotName: 'event' },
@@ -582,6 +584,17 @@
     { prop: 'status', label: '状态', width: 90, align: 'left', useSlot: true, slotName: 'status' },
     { prop: 'error', label: '失败原因', minWidth: 260, useSlot: true, slotName: 'error' }
   ]
+
+  /*
+   * 列设置（右上角"字段管理"）需要 v-model:columns 传一个**可写**的列表，
+   * 之前这里只传了 ArtTable 的 :columns，ArtTableHeader 收不到，弹层就是空的。
+   * 三张表统一走 useTableColumns：defs 是默认列，columns 是实际渲染（跟着勾选变化）。
+   */
+  const { columns: ruleColumnsShown, columnChecks: ruleColumnChecks } = useTableColumns(() => ruleColumns)
+  const { columns: channelColumnsShown, columnChecks: channelColumnChecks } = useTableColumns(
+    () => channelColumns
+  )
+  const { columns: logColumnsShown, columnChecks: logColumnChecks } = useTableColumns(() => logColumns)
 
   const watchColumns: ColumnOption[] = [
     { prop: 'nickname', label: '昵称', minWidth: 120, useSlot: true, slotName: 'nickname' },

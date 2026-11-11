@@ -7,6 +7,8 @@ export interface LoginResult {
   role?: string
   userId: number
   userName: string
+  /** 头像 data URL（没设过是空串）；登录后直接用，顶栏头像不会先闪默认图 */
+  avatar?: string
 }
 
 export interface UserInfo {

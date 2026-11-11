@@ -86,8 +86,8 @@
             -->
           </ElForm>
 
-          <!-- 构建戳：排查"改了没生效"时先看这里（浏览器缓存 / 旧进程 / 旧 dist 一眼区分） -->
-          <p class="buildStamp">{{ buildStamp }}</p>
+          <!-- 构建戳：排查"改了没生效"时先看这里（默认只在开发/带 ?debug=1 时显示） -->
+          <p v-if="showBuildStamp" class="buildStamp">{{ buildStamp }}</p>
         </div>
       </div>
     </div>
@@ -109,7 +109,12 @@
   const { t, locale } = useI18n()
   const formKey = ref(0)
 
-  // 版本 + 构建时间（vite define 注入，见 vite.config.ts）
+  /*
+   * 版本 + 构建时间（vite define 注入，见 vite.config.ts）。
+   * 正式版默认**不显示**（这是排查用的信息，不该给终端用户看）；
+   * 需要时地址栏加 ?debug=1，或在控制台输入 __BUILD__。
+   */
+  const showBuildStamp = import.meta.env.DEV || String(window.location.search).includes('debug=1')
   const buildStamp = `v${__APP_VERSION__} · 构建 ${__APP_BUILD__}`
 
   // 监听语言切换，重置表单
@@ -175,14 +180,14 @@
       loading.value = true
 
       // 真实登录接口（401 由拦截器统一处理）
-      const { token, refreshToken, roles, userId, userName } = await fetchLogin({
+      const { token, refreshToken, roles, userId, userName, avatar } = await fetchLogin({
         userName: formData.username,
         password: formData.password
       })
 
       // 存储 token 和登录状态
       userStore.setToken(token, refreshToken)
-      userStore.setUserInfo({ userId, userName, roles } as any)
+      userStore.setUserInfo({ userId, userName, roles, avatar: avatar || '' } as any)
       userStore.setLoginStatus(true)
 
       // 登录成功处理（带上账号名，提示里显示"欢迎回来，admin"）

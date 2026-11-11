@@ -60,7 +60,7 @@
             {{ $t('topBar.user.logout') }}
           </div>
           <!-- 构建戳：核对"现在跑的是哪次构建"，排查缓存问题用 -->
-          <div class="buildStamp">{{ buildStamp }}</div>
+          <div v-if="showBuildStamp" class="buildStamp">{{ buildStamp }}</div>
         </ul>
       </div>
     </template>
@@ -73,6 +73,8 @@
   import { ElMessageBox } from 'element-plus'
   import { useUserStore } from '@/store/modules/user'
 
+  // 正式版不显示；排查时地址栏加 ?debug=1，或控制台看 __BUILD__
+  const showBuildStamp = import.meta.env.DEV || String(window.location.search).includes('debug=1')
   const buildStamp = `v${__APP_VERSION__} · ${__APP_BUILD__}`
   import { mittBus } from '@/utils/sys'
   import defaultAvatar from '@imgs/user/avatar.webp'
