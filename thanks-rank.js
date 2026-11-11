@@ -1782,27 +1782,26 @@ function dgTopHTML(users, meta) {
 }
 function dgListHTML(users, meta, pageLabel) {
   /*
-   * 名次页是**固定槽位 + 列优先填充**（用户要求）：
-   *   左列 15 个格子排满，才轮到右列从第 1 行继续。
-   *   例：41-47 这 7 个人全部在左列（第 1-7 行），右列空着。
-   * 行高写死，人少也不拉伸；每列固定 15 行 = 一页 30 个位置。
+   * 名次页是**固定槽位 + 列优先填充**：
+   *   左列 15 个格子排满，才轮到右列从第 1 行继续（41-47 这种全在左列）。
+   * 行高必须按"背景框内可用高度"算，不能拍脑袋 —— 否则 15 行会顶到
+   * 副标题（上）和下边框（下）（用户截图里就是这样）。
+   *   页面 720 - 上下内边距(34+26) - 标题区(~25) - 副标题(~25) - 页脚(~27) - 框上间距 18 - 框内边距 24 ≈ 541
    */
   const SLOT_ROWS = 15;
-  const rowH = Math.floor((522 - 5 * (SLOT_ROWS - 1)) / SLOT_ROWS);
+  const GAP = 4;
+  const AVAIL = 541;
+  const rowH = Math.floor((AVAIL - GAP * (SLOT_ROWS - 1)) / SLOT_ROWS);
   const av = 20, nmFs = 11.5;
-  const left = users.slice(0, SLOT_ROWS);
-  const right = users.slice(SLOT_ROWS, SLOT_ROWS * 2);
-  /*
-   * 空槽位要补占位：不满页时也要有 15 行的高度，否则列表块只占上半部分，
-   * 背景框上下的留白就不相等（用户反馈：上边距小、下边距大）。
-   */
   const pad = (arr) => {
     const out = arr.map((u) => dpRow(u, av, nmFs, rowH));
     for (let i = arr.length; i < SLOT_ROWS; i++) out.push(`<div style="height:${rowH}px"></div>`);
     return out.join('');
   };
+  const left = users.slice(0, SLOT_ROWS);
+  const right = users.slice(SLOT_ROWS, SLOT_ROWS * 2);
   const col = (arr) =>
-    `<div style="flex:1;min-width:0;display:grid;grid-auto-rows:${rowH}px;gap:5px;align-content:start">${pad(arr)}</div>`;
+    `<div style="flex:1;min-width:0;display:grid;grid-auto-rows:${rowH}px;gap:${GAP}px;align-content:start">${pad(arr)}</div>`;
   const grid = `<div style="display:flex;gap:14px;align-items:flex-start">${col(left)}${col(right)}</div>`;
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">${dpFontLink()}<style>${dgCSS()}</style></head><body>
   <div class="page">${dpBgBlobs(users, meta, 58, 0.40)}
@@ -1810,7 +1809,7 @@ function dgListHTML(users, meta, pageLabel) {
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:1px solid ${DP.hair}">
         <span class="lbl">园区充电榜</span><span class="lbl">${esc(pageLabel)}</span></div>
       <div class="mt" style="margin-top:11px">${esc(meta.target)} · 共 ${meta.gifters} 位送礼人</div>
-      <div class="glass" style="padding:12px 14px;justify-content:flex-start">
+      <div class="glass" style="padding:12px 14px;justify-content:center">
         ${grid}
       </div>
       <div class="foot"><span class="lbl">${rankDate(meta.dateStr)}</span><span class="pg">${rankPageCodeOf(pageLabel, meta)}</span></div>
