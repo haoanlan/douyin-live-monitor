@@ -446,7 +446,7 @@
               }}</el-avatar>
               <div class="min-w-0 flex-1">
                 <!-- 第一行：昵称 + 礼物标签（左）· 时间（右） -->
-                <div class="dy-feed-row__meta">
+                <div class="dy-feed-row__meta" :title="clubTitle(m.club)">
                   <span class="dy-feed-row__name">{{ m.nickname }}</span>
                   <!--
                     消费等级图标 + 粉丝团胶囊，放在昵称**后面**（用户要求：放前面和头像不协调）。
@@ -456,7 +456,7 @@
                   <img
                     v-if="m.club?.payIconUrl"
                     :src="m.club.payIconUrl"
-                    class="h-[17px] w-auto shrink-0"
+                    class="block h-[17px] w-auto shrink-0 self-center"
                     :title="'消费等级 Lv.' + (m.club?.payLevel ?? '')"
                     alt=""
                     loading="lazy"
@@ -471,12 +471,7 @@
                           ? 'bg-[#ff8f3f]'
                           : 'bg-[#f5c04e]'
                     "
-                    :title="[
-                      m.club.clubName ? '团名：' + m.club.clubName : '',
-                      m.club.an ? '归属主播：' + m.club.an : '',
-                      m.club.clubStatus === 2 ? '已退团/未点亮' : '在团',
-                      m.club.starGuard ? '星守护' : ''
-                    ].filter(Boolean).join(' · ')"
+                    :title="clubTitle(m.club)"
                   >
                     <span
                       class="inline-flex items-center justify-center h-[12px] min-w-[18px] px-[3px] rounded-full bg-white/90 text-[9px] font-bold leading-none"
@@ -1416,6 +1411,18 @@
    * club_json（按消息存的粉丝团/消费等级快照）→ 渲染用对象。
    * 短名：pl 消费等级、pi 图标、cl 团等级、cn 团名、ca 归属主播 id、cs 状态、gu 星守护徽章。
    */
+  /** 徽章悬浮文案：团名 / 归属主播 / 状态 / 星守护（有才显示） */
+  function clubTitle(c?: FeedClub | null): string | undefined {
+    if (!c) return undefined
+    const parts = [
+      c.clubName ? '团名：' + c.clubName : '',
+      c.an ? '归属主播：' + c.an : '',
+      c.clubStatus === 2 ? '已退团/未点亮' : '在团',
+      c.starGuard ? '星守护' : ''
+    ].filter(Boolean)
+    return parts.length ? parts.join(' · ') : undefined
+  }
+
   function parseClub(raw: any) {
     if (!raw) return null
     try {
