@@ -90,21 +90,10 @@
   const isFullPage = computed(() => route.matched.some((r) => r.meta?.isFullPage))
   const prevIsFullPage = ref(isFullPage.value)
 
-  /**
-   * 抖音模块内部（场次历史 ⇄ 场次详情）不做过渡动画。
-   *
-   * 原因：这两个页面都很重（几千条 DOM + 轮询），`mode="out-in"` 要等旧页的
-   * leave 动画跑完才挂新页，中间是空窗期；来回快速切换几次后，空窗 + KeepAlive
-   * 的激活时序叠加，就会出现"闪一下别的页面/白屏"（用户反馈）。
-   * 直接瞬时切换反而稳。其它模块之间的动画保持不变。
-   */
-  const isDouyinPath = (p: string) => /^\/douyin(\/|$)/.test(p || '')
-
-  // 切换动画名称：首次加载、从全屏返回、抖音模块内部切换时不使用动画
+  // 切换动画名称：首次加载、从全屏返回时不使用动画
   const actualTransition = computed(() => {
     if (isFirstLoad.value) return ''
     if (prevIsFullPage.value && !isFullPage.value) return ''
-    if (isDouyinPath(route.path)) return ''
     return pageTransition.value
   })
 
