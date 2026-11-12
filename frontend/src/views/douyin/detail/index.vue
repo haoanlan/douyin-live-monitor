@@ -27,10 +27,14 @@
     <div
       class="art-card dy-toolbar dy-session-head mb-5 flex items-center justify-between gap-4 flex-wrap"
     >
-      <div class="flex items-center gap-3.5 min-w-0">
-        <el-avatar :size="48" :src="detail?.session?.streamer_avatar" class="shrink-0">{{
-          detail?.session?.streamer_name?.[0] || '场'
-        }}</el-avatar>
+      <div class="dy-head-fade flex items-center gap-3.5 min-w-0" :class="{ 'is-hidden': !detail }">
+        <el-avatar
+          :size="48"
+          :src="detail?.session?.streamer_avatar"
+          class="shrink-0 dy-avatar-fade"
+          :class="{ 'is-hidden': !detail?.session?.streamer_avatar }"
+          >{{ detail?.session?.streamer_name?.[0] || '场' }}</el-avatar
+        >
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <!--
@@ -1893,4 +1897,23 @@
     height: 420px;
   }
 }
-</style>
+  /*
+   * 页头加载过渡：原来头像和主播名是"数据一到就硬替换"，
+   * 从占位文字/空白突然变成真名+头像，观感很生硬（用户反馈）。
+   * 这里给整块加淡入+轻微上移，头像单独再淡一次，加载完成自然出现。
+   */
+  .dy-head-fade {
+    transition:
+      opacity 0.32s ease,
+      transform 0.32s ease;
+  }
+  .dy-head-fade.is-hidden {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  .dy-avatar-fade {
+    transition: opacity 0.32s ease;
+  }
+  .dy-avatar-fade.is-hidden {
+    opacity: 0;
+  }</style>
