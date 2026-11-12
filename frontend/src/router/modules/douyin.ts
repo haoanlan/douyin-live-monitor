@@ -36,7 +36,7 @@ export const douyinRoutes: AppRouteRecord = {
         icon: 'ri:file-list-3-line',
         isHide: true,
         isHideTab: true,
-        keepAlive: true,
+        keepAlive: false, // 实验：缓存页激活会重绘一帧旧内容（切详情闪帧），先关掉
         // 隐藏页没有自己的菜单项/标签，指定高亮归属（侧边栏与工作标签都用它兜底）
         activePath: '/douyin/rooms',
         roles: ['R_SUPER', 'R_GUEST']
