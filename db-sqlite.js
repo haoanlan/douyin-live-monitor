@@ -338,6 +338,14 @@ async function init() {
   try { d.exec(`ALTER TABLE sessions ADD COLUMN online_peak INTEGER DEFAULT 0`); } catch (e) { /* 已存在 */ }
 
   /*
+   * 旧库补列：session_gift_details.to_user_sec_uid（收礼主播的 secUid）。
+   * 弹窗榜单按它认人：只按 to_nickname 比对时，改名/匿名/名字带后缀的
+   * 收礼记录会漏掉（实测 358 场：榜单 133 人、弹窗只有 128 人）。
+   * 老库没有这列，接口 SELECT 会直接 500（前端拿到 0 条明细），必须在建库阶段补齐。
+   */
+  try { d.exec(`ALTER TABLE session_gift_details ADD COLUMN to_user_sec_uid TEXT DEFAULT NULL`); } catch (e) { /* 已存在 */ }
+
+  /*
    * 旧库补列：gifts.icon（礼物图标 URL）。
    * 原来这条 ALTER 只写在 insertGifts() 里，要等到"第一条礼物写入"才补上；
    * 在那之前任何 `SELECT icon FROM gifts`（总览页的礼物图标、session-gift-details 的图标兜底）
@@ -965,8 +973,9 @@ async function buildPrecomputed(d, sessionId, dedupedGifts) {
     }
     for (const dt of details) dt.gift_icon = iconMap[dt.gift_name] || giftIconMap[dt.gift_name] || null;
   } catch (e) {}
-  const insGD = d.prepare('INSERT INTO session_gift_details (session_id, nickname, user_sec_uid, gift_name, to_nickname, total_diamonds, count, avatar_url, gift_icon, create_time) VALUES (?,?,?,?,?,?,?,?,?,?)');
-  for (const dt of details) insGD.run(sessionId, dt.nickname, dt.user_sec_uid, dt.gift_name, dt.to_nickname, dt.total_diamonds, dt.count, dt.avatar_url, dt.gift_icon, dt.create_time);
+  try { d.exec('ALTER TABLE session_gift_details ADD COLUMN to_user_sec_uid TEXT'); } catch (e) {}
+  const insGD = d.prepare('INSERT INTO session_gift_details (session_id, nickname, user_sec_uid, to_user_sec_uid, gift_name, to_nickname, total_diamonds, count, avatar_url, gift_icon, create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+  for (const dt of details) insGD.run(sessionId, dt.nickname, dt.user_sec_uid, dt.to_user_sec_uid || null, dt.gift_name, dt.to_nickname, dt.total_diamonds, dt.count, dt.avatar_url, dt.gift_icon, dt.create_time);
 
   // 时间线
   //

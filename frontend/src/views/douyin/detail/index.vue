@@ -1296,8 +1296,19 @@
      */
     const isPlaceholderAvatar = (u?: string) =>
       !u || String(u).includes('/img/webcast/') || String(u).includes('mosaic-legacy') || String(u).includes('mystery_man')
+    /*
+     * 归属判定：主播榜是按 to_user_sec_uid 聚合的，弹窗如果只按 to_nickname 精确匹配，
+     * 会漏掉「改名 / 匿名 / 名字带后缀」的那些收礼记录（实测 358 场：榜单 133 人，弹窗 128 人）。
+     * 所以优先按 to_user_sec_uid 认人，其次才回退到名字比对。
+     */
+    const anchorSec = (anchor as unknown as { anchor_sec_uid?: string }).anchor_sec_uid || ''
+    const anchorName = (anchor.anchor_name || '').trim()
+    const belongsToAnchor = (g: { to_nickname?: string; to_user_sec_uid?: string }) => {
+      if (anchorSec && g.to_user_sec_uid) return g.to_user_sec_uid === anchorSec
+      return (g.to_nickname || '').trim() === anchorName
+    }
     ;(giftDetailsFull.value || [])
-      .filter((g) => (g.to_nickname || '').trim() === (anchor.anchor_name || '').trim())
+      .filter((g) => belongsToAnchor(g))
       .forEach((g) => {
         const key = g.user_sec_uid || g.nickname || ''
         if (!key) return
