@@ -603,7 +603,7 @@
       :close-on-click-modal="false"
     >
       <template #header>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
           <el-avatar :size="40" :src="peopleAnchorAvatar" class="shrink-0">{{
             peopleAnchorName?.[0]
           }}</el-avatar>
@@ -625,6 +625,8 @@
             没有 manual_gift.add 权限的人**整个按钮都不出现**（用户要求：访客看不到补录入口）；
             已经进了补录面板的人仍然显示返回箭头，否则出不来。
           -->
+          <!-- 三个操作按钮：手机端间距收紧（原来 gap-3 太散），桌面端保持舒展 -->
+          <div class="dy-people-actions flex shrink-0 items-center gap-0.5 sm:gap-2">
           <button
             v-if="manualGiftOpen || can('manual_gift.add')"
             class="dy-pressable size-8 flex-cc rounded-lg text-g-600 hover:bg-g-100 hover:text-theme shrink-0"
@@ -662,6 +664,7 @@
           >
             <ArtSvgIcon icon="ri:close-line" class="text-base" />
           </button>
+          </div>
         </div>
       </template>
       <!-- 选模板视图：16 套一屏网格铺完（手机 2 列），选哪个用它下载并自动切回榜单 -->
@@ -1916,4 +1919,19 @@
   }
   .dy-avatar-fade.is-hidden {
     opacity: 0;
+  }  /*
+   * 弹窗三个操作按钮：手机端收紧间距后，再保证关闭键"始终可见"。
+   * 之前出现过「关闭键透明但有占位、点一下才显示并关闭」——那是图标按钮
+   * 在极端窄宽下被挤压/覆盖导致，这里给固定尺寸和显式层级兜底。
+   */
+  .dy-people-actions > button {
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    opacity: 1 !important;
+    visibility: visible !important;
   }</style>
