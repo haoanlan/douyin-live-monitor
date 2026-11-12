@@ -1288,6 +1288,14 @@
       { nickname: string; avatar_url?: string; total_diamonds: number; anon: boolean }
     >()
     const isAnon = (n?: string) => !n || /^匿名/.test(n) || /^dou\d+/.test(n)
+    /*
+     * 头像占位判定（和 lib/user-display.js 同一套规则）：
+     * 抖音对隐私用户会下发"神秘人"默认图（/img/webcast/…）或马赛克图（mosaic-legacy_…）。
+     * 同一个人在同一场里往往既有打码头像、又有真头像（/aweme-avatar/…），
+     * 聚合时**必须优先真头像**，否则会显示"正常昵称 + 神秘人头像"（用户实测）。
+     */
+    const isPlaceholderAvatar = (u?: string) =>
+      !u || String(u).includes('/img/webcast/') || String(u).includes('mosaic-legacy') || String(u).includes('mystery_man')
     ;(giftDetailsFull.value || [])
       .filter((g) => (g.to_nickname || '').trim() === (anchor.anchor_name || '').trim())
       .forEach((g) => {
@@ -1300,11 +1308,14 @@
           anon: isAnon(g.nickname)
         }
         cur.total_diamonds += g.total_diamonds || 0
-        if (!cur.avatar_url && g.avatar_url) cur.avatar_url = g.avatar_url
+        // 头像：占位的（神秘人/马赛克）一旦遇到真头像就换掉
+        if (!cur.avatar_url || (isPlaceholderAvatar(cur.avatar_url) && !isPlaceholderAvatar(g.avatar_url))) {
+          if (g.avatar_url) cur.avatar_url = g.avatar_url
+        }
         // 真名优先于匿名/dou 号：显示更好认，头像也跟着用真名那条
         if (cur.anon && !isAnon(g.nickname)) {
           cur.nickname = g.nickname || cur.nickname
-          if (g.avatar_url) cur.avatar_url = g.avatar_url
+          if (g.avatar_url && !isPlaceholderAvatar(g.avatar_url)) cur.avatar_url = g.avatar_url
           cur.anon = false
         }
         map.set(key, cur)
