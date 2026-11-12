@@ -37,15 +37,28 @@
         合成一个 Transition 后，out-in 对整棵子树生效：旧页走完 → 新页才进场，
         任何时刻只有一页在文档流里。KeepAlive 保留（用 exclude 排除不该缓存的页面）。
       -->
-      <Transition :name="showTransitionMask ? '' : actualTransition" mode="out-in" appear>
+      <Transition
+        :name="showTransitionMask ? '' : actualTransition"
+        mode="out-in"
+        appear
+        @before-enter="onTransitionEnter"
+        @before-leave="onTransitionLeave"
+      >
         <KeepAlive :max="10" :exclude="pageKeepAliveExclude">
           <component class="art-page-view" :is="Component" :key="route.path" />
         </KeepAlive>
       </Transition>
     </RouterView>
 
-    <!-- 全屏页面切换过渡遮罩（用于提升页面切换视觉体验） -->
-    <Teleport to="body">
+    <!-- 临时排查用：导航/渲染记录 HUD。只有 URL 带 ?debug=1 时显示，定位完删除。 -->
+    <div
+      v-if="navDebugOn"
+      class="fixed bottom-2 left-2 z-[9999] max-w-[560px] rounded-md bg-black/80 px-3 py-2 text-[11px] leading-[1.5] text-white font-mono whitespace-pre-wrap pointer-events-none"
+    >
+      {{ navLog.join('\n') || '(no nav yet)' }}
+    </div>
+
+    <!-- 全屏页面切换过渡遮罩（用于提升页面切换视觉体验） -->    <Teleport to="body">
       <div
         v-show="showTransitionMask"
         class="fixed top-0 left-0 z-[2000] w-screen h-screen pointer-events-none bg-box"
@@ -63,6 +76,36 @@
   defineOptions({ name: 'ArtPageContent' })
 
   const route = useRoute()
+  /*
+   * 临时导航记录器（排查"切页闪一下上一页"）：URL 带 ?debug=1 时左下角显示最近记录。
+   * 记录：路由变化（from → to）、RouterView 当前组件名变化（mounted/activated 的迹象）、
+   * 以及每次 Transition 进入/离开的开始时间。定位完删除。
+   */
+  const navDebugOn = (() => {
+    const parse = (s: string) => {
+      const q = String(s || '').split('?')[1] || ''
+      return new URLSearchParams(q).get('debug') === '1'
+    }
+    return parse(window.location.hash) || parse(window.location.search)
+  })()
+  const navLog = ref<string[]>([])
+  const pushNav = (msg: string) => {
+    if (!navDebugOn) return
+    const ts = String(Date.now() % 1000000).padStart(6, '0')
+    navLog.value = [...navLog.value.slice(-9), `${ts} ${msg}`]
+  }
+  if (navDebugOn) {
+    const router = useRouter()
+    router.afterEach((to, from) => pushNav(`ROUTE ${from.fullPath} → ${to.fullPath}`))
+  }
+
+  /** Transition 钩子：记录进/出场（判断是真在过渡，还是没有过渡也在闪） */
+  function onTransitionEnter(el: Element) {
+    pushNav('ENTER ' + (el instanceof HTMLElement ? el.className.split(' ')[0] : ''))
+  }
+  function onTransitionLeave(el: Element) {
+    pushNav('LEAVE ' + (el instanceof HTMLElement ? el.className.split(' ')[0] : ''))
+  }
   const { containerMinHeight } = useAutoLayoutHeight()
   const { pageTransition, containerWidth, refresh } = storeToRefs(useSettingStore())
   const { keepAliveExclude } = storeToRefs(useWorktabStore())
