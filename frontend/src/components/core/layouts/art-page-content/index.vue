@@ -133,31 +133,10 @@
   const isFullPage = computed(() => route.matched.some((r) => r.meta?.isFullPage))
   const prevIsFullPage = ref(isFullPage.value)
 
-  /*
-   * 「场次历史 ⇄ 场次详情」之间不做过渡动画。
-   *
-   * 实测（debug HUD）：这两个页面互切时，out-in 的淡出和进场之间有 240~620ms 的空窗，
-   * 期间旧页在淡出、新页还没挂载，看起来就是"闪一下上一页 / 白屏"。
-   * 只对这一对页面生效 —— 其它页面（总览、趋势、通知…）的动画完全不受影响。
-   */
-  const prevPathRef = ref(route.fullPath)
-  const routerForTransition = useRouter()
-  routerForTransition.beforeEach((to, from) => {
-    prevPathRef.value = from.fullPath
-  })
-  const isDetailPath = (p: string) => p.startsWith('/douyin/detail/')
-  const isSessionsPath = (p: string) => p.startsWith('/douyin/sessions')
-  const isDetailHistoryPair = computed(() => {
-    const a = prevPathRef.value
-    const b = route.fullPath
-    return (isDetailPath(a) && isSessionsPath(b)) || (isSessionsPath(a) && isDetailPath(b))
-  })
-
-  // 切换动画名称：首次加载、从全屏返回、详情⇄历史 时不使用动画
+  // 切换动画名称：首次加载、从全屏返回时不使用动画
   const actualTransition = computed(() => {
     if (isFirstLoad.value) return ''
     if (prevIsFullPage.value && !isFullPage.value) return ''
-    if (isDetailHistoryPair.value) return ''
     return pageTransition.value
   })
 
