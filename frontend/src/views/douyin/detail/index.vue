@@ -181,7 +181,7 @@
                   :class="rankClass(i)"
                   >{{ i + 1 }}</span
                 >
-                <el-avatar :size="32" :src="safeAvatar(u.avatar_url)" class="shrink-0">{{
+                <el-avatar :size="32" :src="safeAvatar(u.avatar_url, u.nickname)" class="shrink-0">{{
                   u.nickname?.[0]
                 }}</el-avatar>
                 <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ u.nickname }}</span>
@@ -543,7 +543,7 @@
     >
       <template #header>
         <div class="flex items-center gap-3">
-          <el-avatar :size="40" :src="safeAvatar(giftDialogAvatar)" class="shrink-0">{{
+          <el-avatar :size="40" :src="safeAvatar(giftDialogAvatar, lastGiftDialogRow?.nickname)" class="shrink-0">{{
             giftDialogUser?.[0]
           }}</el-avatar>
           <div class="min-w-0 flex-1">
@@ -604,7 +604,7 @@
     >
       <template #header>
         <div class="flex items-center gap-2 sm:gap-3">
-          <el-avatar :size="40" :src="safeAvatar(peopleAnchorAvatar)" class="shrink-0">{{
+          <el-avatar :size="40" :src="safeAvatar(peopleAnchorAvatar, peopleAnchorName)" class="shrink-0">{{
             peopleAnchorName?.[0]
           }}</el-avatar>
           <div class="min-w-0 flex-1">
@@ -843,7 +843,7 @@
               :class="rankClass(i)"
               >{{ i + 1 }}</span
             >
-            <el-avatar :size="28" :src="safeAvatar(p.avatar_url)" class="shrink-0">{{
+            <el-avatar :size="28" :src="safeAvatar(p.avatar_url, p.nickname)" class="shrink-0">{{
               p.nickname?.[0]
             }}</el-avatar>
             <span class="flex-1 min-w-0 truncate text-sm text-g-800">{{ p.nickname }}</span>
@@ -907,15 +907,27 @@
   const route = useRoute()
 
   /**
-   * 头像兜底：占位图（神秘人 /img/webcast/、马赛克 mosaic-legacy）**一律不渲染**，
-   * 交给 el-avatar 显示昵称首字 —— 保证"正常昵称不会配到神秘人头像"。
-   * 后端已优先给真头像，这里是最后一道保险（数据里确实没有真头像时才会用到）。
+   * 头像兜底：只处理**矛盾情况** —— 昵称是真实名字，却配了神秘人/马赛克图。
+   * 这种情况下不渲染那张图，改由 el-avatar 显示昵称首字。
+   *
+   * 注意：昵称本身是匿名的（神秘人 / 匿名 / dou123 / user123…）时**必须保留神秘人头像**，
+   * 否则真正的匿名观众会变成"首字头像"，那是错的。
    */
-  function safeAvatar(url?: string | null): string {
+  const isAnonNickname = (n?: string | null) => {
+    const s = String(n || '').trim()
+    if (!s) return true
+    if (/^(神秘人|匿名|游客)/.test(s)) return true
+    if (/^(dou|user|用户)\d{3,}$/i.test(s)) return true
+    return false
+  }
+  function safeAvatar(url?: string | null, nickname?: string | null): string {
     if (!url) return ''
     const s = String(url)
-    if (s.includes('/img/webcast/') || s.includes('mosaic-legacy') || s.includes('mystery_man')) return ''
-    return s
+    const placeholder =
+      s.includes('/img/webcast/') || s.includes('mosaic-legacy') || s.includes('mystery_man')
+    if (!placeholder) return s
+    // 匿名昵称：神秘人图就是它的正常头像，保留
+    return isAnonNickname(nickname) ? s : ''
   }
   const router = useRouter()
   const sessionId = String(route.params.sessionId)
