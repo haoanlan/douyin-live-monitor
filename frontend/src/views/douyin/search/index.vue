@@ -566,16 +566,32 @@
     }
   }
 
-  /** 直播间变了：重载场次列表并清掉已选场次；已经查过就按新范围重查 */
+  /**
+   * 筛选条件（直播间 / 场次）变化时**不自动查询** —— 必须点「查询」（用户要求）。
+   *
+   * 原来的写法是"已经查过就 doSearch()"，副作用有两个：
+   *   1. 只是想换个范围，关键词还没输完就发请求；
+   *   2. 自动查询会让 searchSeq 自增，正在返回的那次结果被判为"过期"丢弃
+   *      （doSearch 里 `if (my !== searchSeq) return`），于是表现为"有时搜不出来"。
+   * 现在只清空旧结果，等用户点查询。
+   */
+  function clearResultForNewFilter() {
+    if (!searched.value && !results.value.length) return
+    results.value = []
+    resetStats()
+    searched.value = false
+    lastQuery.value = ''
+    queryError.value = ''
+  }
+
   async function onScopeChanged() {
     sessionId.value = ''
     await loadSessionOptions()
-    if (searched.value && query.value.trim()) doSearch()
+    clearResultForNewFilter()
   }
 
-  /** 场次变了：已经查过就按新范围重查 */
   function onSessionChanged() {
-    if (searched.value && query.value.trim()) doSearch()
+    clearResultForNewFilter()
   }
 
   function sessionLabel(s: any): string {
