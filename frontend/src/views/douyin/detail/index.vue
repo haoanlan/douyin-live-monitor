@@ -920,19 +920,13 @@
     if (/^(dou|user|用户)\d{3,}$/i.test(s)) return true
     return false
   }
-  function safeAvatar(url?: string | null, nickname?: string | null): string {
-    if (!url) return ''
-    const s = String(url)
-    /*
-     * 只有「匿名占位图」才隐藏（神秘人那种，显示出来等于错配）。
-     * mosaic-legacy_* 不是坏图 —— 那是抖音给**没设头像**的用户下发的默认头像；
-     * 之前把它也当占位图，结果这类用户头像位置变成了昵称首字
-     * （用户截图：60705261974 用默认头像，却显示成 '6'）。
-     */
-    const anonPlaceholder = s.includes('/img/webcast/') || s.includes('mystery_man')
-    if (!anonPlaceholder) return s
-    // 匿名昵称：神秘人图就是它的正常头像，保留
-    return isAnonNickname(nickname) ? s : ''
+  /**
+   * 头像：**有就用**。
+   * 抖音每条消息都带着该用户的头像（没设头像的会带 mosaic 默认图，神秘人会带 webcast 占位图），
+   * 这些都是它真实下发的图，照原样显示；只有完全没有 URL 时才让 el-avatar 显示首字。
+   */
+  function safeAvatar(url?: string | null, _nickname?: string | null): string {
+    return url ? String(url) : ''
   }
   const router = useRouter()
   const sessionId = String(route.params.sessionId)
@@ -1327,18 +1321,10 @@
     /*
      * 头像三档（和 lib/user-display.js 同步）：
      *   0 真头像（/aweme-avatar/…）
-     *   1 抖音默认头像（mosaic-legacy_…，用户没设头像时下发，**可以正常显示**）
-     *   2 匿名占位（/img/webcast/…、mystery_man）—— 显示出来就是错配，不要
+     * 头像不按 URL 判断：消息带什么就显示什么；只有完全没有头像时才留空（前端显示首字）
      *  9 没有
      * 同一人在同一场里常有多种头像，聚合时取 rank 最小的那张。
      */
-    const avatarRank = (u?: string) => {
-      if (!u) return 9
-      const v = String(u)
-      if (v.includes('/img/webcast/') || v.includes('mystery_man')) return 2
-      if (v.includes('mosaic-legacy')) return 1
-      return 0
-    }
     /*
      * 归属判定：主播榜是按 to_user_sec_uid 聚合的，弹窗如果只按 to_nickname 精确匹配，
      * 会漏掉「改名 / 匿名 / 名字带后缀」的那些收礼记录（实测 358 场：榜单 133 人，弹窗 128 人）。
@@ -1363,13 +1349,11 @@
         }
         cur.total_diamonds += g.total_diamonds || 0
         // 头像：占位的（神秘人/马赛克）一旦遇到真头像就换掉
-        if (g.avatar_url && avatarRank(g.avatar_url) < avatarRank(cur.avatar_url)) {
-          cur.avatar_url = g.avatar_url
-        }
+        if (g.avatar_url && !cur.avatar_url) cur.avatar_url = g.avatar_url
         // 真名优先于匿名/dou 号：显示更好认，头像也跟着用真名那条
         if (cur.anon && !isAnon(g.nickname)) {
           cur.nickname = g.nickname || cur.nickname
-          if (g.avatar_url && avatarRank(g.avatar_url) < 2) cur.avatar_url = g.avatar_url
+          if (g.avatar_url && !cur.avatar_url) cur.avatar_url = g.avatar_url
           cur.anon = false
         }
         map.set(key, cur)
