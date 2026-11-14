@@ -923,9 +923,14 @@
   function safeAvatar(url?: string | null, nickname?: string | null): string {
     if (!url) return ''
     const s = String(url)
-    const placeholder =
-      s.includes('/img/webcast/') || s.includes('mosaic-legacy') || s.includes('mystery_man')
-    if (!placeholder) return s
+    /*
+     * 只有「匿名占位图」才隐藏（神秘人那种，显示出来等于错配）。
+     * mosaic-legacy_* 不是坏图 —— 那是抖音给**没设头像**的用户下发的默认头像；
+     * 之前把它也当占位图，结果这类用户头像位置变成了昵称首字
+     * （用户截图：60705261974 用默认头像，却显示成 '6'）。
+     */
+    const anonPlaceholder = s.includes('/img/webcast/') || s.includes('mystery_man')
+    if (!anonPlaceholder) return s
     // 匿名昵称：神秘人图就是它的正常头像，保留
     return isAnonNickname(nickname) ? s : ''
   }
@@ -1320,13 +1325,20 @@
     >()
     const isAnon = (n?: string) => !n || /^匿名/.test(n) || /^dou\d+/.test(n)
     /*
-     * 头像占位判定（和 lib/user-display.js 同一套规则）：
-     * 抖音对隐私用户会下发"神秘人"默认图（/img/webcast/…）或马赛克图（mosaic-legacy_…）。
-     * 同一个人在同一场里往往既有打码头像、又有真头像（/aweme-avatar/…），
-     * 聚合时**必须优先真头像**，否则会显示"正常昵称 + 神秘人头像"（用户实测）。
+     * 头像三档（和 lib/user-display.js 同步）：
+     *   0 真头像（/aweme-avatar/…）
+     *   1 抖音默认头像（mosaic-legacy_…，用户没设头像时下发，**可以正常显示**）
+     *   2 匿名占位（/img/webcast/…、mystery_man）—— 显示出来就是错配，不要
+     *  9 没有
+     * 同一人在同一场里常有多种头像，聚合时取 rank 最小的那张。
      */
-    const isPlaceholderAvatar = (u?: string) =>
-      !u || String(u).includes('/img/webcast/') || String(u).includes('mosaic-legacy') || String(u).includes('mystery_man')
+    const avatarRank = (u?: string) => {
+      if (!u) return 9
+      const v = String(u)
+      if (v.includes('/img/webcast/') || v.includes('mystery_man')) return 2
+      if (v.includes('mosaic-legacy')) return 1
+      return 0
+    }
     /*
      * 归属判定：主播榜是按 to_user_sec_uid 聚合的，弹窗如果只按 to_nickname 精确匹配，
      * 会漏掉「改名 / 匿名 / 名字带后缀」的那些收礼记录（实测 358 场：榜单 133 人，弹窗 128 人）。
@@ -1351,13 +1363,13 @@
         }
         cur.total_diamonds += g.total_diamonds || 0
         // 头像：占位的（神秘人/马赛克）一旦遇到真头像就换掉
-        if (!cur.avatar_url || (isPlaceholderAvatar(cur.avatar_url) && !isPlaceholderAvatar(g.avatar_url))) {
-          if (g.avatar_url) cur.avatar_url = g.avatar_url
+        if (g.avatar_url && avatarRank(g.avatar_url) < avatarRank(cur.avatar_url)) {
+          cur.avatar_url = g.avatar_url
         }
         // 真名优先于匿名/dou 号：显示更好认，头像也跟着用真名那条
         if (cur.anon && !isAnon(g.nickname)) {
           cur.nickname = g.nickname || cur.nickname
-          if (g.avatar_url && !isPlaceholderAvatar(g.avatar_url)) cur.avatar_url = g.avatar_url
+          if (g.avatar_url && avatarRank(g.avatar_url) < 2) cur.avatar_url = g.avatar_url
           cur.anon = false
         }
         map.set(key, cur)
