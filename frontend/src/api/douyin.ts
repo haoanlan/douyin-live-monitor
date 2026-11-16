@@ -837,7 +837,7 @@ export interface OverviewData {
     diamonds: number
     count: number
   }[]
-  topDanmaku: { nickname: string; avatar?: string; count: number }[]
+  topDanmaku: { sec_uid?: string; nickname: string; avatar?: string; count: number }[]
   peakSessions: {
     id: number
     room_title: string | null

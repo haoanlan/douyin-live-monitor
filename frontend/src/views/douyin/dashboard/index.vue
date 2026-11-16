@@ -252,6 +252,9 @@
               v-for="(u, i) in overview?.topUsers || []"
               :key="u.sec_uid || u.nickname"
               class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+              :class="u.sec_uid ? 'c-p' : ''"
+              :title="u.sec_uid ? '查看该用户画像' : ''"
+              @click="openProfile(u.sec_uid)"
             >
               <span
                 class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
@@ -286,8 +289,11 @@
           <TransitionGroup v-else name="dy-list" tag="div" class="flex flex-col gap-2.5 mt-4" appear>
             <div
               v-for="(d, i) in overview?.topDanmaku || []"
-              :key="d.nickname"
+              :key="d.sec_uid || d.nickname"
               class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
+              :class="d.sec_uid ? 'c-p' : ''"
+              :title="d.sec_uid ? '查看该用户画像' : ''"
+              @click="openProfile(d.sec_uid)"
             >
               <span
                 class="w-6 h-6 rounded-md flex-cc text-xs font-bold shrink-0"
@@ -408,6 +414,12 @@
   defineOptions({ name: 'DouyinDashboard' })
 
   const router = useRouter()
+
+  /** 总览榜单点人 → 用户画像（没有 sec_uid 的匿名条目不可点） */
+  function openProfile(secUid?: string) {
+    if (!secUid) return
+    router.push(`/douyin/profile/${encodeURIComponent(secUid)}`)
+  }
 
   /**
    * 最近场次：整行可点。
