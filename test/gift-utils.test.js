@@ -68,17 +68,16 @@ describe('comboDedupGifts', () => {
     assert.strictEqual(result[1].combo_count, 3);
   });
 
-  test('帧序错乱时按 combo_count 排序取最高', () => {
+  test('帧序错乱时取累计件数最高的一帧', () => {
     const gifts = [
-      { id: 1, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 3 },
-      { id: 2, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 2 },
-      { id: 3, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 5 },
-      { id: 4, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 4 },
+      { id: 1, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 3, repeat_count: 3 },
+      { id: 2, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 2, repeat_count: 2 },
+      { id: 3, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 5, repeat_count: 5 },
+      { id: 4, user_display_id: 'u1', gift_name: '玫瑰', to_user_sec_uid: 'a', combo_count: 4, repeat_count: 4 },
     ];
     const result = comboDedupGifts(gifts);
-    // 所有帧都被认为是同一序列（cc < pc && cc > 1 时加入），最终取最高
     assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].combo_count, 5);
+    assert.strictEqual(result[0].repeat_count, 5);
   });
 
   test('fallback 到 nickname 当 user_display_id 缺失', () => {
@@ -100,4 +99,45 @@ describe('comboDedupGifts', () => {
     // 两条 combo_count 都默认为 1，第二帧 cc === pc 且无 repeat_end，开新序列
     assert.strictEqual(result.length, 2);
   });
+  // ---- 一次发多件：序号停在 2，件数从 2 涨到 4，不能切段（场次387 微微 的原始 bug） ----
+  test('序号相等但累计件数在涨时不断段', () => {
+    const mk = (id, cc, rc, end) => ({ id, user_display_id: 'u1', gift_name: '为你闪耀', to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, group_count: 1, repeat_end: end, diamond_count: 9, total_diamonds: rc * 9 });
+    const gifts = [mk(1, 1, 1), mk(2, 2, 2), mk(3, 2, 4), mk(4, 5, 5), mk(5, 9, 9), mk(6, 9, 9, 1)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].repeat_count, 9);
+  });
+
+  // ---- 上一笔收尾后，新的一笔起点件数可能更大（9 → 11）----
+  test('上一帧是终结帧时新起一笔：9 件 + 11 件 = 20 件', () => {
+    const mk = (id, cc, rc, end) => ({ id, user_display_id: 'u1', gift_name: '为你闪耀', to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, group_count: 1, repeat_end: end, diamond_count: 9, total_diamonds: rc * 9 });
+    const gifts = [mk(1, 1, 1), mk(2, 2, 2), mk(3, 2, 4), mk(4, 9, 9), mk(5, 9, 9, 1), mk(6, 1, 11), mk(7, 1, 11, 1)];
+    const r = comboDedupGifts(gifts);
+    const cnt = r.reduce((s, x) => s + (x.repeat_count || 1), 0);
+    assert.strictEqual(cnt, 20);
+    assert.deepStrictEqual(r.map((x) => x.id), [5, 7]);
+  });
+
+  // ---- 场次153 610/加油鸭：三笔整批发 520 / 999 / 520 ----
+  test('整批发按终结帧分开：520 + 999 + 520 = 2039', () => {
+    const mk = (id, rc, end) => ({ id, user_display_id: 'u1', gift_name: '加油鸭', to_user_sec_uid: 'a', combo_count: 1, repeat_count: rc, group_count: rc, repeat_end: end, diamond_count: 15, total_diamonds: rc * 15 });
+    const gifts = [mk(1, 520), mk(2, 520, 1), mk(3, 999), mk(4, 999, 1), mk(5, 520), mk(6, 520, 1)];
+    const r = comboDedupGifts(gifts);
+    const cnt = r.reduce((s, x) => s + (x.repeat_count || 1), 0);
+    assert.strictEqual(cnt, 2039);
+    assert.strictEqual(r.length, 3);
+  });
+
+  // ---- 取帧按件数，不按序号 ----
+  test('段内取累计件数最大的帧（序号大不等于金额大）', () => {
+    const gifts = [
+      { id: 1, user_display_id: 'u1', gift_name: '星光闪耀', to_user_sec_uid: 'a', combo_count: 2, repeat_count: 2, diamond_count: 9, total_diamonds: 18 },
+      { id: 2, user_display_id: 'u1', gift_name: '星光闪耀', to_user_sec_uid: 'a', combo_count: 3, repeat_count: 12, group_count: 10, diamond_count: 9, total_diamonds: 108 },
+    ];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].id, 2);
+    assert.strictEqual(r[0].repeat_count, 12);
+  });
+
 });
