@@ -146,7 +146,17 @@ for (const plat of ['win', 'linux']) {
    */
   const zip = path.join(OUT, name + '.zip');
   fs.rmSync(zip, { force: true });
-  execFileSync('tar', ['-a', '-cf', zip, name], { cwd: OUT, stdio: 'inherit' });
+  if (process.platform === 'win32') {
+    // Windows 10+ 自带 bsdtar，-a 能按后缀写标准 zip
+    execFileSync('tar', ['-a', '-cf', zip, name], { cwd: OUT, stdio: 'inherit' });
+  } else {
+    /*
+     * Linux 上的 GNU tar 不支持写 zip：tar -a -cf x.zip 会静默产出一个普通 tar，
+     * 后缀是 .zip 却打不开（实测 python zipfile 报 File is not a zip file）。
+     * 用 python3 的 zipfile 模块生成标准 zip，路径分隔符是正斜杠，Windows/Linux 都能解。
+     */
+    execFileSync('python3', ['-m', 'zipfile', '-c', zip, name], { cwd: OUT, stdio: 'inherit' });
+  }
   console.log('OK ' + path.basename(zip) + '  ' + (fs.statSync(zip).size / 1024 / 1024).toFixed(1) + ' MB');
 
   if (plat === 'linux') {
