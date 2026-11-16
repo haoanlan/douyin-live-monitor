@@ -252,7 +252,7 @@
               v-for="(u, i) in overview?.topUsers || []"
               :key="u.sec_uid || u.nickname"
               class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
-              :class="u.sec_uid ? 'c-p' : ''"
+              :class="u.sec_uid ? 'c-p dy-rank-clickable' : ''"
               :title="u.sec_uid ? '查看该用户画像' : ''"
               @click="openProfile(u.sec_uid)"
             >
@@ -291,7 +291,7 @@
               v-for="(d, i) in overview?.topDanmaku || []"
               :key="d.sec_uid || d.nickname"
               class="dy-rank-row flex items-center gap-3 rounded-xl bg-g-100/50 px-3 py-2"
-              :class="d.sec_uid ? 'c-p' : ''"
+              :class="d.sec_uid ? 'c-p dy-rank-clickable' : ''"
               :title="d.sec_uid ? '查看该用户画像' : ''"
               @click="openProfile(d.sec_uid)"
             >
@@ -883,4 +883,26 @@
   }
 
   /* 数据陈旧提示条（.dy-stale-bar）已随内联横幅一起移除，改走 ElNotification 弹窗 */
-</style>
+  /*
+   * 可点击的榜单行：悬浮反馈与「最近场次 / 场次列表」完全一致
+   * （同一个背景色 + 同一个阴影，见全局 .dy-row-link 的定义）。
+   * 不可点的行没有这个 class，不会有"能点"的假象。
+   */
+  .dy-rank-row.dy-rank-clickable {
+    cursor: pointer;
+    transition:
+      background-color var(--dy-dur-fast) var(--dy-ease-out),
+      box-shadow var(--dy-dur-fast) var(--dy-ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .dy-rank-row.dy-rank-clickable:hover {
+      background-color: var(--art-gray-200);
+      box-shadow: 0 2px 10px rgb(0 0 0 / 6%);
+    }
+  }
+
+  .dy-rank-row.dy-rank-clickable:focus-visible {
+    outline: 2px solid var(--theme-color);
+    outline-offset: 2px;
+  }</style>
