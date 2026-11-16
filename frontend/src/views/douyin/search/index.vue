@@ -108,6 +108,14 @@
             <ArtSvgIcon icon="ri:search-line" class="text-g-400" />
           </template>
         </el-input>
+        <!--
+          包含进场记录：默认关闭。
+          members 是三张表里最大的（140 万行 / 43.7 万个不同昵称），整表 LIKE 要 1~6 秒；
+          gifts + danmaku 只要 0.5 秒左右。只有要找"只进过场、没发过弹幕、没送过礼"的人才需要勾选。
+        -->
+        <el-checkbox v-model="includeMembers" class="shrink-0" title="勾选后也搜索进场记录（会更慢）">
+          含进场记录
+        </el-checkbox>
         <!-- 固定宽度：`loading` 会插入转圈图标，不固定就会在点击后变宽（用户反馈） -->
         <el-button
           type="primary"
@@ -488,6 +496,8 @@
   const router = useRouter()
 
   const query = ref('')
+  /** 是否把「进场记录」也纳入搜索（默认不纳入：那是最大的表，慢 5~10 倍） */
+  const includeMembers = ref(false)
   const lastQuery = ref('')
   /** 上一次查询实际使用的范围（展示的是"当时查了什么"，不是当前下拉的值） */
   const lastScope = ref('')
@@ -716,7 +726,10 @@
       const res: any = await anonymousLookup(
         q,
         scoped ? String(scopeId.value) : undefined,
-        sess || undefined
+        sess || undefined,
+        undefined,
+        false,
+        includeMembers.value
       )
       if (my !== searchSeq) return // 已经有更新的查询发出，丢弃这次的结果
       results.value = res?.users || (Array.isArray(res) ? res : [])

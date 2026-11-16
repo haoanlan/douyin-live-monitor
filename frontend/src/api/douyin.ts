@@ -741,7 +741,8 @@ export function anonymousLookup(
   streamerId?: string,
   sessionId?: string,
   limit?: number,
-  skipApi?: boolean
+  skipApi?: boolean,
+  includeMembers?: boolean
 ) {
   const params = new URLSearchParams({ q: query })
   if (streamerId) params.set('streamer_id', streamerId)
@@ -752,6 +753,8 @@ export function anonymousLookup(
    * 只用于"选人"场景（补录下拉），实测能把单字查询从 3~4 秒压到 0.3 秒量级。
    */
   if (skipApi) params.set('skip_api', '1')
+  // includeMembers：默认不含 members（进场记录，最大表、最慢的一步）
+  if (includeMembers) params.set('include_members', '1')
   params.set('fresh', '1') // 手动查询永远取最新（后端 3 秒缓存只用于防误触）
   return request.get<AnonymousLookupResponse>({
     url: `/api/anonymous-lookup?${params.toString()}`,
