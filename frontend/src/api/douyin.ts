@@ -334,7 +334,6 @@ export interface Streamer {
   session_count?: number
   /** 真正的抖音 sec_uid（可能为空字符串） */
   sec_uid?: string
-  total_gifts?: number
   total_danmaku?: number
   created_at?: string
 }
