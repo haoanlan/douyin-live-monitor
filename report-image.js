@@ -79,7 +79,7 @@ async function loadFromDb(sessionId) {
     const sess = sessions[0];
 
     const [danmaku] = await pool.query('SELECT nickname, avatar, content, create_time FROM danmaku WHERE session_id = ? ORDER BY create_time', [sessionId]);
-    const [gifts] = await pool.query('SELECT id, nickname, avatar, to_nickname, to_avatar, to_user_display_id, to_user_sec_uid, gift_name, diamond_count, total_diamonds, repeat_count, create_time, user_display_id, user_sec_uid, trace_id, repeat_end, combo_count, send_type FROM gifts WHERE session_id = ? ORDER BY id', [sessionId]);
+    const [gifts] = await pool.query('SELECT id, nickname, avatar, to_nickname, to_avatar, to_user_display_id, to_user_sec_uid, gift_name, diamond_count, total_diamonds, repeat_count, create_time, user_display_id, user_sec_uid, repeat_end, combo_count, send_type FROM gifts WHERE session_id = ? ORDER BY id', [sessionId]);
     const [members] = await pool.query('SELECT nickname, avatar, user_sec_uid, create_time FROM members WHERE session_id = ? ORDER BY create_time', [sessionId]);
 
     // 连击去重
