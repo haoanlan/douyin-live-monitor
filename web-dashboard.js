@@ -23,7 +23,6 @@ const routeHandlers = [
   require('./lib/routes/rooms'),
   require('./lib/routes/sessions'),
   require('./lib/routes/detail'),
-  require('./lib/routes/gifts'),
   require('./lib/routes/manual-gifts'),
   require('./lib/routes/admin-permissions'),
   require('./lib/routes/users'),

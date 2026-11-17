@@ -564,7 +564,8 @@ export interface DaemonStatus {
  *   fetchAllSessions()  → /api/sessions     （场次列表用的是 /api/hosts/:id/sessions）
  *   searchUser()        → /api/users/search （信息查询走 /api/anonymous-lookup）
  *   fetchTrends()       → /api/trends       （趋势页走 /api/hosts/trends；本已标 @deprecated）
- * 后端路由本身保留（仍可由脚本或手工调用），只是前端不再维护无人使用的封装。
+ * 后端路由：/api/summary 也已删除（零调用且每次要跑 3 秒 DISTINCT 扫描）；
+ * 其余三个接口仍在，仍可由脚本或手工调用，只是前端不再维护无人使用的封装。
  */
 
 /**
