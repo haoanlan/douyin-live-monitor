@@ -1105,44 +1105,6 @@ async function insertMembers(sessionId, items) {
 }
 
 /** 礼物排行 */
-async function getGiftRanking(sessionId, limit = 100) {
-  const d = getDb();
-  const { comboDedupGifts } = require('./lib/gift-utils.js');
-  /*
-   * 去重口径：统一走 comboDedupGifts（lib/gift-utils.js）。
-   * 原来这里用 ROW_NUMBER() PARTITION BY trace_id 折叠 —— 那是另一套规则，
-   * 跟排行/明细/画像/预聚合全都对不上（同一场次能算出两个总额）。
-   * 这两个函数目前没有调用方，但留着错误实现迟早被接上，所以改成同一口径。
-   */
-  const rows = d.prepare('SELECT * FROM gifts WHERE session_id = ? ORDER BY id').all(sessionId);
-  const deduped = comboDedupGifts(rows);
-
-  // 先按 (用户, 礼物) 聚合，再按用户汇总
-  const byGift = new Map();
-  for (const g of deduped) {
-    const nick = g.nickname || '';
-    const key = nick + '\x00' + (g.gift_name || '');
-    const e = byGift.get(key) || { nickname: nick, avatar: g.avatar, gift_name: g.gift_name, cnt: 0, td: 0 };
-    e.cnt += parseInt(String(g.repeat_count || 1), 10) || 1;
-    e.td += g.total_diamonds || 0;
-    if (g.avatar) e.avatar = g.avatar;
-    byGift.set(key, e);
-  }
-
-  const userMap = {};
-  for (const r of byGift.values()) {
-    if (!userMap[r.nickname]) {
-      userMap[r.nickname] = { nickname: r.nickname, avatar: r.avatar, total_diamonds: 0, gift_count: 0, gifts: [] };
-    }
-    userMap[r.nickname].total_diamonds += r.td;
-    userMap[r.nickname].gift_count += r.cnt;
-    userMap[r.nickname].gifts.push({ name: r.gift_name, count: r.cnt, diamonds: r.td });
-  }
-
-  const out = Object.values(userMap).sort((a, b) => b.total_diamonds - a.total_diamonds).slice(0, limit);
-  for (const u of out) u.gifts.sort((a, b) => b.diamonds - a.diamonds);
-  return out;
-}
 
 /** 弹幕查询 */
 async function getDanmaku(sessionId, { user = '', page = 1, limit = 100 } = {}) {
@@ -1174,44 +1136,6 @@ async function getWordCloud(sessionId, limit = 100) {
 }
 
 /** 团员排名 */
-async function getMemberRanking(sessionId, page = 1, limit = 100) {
-  const d = getDb();
-  const { comboDedupGifts } = require('./lib/gift-utils.js');
-  const offset = (page - 1) * limit;
-
-  // 礼物口统一走 comboDedupGifts（同上，替换原来的 trace_id 折叠）
-  const deduped = comboDedupGifts(
-    d.prepare('SELECT * FROM gifts WHERE session_id = ? ORDER BY id').all(sessionId)
-  );
-  const dmRows = d
-    .prepare(
-      'SELECT nickname, MAX(avatar) as avatar, COUNT(*) as danmaku_count FROM danmaku WHERE session_id = ? GROUP BY nickname'
-    )
-    .all(sessionId);
-
-  const map = new Map();
-  const touch = (nick) => {
-    const k = nick || '';
-    if (!map.has(k)) map.set(k, { nickname: nick, total_diamonds: 0, danmaku_count: 0, avatar: null });
-    return map.get(k);
-  };
-
-  for (const g of deduped) {
-    const e = touch(g.nickname);
-    e.total_diamonds += g.total_diamonds || 0;
-    if (!e.avatar && g.avatar) e.avatar = g.avatar;
-  }
-  for (const r of dmRows) {
-    const e = touch(r.nickname);
-    e.danmaku_count += r.danmaku_count || 0;
-    if (!e.avatar && r.avatar) e.avatar = r.avatar;
-  }
-
-  const all = [...map.values()].sort(
-    (a, b) => b.total_diamonds - a.total_diamonds || b.danmaku_count - a.danmaku_count
-  );
-  return { items: all.slice(offset, offset + limit), total: all.length, page, limit };
-}
 
 /** 主播列表 */
 async function getStreamers() {
@@ -1275,7 +1199,7 @@ module.exports = {
   init, getPool, getDb,
   upsertStreamer, createSession, getCurrentSession, endSession, recomputeSessionAggregates, updateSessionStats,
   insertDanmaku, insertGifts, insertMembers,
-  getGiftRanking, getDanmaku, getWordCloud, getMemberRanking,
+  getDanmaku, getWordCloud,
   getStreamers, getSessions, getSession, close,
   updateStreamerName, updateStreamerAvatar
 };
