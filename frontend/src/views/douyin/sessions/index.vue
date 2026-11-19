@@ -471,7 +471,14 @@
   async function remove(row: Session) {
     try {
       await ElMessageBox.confirm(`确定删除场次 #${row.id} 及全部数据？`, '删除确认', {
-        type: 'warning'
+        type: 'warning',
+        /*
+         * 窄屏不锁页面滚动（同 e703bf4 状态监控页的做法）：
+         * lockScroll 默认 true，打开时给 body 加 overflow:hidden —— 手机浏览器据此
+         * 收起工具栏 / 滚动条消失，视口尺寸随之变化，弹窗背后内容就会左右抖一下。
+         * 遮罩本身仍挡住点击，移动端锁滚动没有收益，关掉即可。
+         */
+        lockScroll: !(typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches)
       })
     } catch {
       return
@@ -493,7 +500,14 @@
     if (!ids.length) return
     try {
       await ElMessageBox.confirm(`确定删除选中的 ${ids.length} 场数据？`, '删除确认', {
-        type: 'warning'
+        type: 'warning',
+        /*
+         * 窄屏不锁页面滚动（同 e703bf4 状态监控页的做法）：
+         * lockScroll 默认 true，打开时给 body 加 overflow:hidden —— 手机浏览器据此
+         * 收起工具栏 / 滚动条消失，视口尺寸随之变化，弹窗背后内容就会左右抖一下。
+         * 遮罩本身仍挡住点击，移动端锁滚动没有收益，关掉即可。
+         */
+        lockScroll: !(typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches)
       })
     } catch {
       return
