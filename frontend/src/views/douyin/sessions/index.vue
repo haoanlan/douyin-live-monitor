@@ -278,6 +278,7 @@
   import { usePermissionStore } from '@/store/modules/permission'
   import { fmtNum, fmtFull, fmtSessionRange, formatDuration } from '@/utils/format'
   import { apiErrorMessage } from '@/utils/douyin-error'
+import { markDataDirty } from '@/utils/data-freshness'
   import { downloadWithAuth } from '@/utils/download'
 
   defineOptions({ name: 'DouyinSessions' })
@@ -491,6 +492,7 @@
       return
     }
     ElMessage.success('已删除')
+    markDataDirty() // 总览/合并报表的数字已变，切回时强制重载
     selectedIds.value = selectedIds.value.filter((x) => x !== row.id)
     refresh()
   }
@@ -522,7 +524,10 @@
         failed.push(`#${id} ${apiErrorMessage(e, '失败')}`)
       }
     }
-    if (ok) ElMessage.success(`已删除 ${ok} 场`)
+    if (ok) {
+      ElMessage.success(`已删除 ${ok} 场`)
+      markDataDirty() // 同上：批量删比单删更需要立刻反映到总览
+    }
     if (failed.length) {
       ElMessage.error(
         `${failed.length} 场删除失败：${failed.slice(0, 3).join('、')}${failed.length > 3 ? ' 等' : ''}`

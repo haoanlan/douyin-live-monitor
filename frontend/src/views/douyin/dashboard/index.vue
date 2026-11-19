@@ -410,6 +410,7 @@
   import { fetchOverview, fetchStatus, type OverviewData, type DaemonStatus } from '@/api/douyin'
   import { fmtNum, fmtFull, fmtTitle, fmtTime, fmtAgo, rankClass } from '@/utils/format'
   import { humanizeRequestError } from '@/utils/douyin-error'
+import { consumeDataDirty } from '@/utils/data-freshness'
 
   defineOptions({ name: 'DouyinDashboard' })
 
@@ -845,6 +846,16 @@
     }
     refreshStatus()
     startTimers()
+    /*
+     * 写操作（删场次等）打过标记时，跳过 30 秒节流直接强制刷新。
+     * 服务端缓存虽已被 bustOverview() 清掉，但若因为「刚拉过不到 30 秒」而不发请求，
+     * 用户删完立刻切回来看到的仍是旧数字。
+     */
+    if (consumeDataDirty()) {
+      await refreshOverview(true)
+      overviewLoadedAt = Date.now()
+      return
+    }
     if (Date.now() - overviewLoadedAt > 30000) {
       await refreshOverview()
       overviewLoadedAt = Date.now()
