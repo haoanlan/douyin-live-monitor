@@ -231,7 +231,7 @@
         v-if="removeTarget?.session_count"
         class="mt-3 rounded-xl border border-danger/30 bg-danger/5 px-3.5 py-3"
       >
-        <el-checkbox v-model="confirmDeleteData" class="items-start">
+        <el-checkbox v-model="confirmDeleteData" class="items-start remove-data-check">
           <span class="text-xs leading-5 text-g-700">
             我知道这会删除
             <b>{{ removeTarget.session_count }} 个场次</b>
@@ -901,5 +901,27 @@
 
   :deep(.room-toolbar .el-input__wrapper.is-focus) {
     box-shadow: 0 0 0 1px var(--theme-color) inset;
+  }
+
+  /*
+   * 「删除历史数据」这个勾选框里是一整段长文案（约 30 字）。
+   * Element 的 .el-checkbox 默认 white-space: nowrap —— 桌面 440px 弹窗勉强卡在边缘，
+   * 移动端弹窗被压成 calc(100% - 24px) 后文字直接顶出红色框右边界（用户实测）。
+   * 只放开这一个框：撑满宽度 + 允许换行，勾选框与第一行对齐。
+   * min-width: 0 不能少 —— flex 子项默认按内容宽度算，不加照样不换行。
+   */
+  :deep(.remove-data-check) {
+    display: flex;
+    align-items: flex-start;
+    height: auto;
+    white-space: normal;
+  }
+
+  :deep(.remove-data-check .el-checkbox__label) {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.5;
   }
 </style>
