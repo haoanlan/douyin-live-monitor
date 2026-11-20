@@ -140,4 +140,28 @@ describe('comboDedupGifts', () => {
     assert.strictEqual(r[0].repeat_count, 12);
   });
 
+  // ---- 连击中途 combo 被抖音重置回 1，但件数仍在涨：同一条连击，不能切段 ----
+  // 真实数据：场次451 硅基生物/为你闪耀 1→4→7→10(combo 3)→21(combo 归 1)→21 收尾
+  // 旧逻辑切成 10 + 21 = 31，实际 21。
+  test('combo 回落到 1 但累计件数在涨：不切段（10 + 21 不该变成 31）', () => {
+    const mk = (id, cc, rc, end) => ({ id, user_display_id: 'u1', gift_name: '为你闪耀',
+      to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, repeat_end: end,
+      diamond_count: 9, total_diamonds: rc * 9 });
+    const gifts = [mk(1,1,1), mk(2,1,4), mk(3,2,7), mk(4,3,10), mk(5,1,21), mk(6,1,21,1)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].repeat_count, 21);
+    assert.strictEqual(r[0].total_diamonds, 189);
+  });
+
+  // ---- 反向保护：真正的新一笔，件数从 1 重新开始，必须照切 ----
+  test('新一笔件数从 1 重新计数时必须切段', () => {
+    const mk = (id, cc, rc, end) => ({ id, user_display_id: 'u1', gift_name: '玫瑰',
+      to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, repeat_end: end });
+    const gifts = [mk(1,3,10,1), mk(2,1,1), mk(3,2,5,1)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.reduce((s,x) => s + (x.repeat_count||1), 0), 15);
+    assert.strictEqual(r.length, 2);
+  });
+
 });
