@@ -164,4 +164,67 @@ describe('comboDedupGifts', () => {
     assert.strictEqual(r.length, 2);
   });
 
+
+  // ============ ③④ 用 repeat !== group 判「是不是新的一笔」 ============
+
+  // 真实数据：456 场「欲书花叶寄朝云 / 星光营地」
+  //   15:24  rep=1 combo=1 group=1  d=1699
+  //   18:40  rep=2 combo=1 group=2  d=3398   ← 隔 3.5 小时，新的一笔
+  // 旧逻辑（cr > pr）会并成一笔只取 3398，少算 1699
+  test('隔几小时的同礼物再送：repeat === group → 两笔（1699 + 3398 不是 3398）', () => {
+    const mk = (id, rc, gc, d) => ({ id, user_display_id: 'u1', gift_name: '星光营地',
+      to_user_sec_uid: 'a', combo_count: 1, repeat_count: rc, group_count: gc,
+      repeat_end: null, total_diamonds: d });
+    const gifts = [mk(1, 1, 1, 1699), mk(2, 2, 2, 3398)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 2);
+    assert.strictEqual(r.reduce((s, x) => s + x.total_diamonds, 0), 5097);
+  });
+
+  // 真实数据：456 场「dou8172221 / 为你举牌」12 帧全是 rep=1 combo=1 group=1，
+  // 间隔 109~862 秒。旧逻辑并成一笔只留 199，实际 12 × 199 = 2388
+  test('12 帧 repeat=1 group=1 的独立送礼：每一帧都切开（12 × 199）', () => {
+    const gifts = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1, user_display_id: 'u2', gift_name: '为你举牌', to_user_sec_uid: 'a',
+      combo_count: 1, repeat_count: 1, group_count: 1, repeat_end: null,
+      diamond_count: 199, total_diamonds: 199,
+    }));
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 12);
+    assert.strictEqual(r.reduce((s, x) => s + x.total_diamonds, 0), 2388);
+  });
+
+  // 真实数据：451 场 硅基生物 / 为你闪耀 —— group 中途从 3 变 11
+  //   rep=1 g=1 → rep=4 g=3 → rep=7 g=3 → rep=10 g=3 → rep=21 g=11 → rep=21 g=11 end
+  // repeat !== group 全程成立，是同一笔 21 件
+  test('连击中途 group 变化（3→11）仍是同一笔：21 件不是 10+21', () => {
+    const mk = (id, cc, rc, gc, end) => ({ id, user_display_id: 'u1', gift_name: '为你闪耀',
+      to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, group_count: gc,
+      repeat_end: end, diamond_count: 9, total_diamonds: rc * 9 });
+    const gifts = [mk(1,1,1,1), mk(2,1,4,3), mk(3,2,7,3), mk(4,3,10,3), mk(5,1,21,11), mk(6,1,21,11,1)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].repeat_count, 21);
+  });
+
+  // 防误切：长连击里累计件数恰好等于新的 group 值，但 combo 在涨（① 先命中）
+  // rep=10 g=3 → rep=11 g=11（combo 2→3）：cc > pc 必须优先判同一笔
+  test('累计件数恰好等于新 group 但 combo 在涨：combo 递增优先，仍是同一笔', () => {
+    const mk = (id, cc, rc, gc) => ({ id, user_display_id: 'u1', gift_name: '小心心',
+      to_user_sec_uid: 'a', combo_count: cc, repeat_count: rc, group_count: gc });
+    const gifts = [mk(1, 1, 10, 3), mk(2, 2, 11, 11)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].repeat_count, 11);
+  });
+
+  // 上一帧 repeat_end=1 是硬切分信号，优先于所有组合判据
+  test('上一帧终结帧：即使 repeat !== group 也要切', () => {
+    const mk = (id, rc, gc, end) => ({ id, user_display_id: 'u1', gift_name: '玫瑰',
+      to_user_sec_uid: 'a', combo_count: 1, repeat_count: rc, group_count: gc, repeat_end: end });
+    const gifts = [mk(1, 10, 3, 1), mk(2, 12, 3, null)];
+    const r = comboDedupGifts(gifts);
+    assert.strictEqual(r.length, 2);
+  });
+
 });
