@@ -43,6 +43,7 @@ compose.yaml
 # 临时文件
 *.bak
 *.bak2
+*.bak-*
 monitor.js.bak2
 monitor.pid
 current_session.json
