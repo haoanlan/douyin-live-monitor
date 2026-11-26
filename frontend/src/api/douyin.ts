@@ -124,6 +124,8 @@ export interface SessionDetail {
    * fetchSessionGiftDetails()，只在打开"送礼明细"弹窗时按需拉。
    */
   giftFeed?: GiftDetailItem[]
+  /** 直播中随 /detail 下发的全量明细（已结束场次为 undefined，需走 /gift-details） */
+  giftDetails?: GiftDetailItem[]
   /** 该场次礼物明细的总条数（用于告诉用户"这里是最近 200 条中的"） */
   giftDetailsTotal?: number
   anchorRanking?: AnchorRankItem[]

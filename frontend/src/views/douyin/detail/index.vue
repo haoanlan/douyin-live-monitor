@@ -1093,50 +1093,32 @@
    * 之前轮询就是这么干的 —— 既慢又容易和用户的下载/补录操作打架。
    * 现在轮询只把详情页已返回的 giftFeed 增量并进去，全量明细在打开弹窗时拉一次。
    */
-  function mergeGiftFeedIntoFull() {
-    const full = giftDetailsFull.value
-    const feed = detail.value?.giftFeed
-    if (!full || !feed?.length) return
-    const key = (g: {
-      user_sec_uid?: string
-      nickname?: string
-      gift_name?: string
-      to_nickname?: string
-      count?: number
-      total_diamonds?: number
-      create_time?: number
-    }) =>
-      [
-        g.user_sec_uid || g.nickname,
-        g.gift_name || '',
-        g.to_nickname || '',
-        g.count ?? '',
-        g.total_diamonds ?? '',
-        g.create_time ?? ''
-      ].join('|')
-    const seen = new Set(full.map(key))
-    const add = feed.filter((g) => !seen.has(key(g)))
-    if (add.length) giftDetailsFull.value = [...full, ...add]
-  }
-
   async function ensureGiftDetails(force = false) {
-    if (!force && (giftDetailsFull.value || giftDetailsLoading.value)) {
-      // 已有全量数据时只做增量合并，不再整份重拉
-      if (giftDetailsFull.value) mergeGiftFeedIntoFull()
+    /*
+     * 直播中：后端已经把「弹窗用的全量明细」放进 /detail 响应（giftDetails），
+     * 与榜单出自同一次请求 —— 直接用它，不再单独拉，也不再把 giftFeed 往上补。
+     * 这样弹窗、主播弹窗、礼物排行三处必然一致。
+     */
+    const inline = detail.value?.giftDetails
+    if (inline?.length) {
+      giftDetailsFull.value = inline
       return
     }
+    /* 已结束场次：明细量太大（7024 条 / 3.2MB），按需拉一次并缓存 */
+    if (!force && (giftDetailsFull.value || giftDetailsLoading.value)) return
     giftDetailsLoading.value = true
     try {
       const r = await fetchSessionGiftDetails(String(sessionId))
       giftDetailsFull.value = r?.giftDetails || []
     } catch (e) {
-      // 拉不到就退回"最近 200 条"，弹窗仍可打开（内容是子集），并在控制台留痕
+      // 拉不到就退回「最近 200 条」，弹窗仍可打开（内容是子集），并在控制台留痕
       console.warn('[detail] 全量礼物明细拉取失败，回退到最近若干条:', e)
       giftDetailsFull.value = detail.value?.giftFeed || []
     } finally {
       giftDetailsLoading.value = false
     }
   }
+
   /**
    * 榜单行的头像（弹窗标题用）。
    *
