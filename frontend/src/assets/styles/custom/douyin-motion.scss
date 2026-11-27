@@ -875,14 +875,20 @@
 }
 
 /*
- * 弹窗里的空状态（el-empty）必须全宽。
+ * 弹窗里的空状态（el-empty）要全宽 + 撑满剩余高度。
  *
- * el-empty 自身是 display:flex + align-items:center，但它作为 .dy-people-panel
- * (flex flex-col) 的子项时宽度按内容收缩，于是"暂无数据"整块贴在左侧、
- * 右边大片留白（用户截图反馈）。这里显式给 100% 让它撑满，内部 align-items:center 才能生效。
+ * 两个问题：
+ *   ① 宽度：作为 .dy-people-panel (flex flex-col) 的子项时按内容收缩，右侧大片留白；
+ *   ② 高度：.dy-people-panel 固定 height:420px，而 el-empty 只有内容高度，
+ *      于是"暂无数据"贴在顶部、下面空一大片（用户截图反馈"偏上"）。
+ *
+ * width:100% + flex:1 让它占满整个面板，el-empty 自身的 justify-content:center
+ * 才能把图标和文字垂直居中。
  */
 .detail-dialog .el-empty {
   width: 100%;
+  flex: 1 1 auto;
+  justify-content: center;
 }
 
 
