@@ -903,10 +903,11 @@ async function buildPrecomputed(d, sessionId, dedupedGifts) {
   for (const g of dedupedGifts) {
     const nick = String(g.to_nickname || '').trim();
     const mapped = nick ? nickToAnchor[nick] : null;
+    /* 主播榜只认真实 secUid；没有 to_user_sec_uid 的礼物是送给主直播间的，不上榜
+       （用户 2026-11-27 明确）—— 与 computeAnchorGifters 同一口径 */
     const sec = g.to_user_sec_uid || (mapped && mapped.sec) || '';
-    const key = sec || nick;
-    if (!key) continue;
-    if (!sec && isAnon(nick)) continue;
+    if (!sec) continue;
+    const key = sec;
     if (!anchorMap[key]) anchorMap[key] = { anchor_sec_uid: sec, anchor_name: nick, anchor_avatar: g.to_avatar || (mapped && mapped.avatar) || null, total_diamonds: 0, gift_count: 0, users: new Set() };
     if (!anchorMap[key].anchor_avatar) anchorMap[key].anchor_avatar = g.to_avatar || (mapped && mapped.avatar) || null;
     anchorMap[key].total_diamonds += g.total_diamonds || 0;
