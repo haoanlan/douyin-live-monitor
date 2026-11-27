@@ -415,9 +415,8 @@ async function init() {
         const agg_gifts = deduped.reduce((s, g) => s + (g.repeat_count || 1), 0);
         const agg_diamonds = deduped.reduce((s, g) => s + (g.total_diamonds || 0), 0);
         const dmRow = d.prepare('SELECT COUNT(*) as cnt FROM danmaku WHERE session_id = ?').get(sid);
-        const giftUsers = deduped.map(g => g.user_sec_uid).filter(Boolean);
-        const danmakuUsers = d.prepare('SELECT DISTINCT user_sec_uid FROM danmaku WHERE session_id = ? AND user_sec_uid IS NOT NULL').all(sid).map(r => r.user_sec_uid);
-        const agg_users = new Set([...giftUsers, ...danmakuUsers]).size;
+        // 用户口径：只算送礼人数，不含发言者（见 recomputeSessionAggregates 注释）
+        const agg_users = d.prepare("SELECT COUNT(DISTINCT user_sec_uid) AS c FROM gifts WHERE session_id = ? AND user_sec_uid IS NOT NULL AND user_sec_uid <> ''").get(sid).c || 0;
         d.prepare('UPDATE sessions SET agg_gifts=?, agg_diamonds=?, agg_danmaku=?, agg_users=? WHERE id=?')
           .run(agg_gifts, agg_diamonds, dmRow.cnt, agg_users, sid);
         // 预聚合表（含时间线）：补建历史场次
@@ -769,9 +768,12 @@ async function recomputeSessionAggregates(sessionId) {
     const agg_gifts = deduped.reduce((s, g) => s + (g.repeat_count || 1), 0);
     const agg_diamonds = deduped.reduce((s, g) => s + (g.total_diamonds || 0), 0);
     const dmRow = d.prepare('SELECT COUNT(*) as cnt FROM danmaku WHERE session_id = ?').get(sessionId);
-    const giftUsers = deduped.map(g => g.user_sec_uid).filter(Boolean);
-    const danmakuUsers = d.prepare('SELECT DISTINCT user_sec_uid FROM danmaku WHERE session_id = ? AND user_sec_uid IS NOT NULL').all(sessionId).map(r => r.user_sec_uid);
-    const agg_users = new Set([...giftUsers, ...danmakuUsers]).size;
+    /*
+     * 用户口径：**只算送礼人数，不含发言者**（用户 2026-11-27 明确）。
+     * 原来算的是「送礼 ∪ 发言」，导致同一场次直播中（liveAggregates.users，纯送礼）
+     * 与下播后（agg_users，含发言）显示不一致 —— 实测 487 场 321 vs 402。
+     */
+    const agg_users = d.prepare("SELECT COUNT(DISTINCT user_sec_uid) AS c FROM gifts WHERE session_id = ? AND user_sec_uid IS NOT NULL AND user_sec_uid <> ''").get(sessionId).c || 0;
     d.prepare('UPDATE sessions SET agg_gifts=?, agg_diamonds=?, agg_danmaku=?, agg_users=? WHERE id=?')
       .run(agg_gifts, agg_diamonds, dmRow.cnt, agg_users, sessionId);
     // 写入预聚合表
