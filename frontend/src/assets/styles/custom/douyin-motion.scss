@@ -874,6 +874,18 @@
   padding-bottom: 10px !important;
 }
 
+/*
+ * 弹窗里的空状态（el-empty）必须全宽。
+ *
+ * el-empty 自身是 display:flex + align-items:center，但它作为 .dy-people-panel
+ * (flex flex-col) 的子项时宽度按内容收缩，于是"暂无数据"整块贴在左侧、
+ * 右边大片留白（用户截图反馈）。这里显式给 100% 让它撑满，内部 align-items:center 才能生效。
+ */
+.detail-dialog .el-empty {
+  width: 100%;
+}
+
+
 
 /* ==========================================================================
  * 统计卡一排（共用件）
